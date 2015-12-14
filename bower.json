@@ -1,0 +1,27 @@
+{
+  "name": "StargateJsApps",
+  "homepage": "https://github.com/BuongiornoMIP/StargateJsApps",
+  "authors": [
+    "Mirco Cipriani <mirco.cipriani@buongiorno.com>"
+  ],
+  "description": "StargateJS hybridization library for HTML5 apps",
+  "main": "dist/stargate.js",
+  "moduleType": [],
+  "keywords": [
+    "cordova",
+    "hybrid",
+    "html5",
+    "apps"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "q": "1.0.1"
+  }
+}
