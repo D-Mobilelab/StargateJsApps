@@ -4,6 +4,7 @@ var gulp = require('gulp'),
 	mainBowerFiles = require('main-bower-files'),
     jshint = require('gulp-jshint'),
     uglify = require('gulp-uglify'),
+    gulpUtil = require('gulp-util'),
     rename = require('gulp-rename'),
     concat = require('gulp-concat'),
     notify = require('gulp-notify'),
@@ -22,7 +23,7 @@ var gulp = require('gulp'),
 gulp.task('build:bower', function() {
 	// take all bower includes and concatenate them,
 	// in a file to be included before others
-	return gulp.src(mainBowerFiles())
+	return gulp.src(buildConfig.bowerFileList)
 		.pipe(concat(buildConfig.bowerAllIncludes))
 		.pipe(gulp.dest(buildConfig.build));
 });
@@ -44,7 +45,7 @@ gulp.task('build:src:nonotify', ['build:bower'], function() {
 		
 		// save minified version	    
 	    .pipe(rename({suffix: '.min'}))
-	    .pipe(uglify())
+	    .pipe(uglify().on('error', gulpUtil.log))
 	    .pipe(header(buildConfig.banner))
 	    .pipe(gulp.dest(buildConfig.dist));
 });
@@ -83,14 +84,14 @@ gulp.task('demo:clean', function () {
 
 gulp.task('lint:jshint', function() {
 	return gulp.src('src/**/*.js')
-	
+
 		// create temporary build for linting
 		.pipe(concat(buildConfig.distFile + '.lint.tmp.js'))
 		.pipe(header(buildConfig.closureStart))
 		.pipe(footer(buildConfig.closureEnd))
 		.pipe(gulp.dest(buildConfig.build))
 	    .pipe(jshint('.jshintrc'))
-	    .pipe(jshint.reporter('jshint-stylish'))
+	    .pipe(jshint.reporter('jshint-stylish', { verbose: true }))
 	    .pipe(jshint.reporter('fail'));
 });
 
@@ -100,7 +101,7 @@ gulp.task('build', ['build:src'] );
 
 
 gulp.task('lint', ['lint:jshint'] );
-gulp.task('test', ['karma'] );
+gulp.task('test', ['karma:singlerun'] );
 
 /*
 gulp.task('clean', ['demo:clean'] );
@@ -113,6 +114,16 @@ gulp.task('demo:run', ['build:src'], function(cb) {
 */
 
 gulp.task('karma', ['build'], function (done) {
+	
+	// default to don't do single run
+	argv.singlerun && (karmaConf.singleRun = true);
+	argv.browsers && (karmaConf.browsers = argv.browsers.trim().split(','));
+	argv.reporters && (karmaConf.reporters = argv.reporters.trim().split(','));
+
+	new karma.Server(karmaConf, done).start();
+});
+
+gulp.task('karma:singlerun', ['build'], function (done) {
 	
 	karmaConf.singleRun = true;
 	argv.browsers && (karmaConf.browsers = argv.browsers.trim().split(','));

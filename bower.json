@@ -22,6 +22,7 @@
     "tests"
   ],
   "dependencies": {
-    "q": "1.0.1"
+    "q": "1.0.1",
+    "urijs": "uri.js#~1.17.0"
   }
 }

@@ -1,3 +1,2665 @@
+/*!
+ * URI.js - Mutating URLs
+ *
+ * Version: 1.17.0
+ *
+ * Author: Rodney Rehm
+ * Web: http://medialize.github.io/URI.js/
+ *
+ * Licensed under
+ *   MIT License http://www.opensource.org/licenses/mit-license
+ *   GPL v3 http://opensource.org/licenses/GPL-3.0
+ *
+ */
+(function (root, factory) {
+  'use strict';
+  // https://github.com/umdjs/umd/blob/master/returnExports.js
+  if (typeof exports === 'object') {
+    // Node
+    module.exports = factory(require('./punycode'), require('./IPv6'), require('./SecondLevelDomains'));
+  } else if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['./punycode', './IPv6', './SecondLevelDomains'], factory);
+  } else {
+    // Browser globals (root is window)
+    root.URI = factory(root.punycode, root.IPv6, root.SecondLevelDomains, root);
+  }
+}(this, function (punycode, IPv6, SLD, root) {
+  'use strict';
+  /*global location, escape, unescape */
+  // FIXME: v2.0.0 renamce non-camelCase properties to uppercase
+  /*jshint camelcase: false */
+
+  // save current URI variable, if any
+  var _URI = root && root.URI;
+
+  function URI(url, base) {
+    var _urlSupplied = arguments.length >= 1;
+    var _baseSupplied = arguments.length >= 2;
+
+    // Allow instantiation without the 'new' keyword
+    if (!(this instanceof URI)) {
+      if (_urlSupplied) {
+        if (_baseSupplied) {
+          return new URI(url, base);
+        }
+
+        return new URI(url);
+      }
+
+      return new URI();
+    }
+
+    if (url === undefined) {
+      if (_urlSupplied) {
+        throw new TypeError('undefined is not a valid argument for URI');
+      }
+
+      if (typeof location !== 'undefined') {
+        url = location.href + '';
+      } else {
+        url = '';
+      }
+    }
+
+    this.href(url);
+
+    // resolve to base according to http://dvcs.w3.org/hg/url/raw-file/tip/Overview.html#constructor
+    if (base !== undefined) {
+      return this.absoluteTo(base);
+    }
+
+    return this;
+  }
+
+  URI.version = '1.17.0';
+
+  var p = URI.prototype;
+  var hasOwn = Object.prototype.hasOwnProperty;
+
+  function escapeRegEx(string) {
+    // https://github.com/medialize/URI.js/commit/85ac21783c11f8ccab06106dba9735a31a86924d#commitcomment-821963
+    return string.replace(/([.*+?^=!:()|[\]\/\\])/g, '\\$1');
+  }
+
+  function getType(value) {
+    // IE8 doesn't return [Object Undefined] but [Object Object] for undefined value
+    if (value === undefined) {
+      return 'Undefined';
+    }
+
+    return String(Object.prototype.toString.call(value)).slice(8, -1);
+  }
+
+  function isArray(obj) {
+    return getType(obj) === 'Array';
+  }
+
+  function filterArrayValues(data, value) {
+    var lookup = {};
+    var i, length;
+
+    if (getType(value) === 'RegExp') {
+      lookup = null;
+    } else if (isArray(value)) {
+      for (i = 0, length = value.length; i < length; i++) {
+        lookup[value[i]] = true;
+      }
+    } else {
+      lookup[value] = true;
+    }
+
+    for (i = 0, length = data.length; i < length; i++) {
+      /*jshint laxbreak: true */
+      var _match = lookup && lookup[data[i]] !== undefined
+        || !lookup && value.test(data[i]);
+      /*jshint laxbreak: false */
+      if (_match) {
+        data.splice(i, 1);
+        length--;
+        i--;
+      }
+    }
+
+    return data;
+  }
+
+  function arrayContains(list, value) {
+    var i, length;
+
+    // value may be string, number, array, regexp
+    if (isArray(value)) {
+      // Note: this can be optimized to O(n) (instead of current O(m * n))
+      for (i = 0, length = value.length; i < length; i++) {
+        if (!arrayContains(list, value[i])) {
+          return false;
+        }
+      }
+
+      return true;
+    }
+
+    var _type = getType(value);
+    for (i = 0, length = list.length; i < length; i++) {
+      if (_type === 'RegExp') {
+        if (typeof list[i] === 'string' && list[i].match(value)) {
+          return true;
+        }
+      } else if (list[i] === value) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  function arraysEqual(one, two) {
+    if (!isArray(one) || !isArray(two)) {
+      return false;
+    }
+
+    // arrays can't be equal if they have different amount of content
+    if (one.length !== two.length) {
+      return false;
+    }
+
+    one.sort();
+    two.sort();
+
+    for (var i = 0, l = one.length; i < l; i++) {
+      if (one[i] !== two[i]) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  function trimSlashes(text) {
+    var trim_expression = /^\/+|\/+$/g;
+    return text.replace(trim_expression, '');
+  }
+
+  URI._parts = function() {
+    return {
+      protocol: null,
+      username: null,
+      password: null,
+      hostname: null,
+      urn: null,
+      port: null,
+      path: null,
+      query: null,
+      fragment: null,
+      // state
+      duplicateQueryParameters: URI.duplicateQueryParameters,
+      escapeQuerySpace: URI.escapeQuerySpace
+    };
+  };
+  // state: allow duplicate query parameters (a=1&a=1)
+  URI.duplicateQueryParameters = false;
+  // state: replaces + with %20 (space in query strings)
+  URI.escapeQuerySpace = true;
+  // static properties
+  URI.protocol_expression = /^[a-z][a-z0-9.+-]*$/i;
+  URI.idn_expression = /[^a-z0-9\.-]/i;
+  URI.punycode_expression = /(xn--)/i;
+  // well, 333.444.555.666 matches, but it sure ain't no IPv4 - do we care?
+  URI.ip4_expression = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
+  // credits to Rich Brown
+  // source: http://forums.intermapper.com/viewtopic.php?p=1096#1096
+  // specification: http://www.ietf.org/rfc/rfc4291.txt
+  URI.ip6_expression = /^\s*((([0-9A-Fa-f]{1,4}:){7}([0-9A-Fa-f]{1,4}|:))|(([0-9A-Fa-f]{1,4}:){6}(:[0-9A-Fa-f]{1,4}|((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){1,2})|:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){1,3})|((:[0-9A-Fa-f]{1,4})?:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){1,4})|((:[0-9A-Fa-f]{1,4}){0,2}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){1,5})|((:[0-9A-Fa-f]{1,4}){0,3}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){1,6})|((:[0-9A-Fa-f]{1,4}){0,4}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(:(((:[0-9A-Fa-f]{1,4}){1,7})|((:[0-9A-Fa-f]{1,4}){0,5}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:)))(%.+)?\s*$/;
+  // expression used is "gruber revised" (@gruber v2) determined to be the
+  // best solution in a regex-golf we did a couple of ages ago at
+  // * http://mathiasbynens.be/demo/url-regex
+  // * http://rodneyrehm.de/t/url-regex.html
+  URI.find_uri_expression = /\b((?:[a-z][\w-]+:(?:\/{1,3}|[a-z0-9%])|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}\/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:'".,<>?«»“”‘’]))/ig;
+  URI.findUri = {
+    // valid "scheme://" or "www."
+    start: /\b(?:([a-z][a-z0-9.+-]*:\/\/)|www\.)/gi,
+    // everything up to the next whitespace
+    end: /[\s\r\n]|$/,
+    // trim trailing punctuation captured by end RegExp
+    trim: /[`!()\[\]{};:'".,<>?«»“”„‘’]+$/
+  };
+  // http://www.iana.org/assignments/uri-schemes.html
+  // http://en.wikipedia.org/wiki/List_of_TCP_and_UDP_port_numbers#Well-known_ports
+  URI.defaultPorts = {
+    http: '80',
+    https: '443',
+    ftp: '21',
+    gopher: '70',
+    ws: '80',
+    wss: '443'
+  };
+  // allowed hostname characters according to RFC 3986
+  // ALPHA DIGIT "-" "." "_" "~" "!" "$" "&" "'" "(" ")" "*" "+" "," ";" "=" %encoded
+  // I've never seen a (non-IDN) hostname other than: ALPHA DIGIT . -
+  URI.invalid_hostname_characters = /[^a-zA-Z0-9\.-]/;
+  // map DOM Elements to their URI attribute
+  URI.domAttributes = {
+    'a': 'href',
+    'blockquote': 'cite',
+    'link': 'href',
+    'base': 'href',
+    'script': 'src',
+    'form': 'action',
+    'img': 'src',
+    'area': 'href',
+    'iframe': 'src',
+    'embed': 'src',
+    'source': 'src',
+    'track': 'src',
+    'input': 'src', // but only if type="image"
+    'audio': 'src',
+    'video': 'src'
+  };
+  URI.getDomAttribute = function(node) {
+    if (!node || !node.nodeName) {
+      return undefined;
+    }
+
+    var nodeName = node.nodeName.toLowerCase();
+    // <input> should only expose src for type="image"
+    if (nodeName === 'input' && node.type !== 'image') {
+      return undefined;
+    }
+
+    return URI.domAttributes[nodeName];
+  };
+
+  function escapeForDumbFirefox36(value) {
+    // https://github.com/medialize/URI.js/issues/91
+    return escape(value);
+  }
+
+  // encoding / decoding according to RFC3986
+  function strictEncodeURIComponent(string) {
+    // see https://developer.mozilla.org/en-US/docs/JavaScript/Reference/Global_Objects/encodeURIComponent
+    return encodeURIComponent(string)
+      .replace(/[!'()*]/g, escapeForDumbFirefox36)
+      .replace(/\*/g, '%2A');
+  }
+  URI.encode = strictEncodeURIComponent;
+  URI.decode = decodeURIComponent;
+  URI.iso8859 = function() {
+    URI.encode = escape;
+    URI.decode = unescape;
+  };
+  URI.unicode = function() {
+    URI.encode = strictEncodeURIComponent;
+    URI.decode = decodeURIComponent;
+  };
+  URI.characters = {
+    pathname: {
+      encode: {
+        // RFC3986 2.1: For consistency, URI producers and normalizers should
+        // use uppercase hexadecimal digits for all percent-encodings.
+        expression: /%(24|26|2B|2C|3B|3D|3A|40)/ig,
+        map: {
+          // -._~!'()*
+          '%24': '$',
+          '%26': '&',
+          '%2B': '+',
+          '%2C': ',',
+          '%3B': ';',
+          '%3D': '=',
+          '%3A': ':',
+          '%40': '@'
+        }
+      },
+      decode: {
+        expression: /[\/\?#]/g,
+        map: {
+          '/': '%2F',
+          '?': '%3F',
+          '#': '%23'
+        }
+      }
+    },
+    reserved: {
+      encode: {
+        // RFC3986 2.1: For consistency, URI producers and normalizers should
+        // use uppercase hexadecimal digits for all percent-encodings.
+        expression: /%(21|23|24|26|27|28|29|2A|2B|2C|2F|3A|3B|3D|3F|40|5B|5D)/ig,
+        map: {
+          // gen-delims
+          '%3A': ':',
+          '%2F': '/',
+          '%3F': '?',
+          '%23': '#',
+          '%5B': '[',
+          '%5D': ']',
+          '%40': '@',
+          // sub-delims
+          '%21': '!',
+          '%24': '$',
+          '%26': '&',
+          '%27': '\'',
+          '%28': '(',
+          '%29': ')',
+          '%2A': '*',
+          '%2B': '+',
+          '%2C': ',',
+          '%3B': ';',
+          '%3D': '='
+        }
+      }
+    },
+    urnpath: {
+      // The characters under `encode` are the characters called out by RFC 2141 as being acceptable
+      // for usage in a URN. RFC2141 also calls out "-", ".", and "_" as acceptable characters, but
+      // these aren't encoded by encodeURIComponent, so we don't have to call them out here. Also
+      // note that the colon character is not featured in the encoding map; this is because URI.js
+      // gives the colons in URNs semantic meaning as the delimiters of path segements, and so it
+      // should not appear unencoded in a segment itself.
+      // See also the note above about RFC3986 and capitalalized hex digits.
+      encode: {
+        expression: /%(21|24|27|28|29|2A|2B|2C|3B|3D|40)/ig,
+        map: {
+          '%21': '!',
+          '%24': '$',
+          '%27': '\'',
+          '%28': '(',
+          '%29': ')',
+          '%2A': '*',
+          '%2B': '+',
+          '%2C': ',',
+          '%3B': ';',
+          '%3D': '=',
+          '%40': '@'
+        }
+      },
+      // These characters are the characters called out by RFC2141 as "reserved" characters that
+      // should never appear in a URN, plus the colon character (see note above).
+      decode: {
+        expression: /[\/\?#:]/g,
+        map: {
+          '/': '%2F',
+          '?': '%3F',
+          '#': '%23',
+          ':': '%3A'
+        }
+      }
+    }
+  };
+  URI.encodeQuery = function(string, escapeQuerySpace) {
+    var escaped = URI.encode(string + '');
+    if (escapeQuerySpace === undefined) {
+      escapeQuerySpace = URI.escapeQuerySpace;
+    }
+
+    return escapeQuerySpace ? escaped.replace(/%20/g, '+') : escaped;
+  };
+  URI.decodeQuery = function(string, escapeQuerySpace) {
+    string += '';
+    if (escapeQuerySpace === undefined) {
+      escapeQuerySpace = URI.escapeQuerySpace;
+    }
+
+    try {
+      return URI.decode(escapeQuerySpace ? string.replace(/\+/g, '%20') : string);
+    } catch(e) {
+      // we're not going to mess with weird encodings,
+      // give up and return the undecoded original string
+      // see https://github.com/medialize/URI.js/issues/87
+      // see https://github.com/medialize/URI.js/issues/92
+      return string;
+    }
+  };
+  // generate encode/decode path functions
+  var _parts = {'encode':'encode', 'decode':'decode'};
+  var _part;
+  var generateAccessor = function(_group, _part) {
+    return function(string) {
+      try {
+        return URI[_part](string + '').replace(URI.characters[_group][_part].expression, function(c) {
+          return URI.characters[_group][_part].map[c];
+        });
+      } catch (e) {
+        // we're not going to mess with weird encodings,
+        // give up and return the undecoded original string
+        // see https://github.com/medialize/URI.js/issues/87
+        // see https://github.com/medialize/URI.js/issues/92
+        return string;
+      }
+    };
+  };
+
+  for (_part in _parts) {
+    URI[_part + 'PathSegment'] = generateAccessor('pathname', _parts[_part]);
+    URI[_part + 'UrnPathSegment'] = generateAccessor('urnpath', _parts[_part]);
+  }
+
+  var generateSegmentedPathFunction = function(_sep, _codingFuncName, _innerCodingFuncName) {
+    return function(string) {
+      // Why pass in names of functions, rather than the function objects themselves? The
+      // definitions of some functions (but in particular, URI.decode) will occasionally change due
+      // to URI.js having ISO8859 and Unicode modes. Passing in the name and getting it will ensure
+      // that the functions we use here are "fresh".
+      var actualCodingFunc;
+      if (!_innerCodingFuncName) {
+        actualCodingFunc = URI[_codingFuncName];
+      } else {
+        actualCodingFunc = function(string) {
+          return URI[_codingFuncName](URI[_innerCodingFuncName](string));
+        };
+      }
+
+      var segments = (string + '').split(_sep);
+
+      for (var i = 0, length = segments.length; i < length; i++) {
+        segments[i] = actualCodingFunc(segments[i]);
+      }
+
+      return segments.join(_sep);
+    };
+  };
+
+  // This takes place outside the above loop because we don't want, e.g., encodeUrnPath functions.
+  URI.decodePath = generateSegmentedPathFunction('/', 'decodePathSegment');
+  URI.decodeUrnPath = generateSegmentedPathFunction(':', 'decodeUrnPathSegment');
+  URI.recodePath = generateSegmentedPathFunction('/', 'encodePathSegment', 'decode');
+  URI.recodeUrnPath = generateSegmentedPathFunction(':', 'encodeUrnPathSegment', 'decode');
+
+  URI.encodeReserved = generateAccessor('reserved', 'encode');
+
+  URI.parse = function(string, parts) {
+    var pos;
+    if (!parts) {
+      parts = {};
+    }
+    // [protocol"://"[username[":"password]"@"]hostname[":"port]"/"?][path]["?"querystring]["#"fragment]
+
+    // extract fragment
+    pos = string.indexOf('#');
+    if (pos > -1) {
+      // escaping?
+      parts.fragment = string.substring(pos + 1) || null;
+      string = string.substring(0, pos);
+    }
+
+    // extract query
+    pos = string.indexOf('?');
+    if (pos > -1) {
+      // escaping?
+      parts.query = string.substring(pos + 1) || null;
+      string = string.substring(0, pos);
+    }
+
+    // extract protocol
+    if (string.substring(0, 2) === '//') {
+      // relative-scheme
+      parts.protocol = null;
+      string = string.substring(2);
+      // extract "user:pass@host:port"
+      string = URI.parseAuthority(string, parts);
+    } else {
+      pos = string.indexOf(':');
+      if (pos > -1) {
+        parts.protocol = string.substring(0, pos) || null;
+        if (parts.protocol && !parts.protocol.match(URI.protocol_expression)) {
+          // : may be within the path
+          parts.protocol = undefined;
+        } else if (string.substring(pos + 1, pos + 3) === '//') {
+          string = string.substring(pos + 3);
+
+          // extract "user:pass@host:port"
+          string = URI.parseAuthority(string, parts);
+        } else {
+          string = string.substring(pos + 1);
+          parts.urn = true;
+        }
+      }
+    }
+
+    // what's left must be the path
+    parts.path = string;
+
+    // and we're done
+    return parts;
+  };
+  URI.parseHost = function(string, parts) {
+    // Copy chrome, IE, opera backslash-handling behavior.
+    // Back slashes before the query string get converted to forward slashes
+    // See: https://github.com/joyent/node/blob/386fd24f49b0e9d1a8a076592a404168faeecc34/lib/url.js#L115-L124
+    // See: https://code.google.com/p/chromium/issues/detail?id=25916
+    // https://github.com/medialize/URI.js/pull/233
+    string = string.replace(/\\/g, '/');
+
+    // extract host:port
+    var pos = string.indexOf('/');
+    var bracketPos;
+    var t;
+
+    if (pos === -1) {
+      pos = string.length;
+    }
+
+    if (string.charAt(0) === '[') {
+      // IPv6 host - http://tools.ietf.org/html/draft-ietf-6man-text-addr-representation-04#section-6
+      // I claim most client software breaks on IPv6 anyways. To simplify things, URI only accepts
+      // IPv6+port in the format [2001:db8::1]:80 (for the time being)
+      bracketPos = string.indexOf(']');
+      parts.hostname = string.substring(1, bracketPos) || null;
+      parts.port = string.substring(bracketPos + 2, pos) || null;
+      if (parts.port === '/') {
+        parts.port = null;
+      }
+    } else {
+      var firstColon = string.indexOf(':');
+      var firstSlash = string.indexOf('/');
+      var nextColon = string.indexOf(':', firstColon + 1);
+      if (nextColon !== -1 && (firstSlash === -1 || nextColon < firstSlash)) {
+        // IPv6 host contains multiple colons - but no port
+        // this notation is actually not allowed by RFC 3986, but we're a liberal parser
+        parts.hostname = string.substring(0, pos) || null;
+        parts.port = null;
+      } else {
+        t = string.substring(0, pos).split(':');
+        parts.hostname = t[0] || null;
+        parts.port = t[1] || null;
+      }
+    }
+
+    if (parts.hostname && string.substring(pos).charAt(0) !== '/') {
+      pos++;
+      string = '/' + string;
+    }
+
+    return string.substring(pos) || '/';
+  };
+  URI.parseAuthority = function(string, parts) {
+    string = URI.parseUserinfo(string, parts);
+    return URI.parseHost(string, parts);
+  };
+  URI.parseUserinfo = function(string, parts) {
+    // extract username:password
+    var firstSlash = string.indexOf('/');
+    var pos = string.lastIndexOf('@', firstSlash > -1 ? firstSlash : string.length - 1);
+    var t;
+
+    // authority@ must come before /path
+    if (pos > -1 && (firstSlash === -1 || pos < firstSlash)) {
+      t = string.substring(0, pos).split(':');
+      parts.username = t[0] ? URI.decode(t[0]) : null;
+      t.shift();
+      parts.password = t[0] ? URI.decode(t.join(':')) : null;
+      string = string.substring(pos + 1);
+    } else {
+      parts.username = null;
+      parts.password = null;
+    }
+
+    return string;
+  };
+  URI.parseQuery = function(string, escapeQuerySpace) {
+    if (!string) {
+      return {};
+    }
+
+    // throw out the funky business - "?"[name"="value"&"]+
+    string = string.replace(/&+/g, '&').replace(/^\?*&*|&+$/g, '');
+
+    if (!string) {
+      return {};
+    }
+
+    var items = {};
+    var splits = string.split('&');
+    var length = splits.length;
+    var v, name, value;
+
+    for (var i = 0; i < length; i++) {
+      v = splits[i].split('=');
+      name = URI.decodeQuery(v.shift(), escapeQuerySpace);
+      // no "=" is null according to http://dvcs.w3.org/hg/url/raw-file/tip/Overview.html#collect-url-parameters
+      value = v.length ? URI.decodeQuery(v.join('='), escapeQuerySpace) : null;
+
+      if (hasOwn.call(items, name)) {
+        if (typeof items[name] === 'string' || items[name] === null) {
+          items[name] = [items[name]];
+        }
+
+        items[name].push(value);
+      } else {
+        items[name] = value;
+      }
+    }
+
+    return items;
+  };
+
+  URI.build = function(parts) {
+    var t = '';
+
+    if (parts.protocol) {
+      t += parts.protocol + ':';
+    }
+
+    if (!parts.urn && (t || parts.hostname)) {
+      t += '//';
+    }
+
+    t += (URI.buildAuthority(parts) || '');
+
+    if (typeof parts.path === 'string') {
+      if (parts.path.charAt(0) !== '/' && typeof parts.hostname === 'string') {
+        t += '/';
+      }
+
+      t += parts.path;
+    }
+
+    if (typeof parts.query === 'string' && parts.query) {
+      t += '?' + parts.query;
+    }
+
+    if (typeof parts.fragment === 'string' && parts.fragment) {
+      t += '#' + parts.fragment;
+    }
+    return t;
+  };
+  URI.buildHost = function(parts) {
+    var t = '';
+
+    if (!parts.hostname) {
+      return '';
+    } else if (URI.ip6_expression.test(parts.hostname)) {
+      t += '[' + parts.hostname + ']';
+    } else {
+      t += parts.hostname;
+    }
+
+    if (parts.port) {
+      t += ':' + parts.port;
+    }
+
+    return t;
+  };
+  URI.buildAuthority = function(parts) {
+    return URI.buildUserinfo(parts) + URI.buildHost(parts);
+  };
+  URI.buildUserinfo = function(parts) {
+    var t = '';
+
+    if (parts.username) {
+      t += URI.encode(parts.username);
+
+      if (parts.password) {
+        t += ':' + URI.encode(parts.password);
+      }
+
+      t += '@';
+    }
+
+    return t;
+  };
+  URI.buildQuery = function(data, duplicateQueryParameters, escapeQuerySpace) {
+    // according to http://tools.ietf.org/html/rfc3986 or http://labs.apache.org/webarch/uri/rfc/rfc3986.html
+    // being »-._~!$&'()*+,;=:@/?« %HEX and alnum are allowed
+    // the RFC explicitly states ?/foo being a valid use case, no mention of parameter syntax!
+    // URI.js treats the query string as being application/x-www-form-urlencoded
+    // see http://www.w3.org/TR/REC-html40/interact/forms.html#form-content-type
+
+    var t = '';
+    var unique, key, i, length;
+    for (key in data) {
+      if (hasOwn.call(data, key) && key) {
+        if (isArray(data[key])) {
+          unique = {};
+          for (i = 0, length = data[key].length; i < length; i++) {
+            if (data[key][i] !== undefined && unique[data[key][i] + ''] === undefined) {
+              t += '&' + URI.buildQueryParameter(key, data[key][i], escapeQuerySpace);
+              if (duplicateQueryParameters !== true) {
+                unique[data[key][i] + ''] = true;
+              }
+            }
+          }
+        } else if (data[key] !== undefined) {
+          t += '&' + URI.buildQueryParameter(key, data[key], escapeQuerySpace);
+        }
+      }
+    }
+
+    return t.substring(1);
+  };
+  URI.buildQueryParameter = function(name, value, escapeQuerySpace) {
+    // http://www.w3.org/TR/REC-html40/interact/forms.html#form-content-type -- application/x-www-form-urlencoded
+    // don't append "=" for null values, according to http://dvcs.w3.org/hg/url/raw-file/tip/Overview.html#url-parameter-serialization
+    return URI.encodeQuery(name, escapeQuerySpace) + (value !== null ? '=' + URI.encodeQuery(value, escapeQuerySpace) : '');
+  };
+
+  URI.addQuery = function(data, name, value) {
+    if (typeof name === 'object') {
+      for (var key in name) {
+        if (hasOwn.call(name, key)) {
+          URI.addQuery(data, key, name[key]);
+        }
+      }
+    } else if (typeof name === 'string') {
+      if (data[name] === undefined) {
+        data[name] = value;
+        return;
+      } else if (typeof data[name] === 'string') {
+        data[name] = [data[name]];
+      }
+
+      if (!isArray(value)) {
+        value = [value];
+      }
+
+      data[name] = (data[name] || []).concat(value);
+    } else {
+      throw new TypeError('URI.addQuery() accepts an object, string as the name parameter');
+    }
+  };
+  URI.removeQuery = function(data, name, value) {
+    var i, length, key;
+
+    if (isArray(name)) {
+      for (i = 0, length = name.length; i < length; i++) {
+        data[name[i]] = undefined;
+      }
+    } else if (getType(name) === 'RegExp') {
+      for (key in data) {
+        if (name.test(key)) {
+          data[key] = undefined;
+        }
+      }
+    } else if (typeof name === 'object') {
+      for (key in name) {
+        if (hasOwn.call(name, key)) {
+          URI.removeQuery(data, key, name[key]);
+        }
+      }
+    } else if (typeof name === 'string') {
+      if (value !== undefined) {
+        if (getType(value) === 'RegExp') {
+          if (!isArray(data[name]) && value.test(data[name])) {
+            data[name] = undefined;
+          } else {
+            data[name] = filterArrayValues(data[name], value);
+          }
+        } else if (data[name] === String(value) && (!isArray(value) || value.length === 1)) {
+          data[name] = undefined;
+        } else if (isArray(data[name])) {
+          data[name] = filterArrayValues(data[name], value);
+        }
+      } else {
+        data[name] = undefined;
+      }
+    } else {
+      throw new TypeError('URI.removeQuery() accepts an object, string, RegExp as the first parameter');
+    }
+  };
+  URI.hasQuery = function(data, name, value, withinArray) {
+    if (typeof name === 'object') {
+      for (var key in name) {
+        if (hasOwn.call(name, key)) {
+          if (!URI.hasQuery(data, key, name[key])) {
+            return false;
+          }
+        }
+      }
+
+      return true;
+    } else if (typeof name !== 'string') {
+      throw new TypeError('URI.hasQuery() accepts an object, string as the name parameter');
+    }
+
+    switch (getType(value)) {
+      case 'Undefined':
+        // true if exists (but may be empty)
+        return name in data; // data[name] !== undefined;
+
+      case 'Boolean':
+        // true if exists and non-empty
+        var _booly = Boolean(isArray(data[name]) ? data[name].length : data[name]);
+        return value === _booly;
+
+      case 'Function':
+        // allow complex comparison
+        return !!value(data[name], name, data);
+
+      case 'Array':
+        if (!isArray(data[name])) {
+          return false;
+        }
+
+        var op = withinArray ? arrayContains : arraysEqual;
+        return op(data[name], value);
+
+      case 'RegExp':
+        if (!isArray(data[name])) {
+          return Boolean(data[name] && data[name].match(value));
+        }
+
+        if (!withinArray) {
+          return false;
+        }
+
+        return arrayContains(data[name], value);
+
+      case 'Number':
+        value = String(value);
+        /* falls through */
+      case 'String':
+        if (!isArray(data[name])) {
+          return data[name] === value;
+        }
+
+        if (!withinArray) {
+          return false;
+        }
+
+        return arrayContains(data[name], value);
+
+      default:
+        throw new TypeError('URI.hasQuery() accepts undefined, boolean, string, number, RegExp, Function as the value parameter');
+    }
+  };
+
+
+  URI.commonPath = function(one, two) {
+    var length = Math.min(one.length, two.length);
+    var pos;
+
+    // find first non-matching character
+    for (pos = 0; pos < length; pos++) {
+      if (one.charAt(pos) !== two.charAt(pos)) {
+        pos--;
+        break;
+      }
+    }
+
+    if (pos < 1) {
+      return one.charAt(0) === two.charAt(0) && one.charAt(0) === '/' ? '/' : '';
+    }
+
+    // revert to last /
+    if (one.charAt(pos) !== '/' || two.charAt(pos) !== '/') {
+      pos = one.substring(0, pos).lastIndexOf('/');
+    }
+
+    return one.substring(0, pos + 1);
+  };
+
+  URI.withinString = function(string, callback, options) {
+    options || (options = {});
+    var _start = options.start || URI.findUri.start;
+    var _end = options.end || URI.findUri.end;
+    var _trim = options.trim || URI.findUri.trim;
+    var _attributeOpen = /[a-z0-9-]=["']?$/i;
+
+    _start.lastIndex = 0;
+    while (true) {
+      var match = _start.exec(string);
+      if (!match) {
+        break;
+      }
+
+      var start = match.index;
+      if (options.ignoreHtml) {
+        // attribut(e=["']?$)
+        var attributeOpen = string.slice(Math.max(start - 3, 0), start);
+        if (attributeOpen && _attributeOpen.test(attributeOpen)) {
+          continue;
+        }
+      }
+
+      var end = start + string.slice(start).search(_end);
+      var slice = string.slice(start, end).replace(_trim, '');
+      if (options.ignore && options.ignore.test(slice)) {
+        continue;
+      }
+
+      end = start + slice.length;
+      var result = callback(slice, start, end, string);
+      string = string.slice(0, start) + result + string.slice(end);
+      _start.lastIndex = start + result.length;
+    }
+
+    _start.lastIndex = 0;
+    return string;
+  };
+
+  URI.ensureValidHostname = function(v) {
+    // Theoretically URIs allow percent-encoding in Hostnames (according to RFC 3986)
+    // they are not part of DNS and therefore ignored by URI.js
+
+    if (v.match(URI.invalid_hostname_characters)) {
+      // test punycode
+      if (!punycode) {
+        throw new TypeError('Hostname "' + v + '" contains characters other than [A-Z0-9.-] and Punycode.js is not available');
+      }
+
+      if (punycode.toASCII(v).match(URI.invalid_hostname_characters)) {
+        throw new TypeError('Hostname "' + v + '" contains characters other than [A-Z0-9.-]');
+      }
+    }
+  };
+
+  // noConflict
+  URI.noConflict = function(removeAll) {
+    if (removeAll) {
+      var unconflicted = {
+        URI: this.noConflict()
+      };
+
+      if (root.URITemplate && typeof root.URITemplate.noConflict === 'function') {
+        unconflicted.URITemplate = root.URITemplate.noConflict();
+      }
+
+      if (root.IPv6 && typeof root.IPv6.noConflict === 'function') {
+        unconflicted.IPv6 = root.IPv6.noConflict();
+      }
+
+      if (root.SecondLevelDomains && typeof root.SecondLevelDomains.noConflict === 'function') {
+        unconflicted.SecondLevelDomains = root.SecondLevelDomains.noConflict();
+      }
+
+      return unconflicted;
+    } else if (root.URI === this) {
+      root.URI = _URI;
+    }
+
+    return this;
+  };
+
+  p.build = function(deferBuild) {
+    if (deferBuild === true) {
+      this._deferred_build = true;
+    } else if (deferBuild === undefined || this._deferred_build) {
+      this._string = URI.build(this._parts);
+      this._deferred_build = false;
+    }
+
+    return this;
+  };
+
+  p.clone = function() {
+    return new URI(this);
+  };
+
+  p.valueOf = p.toString = function() {
+    return this.build(false)._string;
+  };
+
+
+  function generateSimpleAccessor(_part){
+    return function(v, build) {
+      if (v === undefined) {
+        return this._parts[_part] || '';
+      } else {
+        this._parts[_part] = v || null;
+        this.build(!build);
+        return this;
+      }
+    };
+  }
+
+  function generatePrefixAccessor(_part, _key){
+    return function(v, build) {
+      if (v === undefined) {
+        return this._parts[_part] || '';
+      } else {
+        if (v !== null) {
+          v = v + '';
+          if (v.charAt(0) === _key) {
+            v = v.substring(1);
+          }
+        }
+
+        this._parts[_part] = v;
+        this.build(!build);
+        return this;
+      }
+    };
+  }
+
+  p.protocol = generateSimpleAccessor('protocol');
+  p.username = generateSimpleAccessor('username');
+  p.password = generateSimpleAccessor('password');
+  p.hostname = generateSimpleAccessor('hostname');
+  p.port = generateSimpleAccessor('port');
+  p.query = generatePrefixAccessor('query', '?');
+  p.fragment = generatePrefixAccessor('fragment', '#');
+
+  p.search = function(v, build) {
+    var t = this.query(v, build);
+    return typeof t === 'string' && t.length ? ('?' + t) : t;
+  };
+  p.hash = function(v, build) {
+    var t = this.fragment(v, build);
+    return typeof t === 'string' && t.length ? ('#' + t) : t;
+  };
+
+  p.pathname = function(v, build) {
+    if (v === undefined || v === true) {
+      var res = this._parts.path || (this._parts.hostname ? '/' : '');
+      return v ? (this._parts.urn ? URI.decodeUrnPath : URI.decodePath)(res) : res;
+    } else {
+      if (this._parts.urn) {
+        this._parts.path = v ? URI.recodeUrnPath(v) : '';
+      } else {
+        this._parts.path = v ? URI.recodePath(v) : '/';
+      }
+      this.build(!build);
+      return this;
+    }
+  };
+  p.path = p.pathname;
+  p.href = function(href, build) {
+    var key;
+
+    if (href === undefined) {
+      return this.toString();
+    }
+
+    this._string = '';
+    this._parts = URI._parts();
+
+    var _URI = href instanceof URI;
+    var _object = typeof href === 'object' && (href.hostname || href.path || href.pathname);
+    if (href.nodeName) {
+      var attribute = URI.getDomAttribute(href);
+      href = href[attribute] || '';
+      _object = false;
+    }
+
+    // window.location is reported to be an object, but it's not the sort
+    // of object we're looking for:
+    // * location.protocol ends with a colon
+    // * location.query != object.search
+    // * location.hash != object.fragment
+    // simply serializing the unknown object should do the trick
+    // (for location, not for everything...)
+    if (!_URI && _object && href.pathname !== undefined) {
+      href = href.toString();
+    }
+
+    if (typeof href === 'string' || href instanceof String) {
+      this._parts = URI.parse(String(href), this._parts);
+    } else if (_URI || _object) {
+      var src = _URI ? href._parts : href;
+      for (key in src) {
+        if (hasOwn.call(this._parts, key)) {
+          this._parts[key] = src[key];
+        }
+      }
+    } else {
+      throw new TypeError('invalid input');
+    }
+
+    this.build(!build);
+    return this;
+  };
+
+  // identification accessors
+  p.is = function(what) {
+    var ip = false;
+    var ip4 = false;
+    var ip6 = false;
+    var name = false;
+    var sld = false;
+    var idn = false;
+    var punycode = false;
+    var relative = !this._parts.urn;
+
+    if (this._parts.hostname) {
+      relative = false;
+      ip4 = URI.ip4_expression.test(this._parts.hostname);
+      ip6 = URI.ip6_expression.test(this._parts.hostname);
+      ip = ip4 || ip6;
+      name = !ip;
+      sld = name && SLD && SLD.has(this._parts.hostname);
+      idn = name && URI.idn_expression.test(this._parts.hostname);
+      punycode = name && URI.punycode_expression.test(this._parts.hostname);
+    }
+
+    switch (what.toLowerCase()) {
+      case 'relative':
+        return relative;
+
+      case 'absolute':
+        return !relative;
+
+      // hostname identification
+      case 'domain':
+      case 'name':
+        return name;
+
+      case 'sld':
+        return sld;
+
+      case 'ip':
+        return ip;
+
+      case 'ip4':
+      case 'ipv4':
+      case 'inet4':
+        return ip4;
+
+      case 'ip6':
+      case 'ipv6':
+      case 'inet6':
+        return ip6;
+
+      case 'idn':
+        return idn;
+
+      case 'url':
+        return !this._parts.urn;
+
+      case 'urn':
+        return !!this._parts.urn;
+
+      case 'punycode':
+        return punycode;
+    }
+
+    return null;
+  };
+
+  // component specific input validation
+  var _protocol = p.protocol;
+  var _port = p.port;
+  var _hostname = p.hostname;
+
+  p.protocol = function(v, build) {
+    if (v !== undefined) {
+      if (v) {
+        // accept trailing ://
+        v = v.replace(/:(\/\/)?$/, '');
+
+        if (!v.match(URI.protocol_expression)) {
+          throw new TypeError('Protocol "' + v + '" contains characters other than [A-Z0-9.+-] or doesn\'t start with [A-Z]');
+        }
+      }
+    }
+    return _protocol.call(this, v, build);
+  };
+  p.scheme = p.protocol;
+  p.port = function(v, build) {
+    if (this._parts.urn) {
+      return v === undefined ? '' : this;
+    }
+
+    if (v !== undefined) {
+      if (v === 0) {
+        v = null;
+      }
+
+      if (v) {
+        v += '';
+        if (v.charAt(0) === ':') {
+          v = v.substring(1);
+        }
+
+        if (v.match(/[^0-9]/)) {
+          throw new TypeError('Port "' + v + '" contains characters other than [0-9]');
+        }
+      }
+    }
+    return _port.call(this, v, build);
+  };
+  p.hostname = function(v, build) {
+    if (this._parts.urn) {
+      return v === undefined ? '' : this;
+    }
+
+    if (v !== undefined) {
+      var x = {};
+      var res = URI.parseHost(v, x);
+      if (res !== '/') {
+        throw new TypeError('Hostname "' + v + '" contains characters other than [A-Z0-9.-]');
+      }
+
+      v = x.hostname;
+    }
+    return _hostname.call(this, v, build);
+  };
+
+  // compound accessors
+  p.origin = function(v, build) {
+    var parts;
+
+    if (this._parts.urn) {
+      return v === undefined ? '' : this;
+    }
+
+    if (v === undefined) {
+      var protocol = this.protocol();
+      var authority = this.authority();
+      if (!authority) return '';
+      return (protocol ? protocol + '://' : '') + this.authority();
+    } else {
+      var origin = URI(v);
+      this
+        .protocol(origin.protocol())
+        .authority(origin.authority())
+        .build(!build);
+      return this;
+    }
+  };
+  p.host = function(v, build) {
+    if (this._parts.urn) {
+      return v === undefined ? '' : this;
+    }
+
+    if (v === undefined) {
+      return this._parts.hostname ? URI.buildHost(this._parts) : '';
+    } else {
+      var res = URI.parseHost(v, this._parts);
+      if (res !== '/') {
+        throw new TypeError('Hostname "' + v + '" contains characters other than [A-Z0-9.-]');
+      }
+
+      this.build(!build);
+      return this;
+    }
+  };
+  p.authority = function(v, build) {
+    if (this._parts.urn) {
+      return v === undefined ? '' : this;
+    }
+
+    if (v === undefined) {
+      return this._parts.hostname ? URI.buildAuthority(this._parts) : '';
+    } else {
+      var res = URI.parseAuthority(v, this._parts);
+      if (res !== '/') {
+        throw new TypeError('Hostname "' + v + '" contains characters other than [A-Z0-9.-]');
+      }
+
+      this.build(!build);
+      return this;
+    }
+  };
+  p.userinfo = function(v, build) {
+    if (this._parts.urn) {
+      return v === undefined ? '' : this;
+    }
+
+    if (v === undefined) {
+      if (!this._parts.username) {
+        return '';
+      }
+
+      var t = URI.buildUserinfo(this._parts);
+      return t.substring(0, t.length -1);
+    } else {
+      if (v[v.length-1] !== '@') {
+        v += '@';
+      }
+
+      URI.parseUserinfo(v, this._parts);
+      this.build(!build);
+      return this;
+    }
+  };
+  p.resource = function(v, build) {
+    var parts;
+
+    if (v === undefined) {
+      return this.path() + this.search() + this.hash();
+    }
+
+    parts = URI.parse(v);
+    this._parts.path = parts.path;
+    this._parts.query = parts.query;
+    this._parts.fragment = parts.fragment;
+    this.build(!build);
+    return this;
+  };
+
+  // fraction accessors
+  p.subdomain = function(v, build) {
+    if (this._parts.urn) {
+      return v === undefined ? '' : this;
+    }
+
+    // convenience, return "www" from "www.example.org"
+    if (v === undefined) {
+      if (!this._parts.hostname || this.is('IP')) {
+        return '';
+      }
+
+      // grab domain and add another segment
+      var end = this._parts.hostname.length - this.domain().length - 1;
+      return this._parts.hostname.substring(0, end) || '';
+    } else {
+      var e = this._parts.hostname.length - this.domain().length;
+      var sub = this._parts.hostname.substring(0, e);
+      var replace = new RegExp('^' + escapeRegEx(sub));
+
+      if (v && v.charAt(v.length - 1) !== '.') {
+        v += '.';
+      }
+
+      if (v) {
+        URI.ensureValidHostname(v);
+      }
+
+      this._parts.hostname = this._parts.hostname.replace(replace, v);
+      this.build(!build);
+      return this;
+    }
+  };
+  p.domain = function(v, build) {
+    if (this._parts.urn) {
+      return v === undefined ? '' : this;
+    }
+
+    if (typeof v === 'boolean') {
+      build = v;
+      v = undefined;
+    }
+
+    // convenience, return "example.org" from "www.example.org"
+    if (v === undefined) {
+      if (!this._parts.hostname || this.is('IP')) {
+        return '';
+      }
+
+      // if hostname consists of 1 or 2 segments, it must be the domain
+      var t = this._parts.hostname.match(/\./g);
+      if (t && t.length < 2) {
+        return this._parts.hostname;
+      }
+
+      // grab tld and add another segment
+      var end = this._parts.hostname.length - this.tld(build).length - 1;
+      end = this._parts.hostname.lastIndexOf('.', end -1) + 1;
+      return this._parts.hostname.substring(end) || '';
+    } else {
+      if (!v) {
+        throw new TypeError('cannot set domain empty');
+      }
+
+      URI.ensureValidHostname(v);
+
+      if (!this._parts.hostname || this.is('IP')) {
+        this._parts.hostname = v;
+      } else {
+        var replace = new RegExp(escapeRegEx(this.domain()) + '$');
+        this._parts.hostname = this._parts.hostname.replace(replace, v);
+      }
+
+      this.build(!build);
+      return this;
+    }
+  };
+  p.tld = function(v, build) {
+    if (this._parts.urn) {
+      return v === undefined ? '' : this;
+    }
+
+    if (typeof v === 'boolean') {
+      build = v;
+      v = undefined;
+    }
+
+    // return "org" from "www.example.org"
+    if (v === undefined) {
+      if (!this._parts.hostname || this.is('IP')) {
+        return '';
+      }
+
+      var pos = this._parts.hostname.lastIndexOf('.');
+      var tld = this._parts.hostname.substring(pos + 1);
+
+      if (build !== true && SLD && SLD.list[tld.toLowerCase()]) {
+        return SLD.get(this._parts.hostname) || tld;
+      }
+
+      return tld;
+    } else {
+      var replace;
+
+      if (!v) {
+        throw new TypeError('cannot set TLD empty');
+      } else if (v.match(/[^a-zA-Z0-9-]/)) {
+        if (SLD && SLD.is(v)) {
+          replace = new RegExp(escapeRegEx(this.tld()) + '$');
+          this._parts.hostname = this._parts.hostname.replace(replace, v);
+        } else {
+          throw new TypeError('TLD "' + v + '" contains characters other than [A-Z0-9]');
+        }
+      } else if (!this._parts.hostname || this.is('IP')) {
+        throw new ReferenceError('cannot set TLD on non-domain host');
+      } else {
+        replace = new RegExp(escapeRegEx(this.tld()) + '$');
+        this._parts.hostname = this._parts.hostname.replace(replace, v);
+      }
+
+      this.build(!build);
+      return this;
+    }
+  };
+  p.directory = function(v, build) {
+    if (this._parts.urn) {
+      return v === undefined ? '' : this;
+    }
+
+    if (v === undefined || v === true) {
+      if (!this._parts.path && !this._parts.hostname) {
+        return '';
+      }
+
+      if (this._parts.path === '/') {
+        return '/';
+      }
+
+      var end = this._parts.path.length - this.filename().length - 1;
+      var res = this._parts.path.substring(0, end) || (this._parts.hostname ? '/' : '');
+
+      return v ? URI.decodePath(res) : res;
+
+    } else {
+      var e = this._parts.path.length - this.filename().length;
+      var directory = this._parts.path.substring(0, e);
+      var replace = new RegExp('^' + escapeRegEx(directory));
+
+      // fully qualifier directories begin with a slash
+      if (!this.is('relative')) {
+        if (!v) {
+          v = '/';
+        }
+
+        if (v.charAt(0) !== '/') {
+          v = '/' + v;
+        }
+      }
+
+      // directories always end with a slash
+      if (v && v.charAt(v.length - 1) !== '/') {
+        v += '/';
+      }
+
+      v = URI.recodePath(v);
+      this._parts.path = this._parts.path.replace(replace, v);
+      this.build(!build);
+      return this;
+    }
+  };
+  p.filename = function(v, build) {
+    if (this._parts.urn) {
+      return v === undefined ? '' : this;
+    }
+
+    if (v === undefined || v === true) {
+      if (!this._parts.path || this._parts.path === '/') {
+        return '';
+      }
+
+      var pos = this._parts.path.lastIndexOf('/');
+      var res = this._parts.path.substring(pos+1);
+
+      return v ? URI.decodePathSegment(res) : res;
+    } else {
+      var mutatedDirectory = false;
+
+      if (v.charAt(0) === '/') {
+        v = v.substring(1);
+      }
+
+      if (v.match(/\.?\//)) {
+        mutatedDirectory = true;
+      }
+
+      var replace = new RegExp(escapeRegEx(this.filename()) + '$');
+      v = URI.recodePath(v);
+      this._parts.path = this._parts.path.replace(replace, v);
+
+      if (mutatedDirectory) {
+        this.normalizePath(build);
+      } else {
+        this.build(!build);
+      }
+
+      return this;
+    }
+  };
+  p.suffix = function(v, build) {
+    if (this._parts.urn) {
+      return v === undefined ? '' : this;
+    }
+
+    if (v === undefined || v === true) {
+      if (!this._parts.path || this._parts.path === '/') {
+        return '';
+      }
+
+      var filename = this.filename();
+      var pos = filename.lastIndexOf('.');
+      var s, res;
+
+      if (pos === -1) {
+        return '';
+      }
+
+      // suffix may only contain alnum characters (yup, I made this up.)
+      s = filename.substring(pos+1);
+      res = (/^[a-z0-9%]+$/i).test(s) ? s : '';
+      return v ? URI.decodePathSegment(res) : res;
+    } else {
+      if (v.charAt(0) === '.') {
+        v = v.substring(1);
+      }
+
+      var suffix = this.suffix();
+      var replace;
+
+      if (!suffix) {
+        if (!v) {
+          return this;
+        }
+
+        this._parts.path += '.' + URI.recodePath(v);
+      } else if (!v) {
+        replace = new RegExp(escapeRegEx('.' + suffix) + '$');
+      } else {
+        replace = new RegExp(escapeRegEx(suffix) + '$');
+      }
+
+      if (replace) {
+        v = URI.recodePath(v);
+        this._parts.path = this._parts.path.replace(replace, v);
+      }
+
+      this.build(!build);
+      return this;
+    }
+  };
+  p.segment = function(segment, v, build) {
+    var separator = this._parts.urn ? ':' : '/';
+    var path = this.path();
+    var absolute = path.substring(0, 1) === '/';
+    var segments = path.split(separator);
+
+    if (segment !== undefined && typeof segment !== 'number') {
+      build = v;
+      v = segment;
+      segment = undefined;
+    }
+
+    if (segment !== undefined && typeof segment !== 'number') {
+      throw new Error('Bad segment "' + segment + '", must be 0-based integer');
+    }
+
+    if (absolute) {
+      segments.shift();
+    }
+
+    if (segment < 0) {
+      // allow negative indexes to address from the end
+      segment = Math.max(segments.length + segment, 0);
+    }
+
+    if (v === undefined) {
+      /*jshint laxbreak: true */
+      return segment === undefined
+        ? segments
+        : segments[segment];
+      /*jshint laxbreak: false */
+    } else if (segment === null || segments[segment] === undefined) {
+      if (isArray(v)) {
+        segments = [];
+        // collapse empty elements within array
+        for (var i=0, l=v.length; i < l; i++) {
+          if (!v[i].length && (!segments.length || !segments[segments.length -1].length)) {
+            continue;
+          }
+
+          if (segments.length && !segments[segments.length -1].length) {
+            segments.pop();
+          }
+
+          segments.push(trimSlashes(v[i]));
+        }
+      } else if (v || typeof v === 'string') {
+        v = trimSlashes(v);
+        if (segments[segments.length -1] === '') {
+          // empty trailing elements have to be overwritten
+          // to prevent results such as /foo//bar
+          segments[segments.length -1] = v;
+        } else {
+          segments.push(v);
+        }
+      }
+    } else {
+      if (v) {
+        segments[segment] = trimSlashes(v);
+      } else {
+        segments.splice(segment, 1);
+      }
+    }
+
+    if (absolute) {
+      segments.unshift('');
+    }
+
+    return this.path(segments.join(separator), build);
+  };
+  p.segmentCoded = function(segment, v, build) {
+    var segments, i, l;
+
+    if (typeof segment !== 'number') {
+      build = v;
+      v = segment;
+      segment = undefined;
+    }
+
+    if (v === undefined) {
+      segments = this.segment(segment, v, build);
+      if (!isArray(segments)) {
+        segments = segments !== undefined ? URI.decode(segments) : undefined;
+      } else {
+        for (i = 0, l = segments.length; i < l; i++) {
+          segments[i] = URI.decode(segments[i]);
+        }
+      }
+
+      return segments;
+    }
+
+    if (!isArray(v)) {
+      v = (typeof v === 'string' || v instanceof String) ? URI.encode(v) : v;
+    } else {
+      for (i = 0, l = v.length; i < l; i++) {
+        v[i] = URI.encode(v[i]);
+      }
+    }
+
+    return this.segment(segment, v, build);
+  };
+
+  // mutating query string
+  var q = p.query;
+  p.query = function(v, build) {
+    if (v === true) {
+      return URI.parseQuery(this._parts.query, this._parts.escapeQuerySpace);
+    } else if (typeof v === 'function') {
+      var data = URI.parseQuery(this._parts.query, this._parts.escapeQuerySpace);
+      var result = v.call(this, data);
+      this._parts.query = URI.buildQuery(result || data, this._parts.duplicateQueryParameters, this._parts.escapeQuerySpace);
+      this.build(!build);
+      return this;
+    } else if (v !== undefined && typeof v !== 'string') {
+      this._parts.query = URI.buildQuery(v, this._parts.duplicateQueryParameters, this._parts.escapeQuerySpace);
+      this.build(!build);
+      return this;
+    } else {
+      return q.call(this, v, build);
+    }
+  };
+  p.setQuery = function(name, value, build) {
+    var data = URI.parseQuery(this._parts.query, this._parts.escapeQuerySpace);
+
+    if (typeof name === 'string' || name instanceof String) {
+      data[name] = value !== undefined ? value : null;
+    } else if (typeof name === 'object') {
+      for (var key in name) {
+        if (hasOwn.call(name, key)) {
+          data[key] = name[key];
+        }
+      }
+    } else {
+      throw new TypeError('URI.addQuery() accepts an object, string as the name parameter');
+    }
+
+    this._parts.query = URI.buildQuery(data, this._parts.duplicateQueryParameters, this._parts.escapeQuerySpace);
+    if (typeof name !== 'string') {
+      build = value;
+    }
+
+    this.build(!build);
+    return this;
+  };
+  p.addQuery = function(name, value, build) {
+    var data = URI.parseQuery(this._parts.query, this._parts.escapeQuerySpace);
+    URI.addQuery(data, name, value === undefined ? null : value);
+    this._parts.query = URI.buildQuery(data, this._parts.duplicateQueryParameters, this._parts.escapeQuerySpace);
+    if (typeof name !== 'string') {
+      build = value;
+    }
+
+    this.build(!build);
+    return this;
+  };
+  p.removeQuery = function(name, value, build) {
+    var data = URI.parseQuery(this._parts.query, this._parts.escapeQuerySpace);
+    URI.removeQuery(data, name, value);
+    this._parts.query = URI.buildQuery(data, this._parts.duplicateQueryParameters, this._parts.escapeQuerySpace);
+    if (typeof name !== 'string') {
+      build = value;
+    }
+
+    this.build(!build);
+    return this;
+  };
+  p.hasQuery = function(name, value, withinArray) {
+    var data = URI.parseQuery(this._parts.query, this._parts.escapeQuerySpace);
+    return URI.hasQuery(data, name, value, withinArray);
+  };
+  p.setSearch = p.setQuery;
+  p.addSearch = p.addQuery;
+  p.removeSearch = p.removeQuery;
+  p.hasSearch = p.hasQuery;
+
+  // sanitizing URLs
+  p.normalize = function() {
+    if (this._parts.urn) {
+      return this
+        .normalizeProtocol(false)
+        .normalizePath(false)
+        .normalizeQuery(false)
+        .normalizeFragment(false)
+        .build();
+    }
+
+    return this
+      .normalizeProtocol(false)
+      .normalizeHostname(false)
+      .normalizePort(false)
+      .normalizePath(false)
+      .normalizeQuery(false)
+      .normalizeFragment(false)
+      .build();
+  };
+  p.normalizeProtocol = function(build) {
+    if (typeof this._parts.protocol === 'string') {
+      this._parts.protocol = this._parts.protocol.toLowerCase();
+      this.build(!build);
+    }
+
+    return this;
+  };
+  p.normalizeHostname = function(build) {
+    if (this._parts.hostname) {
+      if (this.is('IDN') && punycode) {
+        this._parts.hostname = punycode.toASCII(this._parts.hostname);
+      } else if (this.is('IPv6') && IPv6) {
+        this._parts.hostname = IPv6.best(this._parts.hostname);
+      }
+
+      this._parts.hostname = this._parts.hostname.toLowerCase();
+      this.build(!build);
+    }
+
+    return this;
+  };
+  p.normalizePort = function(build) {
+    // remove port of it's the protocol's default
+    if (typeof this._parts.protocol === 'string' && this._parts.port === URI.defaultPorts[this._parts.protocol]) {
+      this._parts.port = null;
+      this.build(!build);
+    }
+
+    return this;
+  };
+  p.normalizePath = function(build) {
+    var _path = this._parts.path;
+    if (!_path) {
+      return this;
+    }
+
+    if (this._parts.urn) {
+      this._parts.path = URI.recodeUrnPath(this._parts.path);
+      this.build(!build);
+      return this;
+    }
+
+    if (this._parts.path === '/') {
+      return this;
+    }
+
+    var _was_relative;
+    var _leadingParents = '';
+    var _parent, _pos;
+
+    // handle relative paths
+    if (_path.charAt(0) !== '/') {
+      _was_relative = true;
+      _path = '/' + _path;
+    }
+
+    // handle relative files (as opposed to directories)
+    if (_path.slice(-3) === '/..' || _path.slice(-2) === '/.') {
+      _path += '/';
+    }
+
+    // resolve simples
+    _path = _path
+      .replace(/(\/(\.\/)+)|(\/\.$)/g, '/')
+      .replace(/\/{2,}/g, '/');
+
+    // remember leading parents
+    if (_was_relative) {
+      _leadingParents = _path.substring(1).match(/^(\.\.\/)+/) || '';
+      if (_leadingParents) {
+        _leadingParents = _leadingParents[0];
+      }
+    }
+
+    // resolve parents
+    while (true) {
+      _parent = _path.indexOf('/..');
+      if (_parent === -1) {
+        // no more ../ to resolve
+        break;
+      } else if (_parent === 0) {
+        // top level cannot be relative, skip it
+        _path = _path.substring(3);
+        continue;
+      }
+
+      _pos = _path.substring(0, _parent).lastIndexOf('/');
+      if (_pos === -1) {
+        _pos = _parent;
+      }
+      _path = _path.substring(0, _pos) + _path.substring(_parent + 3);
+    }
+
+    // revert to relative
+    if (_was_relative && this.is('relative')) {
+      _path = _leadingParents + _path.substring(1);
+    }
+
+    _path = URI.recodePath(_path);
+    this._parts.path = _path;
+    this.build(!build);
+    return this;
+  };
+  p.normalizePathname = p.normalizePath;
+  p.normalizeQuery = function(build) {
+    if (typeof this._parts.query === 'string') {
+      if (!this._parts.query.length) {
+        this._parts.query = null;
+      } else {
+        this.query(URI.parseQuery(this._parts.query, this._parts.escapeQuerySpace));
+      }
+
+      this.build(!build);
+    }
+
+    return this;
+  };
+  p.normalizeFragment = function(build) {
+    if (!this._parts.fragment) {
+      this._parts.fragment = null;
+      this.build(!build);
+    }
+
+    return this;
+  };
+  p.normalizeSearch = p.normalizeQuery;
+  p.normalizeHash = p.normalizeFragment;
+
+  p.iso8859 = function() {
+    // expect unicode input, iso8859 output
+    var e = URI.encode;
+    var d = URI.decode;
+
+    URI.encode = escape;
+    URI.decode = decodeURIComponent;
+    try {
+      this.normalize();
+    } finally {
+      URI.encode = e;
+      URI.decode = d;
+    }
+    return this;
+  };
+
+  p.unicode = function() {
+    // expect iso8859 input, unicode output
+    var e = URI.encode;
+    var d = URI.decode;
+
+    URI.encode = strictEncodeURIComponent;
+    URI.decode = unescape;
+    try {
+      this.normalize();
+    } finally {
+      URI.encode = e;
+      URI.decode = d;
+    }
+    return this;
+  };
+
+  p.readable = function() {
+    var uri = this.clone();
+    // removing username, password, because they shouldn't be displayed according to RFC 3986
+    uri.username('').password('').normalize();
+    var t = '';
+    if (uri._parts.protocol) {
+      t += uri._parts.protocol + '://';
+    }
+
+    if (uri._parts.hostname) {
+      if (uri.is('punycode') && punycode) {
+        t += punycode.toUnicode(uri._parts.hostname);
+        if (uri._parts.port) {
+          t += ':' + uri._parts.port;
+        }
+      } else {
+        t += uri.host();
+      }
+    }
+
+    if (uri._parts.hostname && uri._parts.path && uri._parts.path.charAt(0) !== '/') {
+      t += '/';
+    }
+
+    t += uri.path(true);
+    if (uri._parts.query) {
+      var q = '';
+      for (var i = 0, qp = uri._parts.query.split('&'), l = qp.length; i < l; i++) {
+        var kv = (qp[i] || '').split('=');
+        q += '&' + URI.decodeQuery(kv[0], this._parts.escapeQuerySpace)
+          .replace(/&/g, '%26');
+
+        if (kv[1] !== undefined) {
+          q += '=' + URI.decodeQuery(kv[1], this._parts.escapeQuerySpace)
+            .replace(/&/g, '%26');
+        }
+      }
+      t += '?' + q.substring(1);
+    }
+
+    t += URI.decodeQuery(uri.hash(), true);
+    return t;
+  };
+
+  // resolving relative and absolute URLs
+  p.absoluteTo = function(base) {
+    var resolved = this.clone();
+    var properties = ['protocol', 'username', 'password', 'hostname', 'port'];
+    var basedir, i, p;
+
+    if (this._parts.urn) {
+      throw new Error('URNs do not have any generally defined hierarchical components');
+    }
+
+    if (!(base instanceof URI)) {
+      base = new URI(base);
+    }
+
+    if (!resolved._parts.protocol) {
+      resolved._parts.protocol = base._parts.protocol;
+    }
+
+    if (this._parts.hostname) {
+      return resolved;
+    }
+
+    for (i = 0; (p = properties[i]); i++) {
+      resolved._parts[p] = base._parts[p];
+    }
+
+    if (!resolved._parts.path) {
+      resolved._parts.path = base._parts.path;
+      if (!resolved._parts.query) {
+        resolved._parts.query = base._parts.query;
+      }
+    } else if (resolved._parts.path.substring(-2) === '..') {
+      resolved._parts.path += '/';
+    }
+
+    if (resolved.path().charAt(0) !== '/') {
+      basedir = base.directory();
+      basedir = basedir ? basedir : base.path().indexOf('/') === 0 ? '/' : '';
+      resolved._parts.path = (basedir ? (basedir + '/') : '') + resolved._parts.path;
+      resolved.normalizePath();
+    }
+
+    resolved.build();
+    return resolved;
+  };
+  p.relativeTo = function(base) {
+    var relative = this.clone().normalize();
+    var relativeParts, baseParts, common, relativePath, basePath;
+
+    if (relative._parts.urn) {
+      throw new Error('URNs do not have any generally defined hierarchical components');
+    }
+
+    base = new URI(base).normalize();
+    relativeParts = relative._parts;
+    baseParts = base._parts;
+    relativePath = relative.path();
+    basePath = base.path();
+
+    if (relativePath.charAt(0) !== '/') {
+      throw new Error('URI is already relative');
+    }
+
+    if (basePath.charAt(0) !== '/') {
+      throw new Error('Cannot calculate a URI relative to another relative URI');
+    }
+
+    if (relativeParts.protocol === baseParts.protocol) {
+      relativeParts.protocol = null;
+    }
+
+    if (relativeParts.username !== baseParts.username || relativeParts.password !== baseParts.password) {
+      return relative.build();
+    }
+
+    if (relativeParts.protocol !== null || relativeParts.username !== null || relativeParts.password !== null) {
+      return relative.build();
+    }
+
+    if (relativeParts.hostname === baseParts.hostname && relativeParts.port === baseParts.port) {
+      relativeParts.hostname = null;
+      relativeParts.port = null;
+    } else {
+      return relative.build();
+    }
+
+    if (relativePath === basePath) {
+      relativeParts.path = '';
+      return relative.build();
+    }
+
+    // determine common sub path
+    common = URI.commonPath(relativePath, basePath);
+
+    // If the paths have nothing in common, return a relative URL with the absolute path.
+    if (!common) {
+      return relative.build();
+    }
+
+    var parents = baseParts.path
+      .substring(common.length)
+      .replace(/[^\/]*$/, '')
+      .replace(/.*?\//g, '../');
+
+    relativeParts.path = (parents + relativeParts.path.substring(common.length)) || './';
+
+    return relative.build();
+  };
+
+  // comparing URIs
+  p.equals = function(uri) {
+    var one = this.clone();
+    var two = new URI(uri);
+    var one_map = {};
+    var two_map = {};
+    var checked = {};
+    var one_query, two_query, key;
+
+    one.normalize();
+    two.normalize();
+
+    // exact match
+    if (one.toString() === two.toString()) {
+      return true;
+    }
+
+    // extract query string
+    one_query = one.query();
+    two_query = two.query();
+    one.query('');
+    two.query('');
+
+    // definitely not equal if not even non-query parts match
+    if (one.toString() !== two.toString()) {
+      return false;
+    }
+
+    // query parameters have the same length, even if they're permuted
+    if (one_query.length !== two_query.length) {
+      return false;
+    }
+
+    one_map = URI.parseQuery(one_query, this._parts.escapeQuerySpace);
+    two_map = URI.parseQuery(two_query, this._parts.escapeQuerySpace);
+
+    for (key in one_map) {
+      if (hasOwn.call(one_map, key)) {
+        if (!isArray(one_map[key])) {
+          if (one_map[key] !== two_map[key]) {
+            return false;
+          }
+        } else if (!arraysEqual(one_map[key], two_map[key])) {
+          return false;
+        }
+
+        checked[key] = true;
+      }
+    }
+
+    for (key in two_map) {
+      if (hasOwn.call(two_map, key)) {
+        if (!checked[key]) {
+          // two contains a parameter not present in one
+          return false;
+        }
+      }
+    }
+
+    return true;
+  };
+
+  // state
+  p.duplicateQueryParameters = function(v) {
+    this._parts.duplicateQueryParameters = !!v;
+    return this;
+  };
+
+  p.escapeQuerySpace = function(v) {
+    this._parts.escapeQuerySpace = !!v;
+    return this;
+  };
+
+  return URI;
+}));
+
+/*!
+ * URI.js - Mutating URLs
+ * URI Template Support - http://tools.ietf.org/html/rfc6570
+ *
+ * Version: 1.17.0
+ *
+ * Author: Rodney Rehm
+ * Web: http://medialize.github.io/URI.js/
+ *
+ * Licensed under
+ *   MIT License http://www.opensource.org/licenses/mit-license
+ *   GPL v3 http://opensource.org/licenses/GPL-3.0
+ *
+ */
+(function (root, factory) {
+  'use strict';
+  // https://github.com/umdjs/umd/blob/master/returnExports.js
+  if (typeof exports === 'object') {
+    // Node
+    module.exports = factory(require('./URI'));
+  } else if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['./URI'], factory);
+  } else {
+    // Browser globals (root is window)
+    root.URITemplate = factory(root.URI, root);
+  }
+}(this, function (URI, root) {
+  'use strict';
+  // FIXME: v2.0.0 renamce non-camelCase properties to uppercase
+  /*jshint camelcase: false */
+
+  // save current URITemplate variable, if any
+  var _URITemplate = root && root.URITemplate;
+
+  var hasOwn = Object.prototype.hasOwnProperty;
+  function URITemplate(expression) {
+    // serve from cache where possible
+    if (URITemplate._cache[expression]) {
+      return URITemplate._cache[expression];
+    }
+
+    // Allow instantiation without the 'new' keyword
+    if (!(this instanceof URITemplate)) {
+      return new URITemplate(expression);
+    }
+
+    this.expression = expression;
+    URITemplate._cache[expression] = this;
+    return this;
+  }
+
+  function Data(data) {
+    this.data = data;
+    this.cache = {};
+  }
+
+  var p = URITemplate.prototype;
+  // list of operators and their defined options
+  var operators = {
+    // Simple string expansion
+    '' : {
+      prefix: '',
+      separator: ',',
+      named: false,
+      empty_name_separator: false,
+      encode : 'encode'
+    },
+    // Reserved character strings
+    '+' : {
+      prefix: '',
+      separator: ',',
+      named: false,
+      empty_name_separator: false,
+      encode : 'encodeReserved'
+    },
+    // Fragment identifiers prefixed by '#'
+    '#' : {
+      prefix: '#',
+      separator: ',',
+      named: false,
+      empty_name_separator: false,
+      encode : 'encodeReserved'
+    },
+    // Name labels or extensions prefixed by '.'
+    '.' : {
+      prefix: '.',
+      separator: '.',
+      named: false,
+      empty_name_separator: false,
+      encode : 'encode'
+    },
+    // Path segments prefixed by '/'
+    '/' : {
+      prefix: '/',
+      separator: '/',
+      named: false,
+      empty_name_separator: false,
+      encode : 'encode'
+    },
+    // Path parameter name or name=value pairs prefixed by ';'
+    ';' : {
+      prefix: ';',
+      separator: ';',
+      named: true,
+      empty_name_separator: false,
+      encode : 'encode'
+    },
+    // Query component beginning with '?' and consisting
+    // of name=value pairs separated by '&'; an
+    '?' : {
+      prefix: '?',
+      separator: '&',
+      named: true,
+      empty_name_separator: true,
+      encode : 'encode'
+    },
+    // Continuation of query-style &name=value pairs
+    // within a literal query component.
+    '&' : {
+      prefix: '&',
+      separator: '&',
+      named: true,
+      empty_name_separator: true,
+      encode : 'encode'
+    }
+
+    // The operator characters equals ("="), comma (","), exclamation ("!"),
+    // at sign ("@"), and pipe ("|") are reserved for future extensions.
+  };
+
+  // storage for already parsed templates
+  URITemplate._cache = {};
+  // pattern to identify expressions [operator, variable-list] in template
+  URITemplate.EXPRESSION_PATTERN = /\{([^a-zA-Z0-9%_]?)([^\}]+)(\}|$)/g;
+  // pattern to identify variables [name, explode, maxlength] in variable-list
+  URITemplate.VARIABLE_PATTERN = /^([^*:]+)((\*)|:(\d+))?$/;
+  // pattern to verify variable name integrity
+  URITemplate.VARIABLE_NAME_PATTERN = /[^a-zA-Z0-9%_]/;
+
+  // expand parsed expression (expression, not template!)
+  URITemplate.expand = function(expression, data) {
+    // container for defined options for the given operator
+    var options = operators[expression.operator];
+    // expansion type (include keys or not)
+    var type = options.named ? 'Named' : 'Unnamed';
+    // list of variables within the expression
+    var variables = expression.variables;
+    // result buffer for evaluating the expression
+    var buffer = [];
+    var d, variable, i;
+
+    for (i = 0; (variable = variables[i]); i++) {
+      // fetch simplified data source
+      d = data.get(variable.name);
+      if (!d.val.length) {
+        if (d.type) {
+          // empty variables (empty string)
+          // still lead to a separator being appended!
+          buffer.push('');
+        }
+        // no data, no action
+        continue;
+      }
+
+      // expand the given variable
+      buffer.push(URITemplate['expand' + type](
+        d,
+        options,
+        variable.explode,
+        variable.explode && options.separator || ',',
+        variable.maxlength,
+        variable.name
+      ));
+    }
+
+    if (buffer.length) {
+      return options.prefix + buffer.join(options.separator);
+    } else {
+      // prefix is not prepended for empty expressions
+      return '';
+    }
+  };
+  // expand a named variable
+  URITemplate.expandNamed = function(d, options, explode, separator, length, name) {
+    // variable result buffer
+    var result = '';
+    // peformance crap
+    var encode = options.encode;
+    var empty_name_separator = options.empty_name_separator;
+    // flag noting if values are already encoded
+    var _encode = !d[encode].length;
+    // key for named expansion
+    var _name = d.type === 2 ? '': URI[encode](name);
+    var _value, i, l;
+
+    // for each found value
+    for (i = 0, l = d.val.length; i < l; i++) {
+      if (length) {
+        // maxlength must be determined before encoding can happen
+        _value = URI[encode](d.val[i][1].substring(0, length));
+        if (d.type === 2) {
+          // apply maxlength to keys of objects as well
+          _name = URI[encode](d.val[i][0].substring(0, length));
+        }
+      } else if (_encode) {
+        // encode value
+        _value = URI[encode](d.val[i][1]);
+        if (d.type === 2) {
+          // encode name and cache encoded value
+          _name = URI[encode](d.val[i][0]);
+          d[encode].push([_name, _value]);
+        } else {
+          // cache encoded value
+          d[encode].push([undefined, _value]);
+        }
+      } else {
+        // values are already encoded and can be pulled from cache
+        _value = d[encode][i][1];
+        if (d.type === 2) {
+          _name = d[encode][i][0];
+        }
+      }
+
+      if (result) {
+        // unless we're the first value, prepend the separator
+        result += separator;
+      }
+
+      if (!explode) {
+        if (!i) {
+          // first element, so prepend variable name
+          result += URI[encode](name) + (empty_name_separator || _value ? '=' : '');
+        }
+
+        if (d.type === 2) {
+          // without explode-modifier, keys of objects are returned comma-separated
+          result += _name + ',';
+        }
+
+        result += _value;
+      } else {
+        // only add the = if it is either default (?&) or there actually is a value (;)
+        result += _name + (empty_name_separator || _value ? '=' : '') + _value;
+      }
+    }
+
+    return result;
+  };
+  // expand an unnamed variable
+  URITemplate.expandUnnamed = function(d, options, explode, separator, length) {
+    // variable result buffer
+    var result = '';
+    // performance crap
+    var encode = options.encode;
+    var empty_name_separator = options.empty_name_separator;
+    // flag noting if values are already encoded
+    var _encode = !d[encode].length;
+    var _name, _value, i, l;
+
+    // for each found value
+    for (i = 0, l = d.val.length; i < l; i++) {
+      if (length) {
+        // maxlength must be determined before encoding can happen
+        _value = URI[encode](d.val[i][1].substring(0, length));
+      } else if (_encode) {
+        // encode and cache value
+        _value = URI[encode](d.val[i][1]);
+        d[encode].push([
+          d.type === 2 ? URI[encode](d.val[i][0]) : undefined,
+          _value
+        ]);
+      } else {
+        // value already encoded, pull from cache
+        _value = d[encode][i][1];
+      }
+
+      if (result) {
+        // unless we're the first value, prepend the separator
+        result += separator;
+      }
+
+      if (d.type === 2) {
+        if (length) {
+          // maxlength also applies to keys of objects
+          _name = URI[encode](d.val[i][0].substring(0, length));
+        } else {
+          // at this point the name must already be encoded
+          _name = d[encode][i][0];
+        }
+
+        result += _name;
+        if (explode) {
+          // explode-modifier separates name and value by "="
+          result += (empty_name_separator || _value ? '=' : '');
+        } else {
+          // no explode-modifier separates name and value by ","
+          result += ',';
+        }
+      }
+
+      result += _value;
+    }
+
+    return result;
+  };
+
+  URITemplate.noConflict = function() {
+    if (root.URITemplate === URITemplate) {
+      root.URITemplate = _URITemplate;
+    }
+
+    return URITemplate;
+  };
+
+  // expand template through given data map
+  p.expand = function(data) {
+    var result = '';
+
+    if (!this.parts || !this.parts.length) {
+      // lazilyy parse the template
+      this.parse();
+    }
+
+    if (!(data instanceof Data)) {
+      // make given data available through the
+      // optimized data handling thingie
+      data = new Data(data);
+    }
+
+    for (var i = 0, l = this.parts.length; i < l; i++) {
+      /*jshint laxbreak: true */
+      result += typeof this.parts[i] === 'string'
+        // literal string
+        ? this.parts[i]
+        // expression
+        : URITemplate.expand(this.parts[i], data);
+      /*jshint laxbreak: false */
+    }
+
+    return result;
+  };
+  // parse template into action tokens
+  p.parse = function() {
+    // performance crap
+    var expression = this.expression;
+    var ePattern = URITemplate.EXPRESSION_PATTERN;
+    var vPattern = URITemplate.VARIABLE_PATTERN;
+    var nPattern = URITemplate.VARIABLE_NAME_PATTERN;
+    // token result buffer
+    var parts = [];
+      // position within source template
+    var pos = 0;
+    var variables, eMatch, vMatch;
+
+    // RegExp is shared accross all templates,
+    // which requires a manual reset
+    ePattern.lastIndex = 0;
+    // I don't like while(foo = bar()) loops,
+    // to make things simpler I go while(true) and break when required
+    while (true) {
+      eMatch = ePattern.exec(expression);
+      if (eMatch === null) {
+        // push trailing literal
+        parts.push(expression.substring(pos));
+        break;
+      } else {
+        // push leading literal
+        parts.push(expression.substring(pos, eMatch.index));
+        pos = eMatch.index + eMatch[0].length;
+      }
+
+      if (!operators[eMatch[1]]) {
+        throw new Error('Unknown Operator "' + eMatch[1]  + '" in "' + eMatch[0] + '"');
+      } else if (!eMatch[3]) {
+        throw new Error('Unclosed Expression "' + eMatch[0]  + '"');
+      }
+
+      // parse variable-list
+      variables = eMatch[2].split(',');
+      for (var i = 0, l = variables.length; i < l; i++) {
+        vMatch = variables[i].match(vPattern);
+        if (vMatch === null) {
+          throw new Error('Invalid Variable "' + variables[i] + '" in "' + eMatch[0] + '"');
+        } else if (vMatch[1].match(nPattern)) {
+          throw new Error('Invalid Variable Name "' + vMatch[1] + '" in "' + eMatch[0] + '"');
+        }
+
+        variables[i] = {
+          name: vMatch[1],
+          explode: !!vMatch[3],
+          maxlength: vMatch[4] && parseInt(vMatch[4], 10)
+        };
+      }
+
+      if (!variables.length) {
+        throw new Error('Expression Missing Variable(s) "' + eMatch[0] + '"');
+      }
+
+      parts.push({
+        expression: eMatch[0],
+        operator: eMatch[1],
+        variables: variables
+      });
+    }
+
+    if (!parts.length) {
+      // template doesn't contain any expressions
+      // so it is a simple literal string
+      // this probably should fire a warning or something?
+      parts.push(expression);
+    }
+
+    this.parts = parts;
+    return this;
+  };
+
+  // simplify data structures
+  Data.prototype.get = function(key) {
+    // performance crap
+    var data = this.data;
+    // cache for processed data-point
+    var d = {
+      // type of data 0: undefined/null, 1: string, 2: object, 3: array
+      type: 0,
+      // original values (except undefined/null)
+      val: [],
+      // cache for encoded values (only for non-maxlength expansion)
+      encode: [],
+      encodeReserved: []
+    };
+    var i, l, value;
+
+    if (this.cache[key] !== undefined) {
+      // we've already processed this key
+      return this.cache[key];
+    }
+
+    this.cache[key] = d;
+
+    if (String(Object.prototype.toString.call(data)) === '[object Function]') {
+      // data itself is a callback (global callback)
+      value = data(key);
+    } else if (String(Object.prototype.toString.call(data[key])) === '[object Function]') {
+      // data is a map of callbacks (local callback)
+      value = data[key](key);
+    } else {
+      // data is a map of data
+      value = data[key];
+    }
+
+    // generalize input into [ [name1, value1], [name2, value2], … ]
+    // so expansion has to deal with a single data structure only
+    if (value === undefined || value === null) {
+      // undefined and null values are to be ignored completely
+      return d;
+    } else if (String(Object.prototype.toString.call(value)) === '[object Array]') {
+      for (i = 0, l = value.length; i < l; i++) {
+        if (value[i] !== undefined && value[i] !== null) {
+          // arrays don't have names
+          d.val.push([undefined, String(value[i])]);
+        }
+      }
+
+      if (d.val.length) {
+        // only treat non-empty arrays as arrays
+        d.type = 3; // array
+      }
+    } else if (String(Object.prototype.toString.call(value)) === '[object Object]') {
+      for (i in value) {
+        if (hasOwn.call(value, i) && value[i] !== undefined && value[i] !== null) {
+          // objects have keys, remember them for named expansion
+          d.val.push([i, String(value[i])]);
+        }
+      }
+
+      if (d.val.length) {
+        // only treat non-empty objects as objects
+        d.type = 2; // object
+      }
+    } else {
+      d.type = 1; // primitive string (could've been string, number, boolean and objects with a toString())
+      // arrays don't have names
+      d.val.push([undefined, String(value)]);
+    }
+
+    return d;
+  };
+
+  // hook into URI for fluid access
+  URI.expand = function(expression, data) {
+    var template = new URITemplate(expression);
+    var expansion = template.expand(data);
+
+    return new URI(expansion);
+  };
+
+  return URITemplate;
+}));
+
 // vim:ts=4:sts=4:sw=4:
 /*!
  *
@@ -1918,7 +4580,7 @@ return Q;
         module.exports = factory();
     } else {
         // Browser globals (root is window)
-        root.stargate = factory();
+        root.Stargate = factory();
     }
 }(this, function () {
     // Public interface
@@ -2353,824 +5015,132 @@ var AdManager = {
 function AdStargate() {
 
 
-    // FIXME remove postmessages
 
     this.initialize = function(data, callbackSuccess, callbackError){
-    	 var msgId = Stargate.createMessageId();
-         Stargate.messages[msgId] = new Message();
-         Stargate.messages[msgId].msgId = msgId;
-         Stargate.messages[msgId].exec = 'stargate.initializeAd';
-         if (typeof data !== 'undefined'){
-             Stargate.messages[msgId].data = data;
-         }
-         Stargate.messages[msgId].callbackSuccess = callbackSuccess;
-         Stargate.messages[msgId].callbackError = callbackError;
-         Stargate.messages[msgId].send();
+        err("unimplemented");
+        callbackError("unimplemented");
     };
 
     this.createBanner = function(data, callbackSuccess, callbackError){
-    	var msgId = Stargate.createMessageId();
-        Stargate.messages[msgId] = new Message();
-        Stargate.messages[msgId].msgId = msgId;
-        Stargate.messages[msgId].exec = 'stargate.createBanner';
-        if (typeof data !== 'undefined'){
-            Stargate.messages[msgId].data = data;
-        }
-        Stargate.messages[msgId].callbackSuccess = callbackSuccess;
-        Stargate.messages[msgId].callbackError = callbackError;
-        Stargate.messages[msgId].send();
-
+    	err("unimplemented");
+        callbackError("unimplemented");
     };
 
-    this.hideBanner = function(data){
-    	var msgId = Stargate.createMessageId();
-        Stargate.messages[msgId] = new Message();
-        Stargate.messages[msgId].msgId = msgId;
-        Stargate.messages[msgId].exec = 'stargate.hideBanner';
-        if (typeof data !== 'undefined'){
-            Stargate.messages[msgId].data = data;
-        }
-        Stargate.messages[msgId].send();
-
+    this.hideBanner = function(data, callbackSuccess, callbackError){
+    	err("unimplemented");
+        callbackError("unimplemented");
     };
 
-    this.removeBanner = function(data){
-    	var msgId = Stargate.createMessageId();
-        Stargate.messages[msgId] = new Message();
-        Stargate.messages[msgId].msgId = msgId;
-        Stargate.messages[msgId].exec = 'stargate.removeBanner';
-        if (typeof data !== 'undefined'){
-            Stargate.messages[msgId].data = data;
-        }
-        Stargate.messages[msgId].send();
-
+    this.removeBanner = function(data, callbackSuccess, callbackError){
+    	err("unimplemented");
+        callbackError("unimplemented");
     };
 
-    this.showBannerAtSelectedPosition = function(data){
-    	var msgId = Stargate.createMessageId();
-        Stargate.messages[msgId] = new Message();
-        Stargate.messages[msgId].msgId = msgId;
-        Stargate.messages[msgId].exec = 'stargate.showBannerAtSelectedPosition';
-        if (typeof data !== 'undefined'){
-            Stargate.messages[msgId].data = data;
-        }
-        Stargate.messages[msgId].send();
-
+    this.showBannerAtSelectedPosition = function(data, callbackSuccess, callbackError){
+    	err("unimplemented");
+        callbackError("unimplemented");
     };
 
-    this.showBannerAtGivenXY = function(data){
-    	var msgId = Stargate.createMessageId();
-        Stargate.messages[msgId] = new Message();
-        Stargate.messages[msgId].msgId = msgId;
-        Stargate.messages[msgId].exec = 'stargate.showBannerAtGivenXY';
-        if (typeof data !== 'undefined'){
-            Stargate.messages[msgId].data = data;
-        }
-        Stargate.messages[msgId].send();
-
+    this.showBannerAtGivenXY = function(data, callbackSuccess, callbackError){
+    	err("unimplemented");
+        callbackError("unimplemented");
     };
 
-    this.registerAdEvents = function(eventManager){
-    	var msgId = Stargate.createMessageId();
-        Stargate.messages[msgId] = new Message();
-        Stargate.messages[msgId].msgId = msgId;
-        Stargate.messages[msgId].exec = 'stargate.registerAdEvents';
-        if (typeof eventManager !== 'undefined'){
-            Stargate.messages[msgId].eventManager = eventManager;
-        }
-        Stargate.messages[msgId].send();
-
+    this.registerAdEvents = function(eventManager, callbackSuccess, callbackError){
+    	err("unimplemented");
+        callbackError("unimplemented");
     };
 
     this.prepareInterstitial = function(data, callbackSuccess, callbackError){
-    	var msgId = Stargate.createMessageId();
-        Stargate.messages[msgId] = new Message();
-        Stargate.messages[msgId].msgId = msgId;
-        Stargate.messages[msgId].exec = 'stargate.prepareInterstitial';
-        if (typeof data !== 'undefined'){
-            Stargate.messages[msgId].data = data;
-        }
-        Stargate.messages[msgId].callbackSuccess = callbackSuccess;
-        Stargate.messages[msgId].callbackError = callbackError;
-        Stargate.messages[msgId].send();
+    	err("unimplemented");
+        callbackError("unimplemented");
     };
 
-    this.showInterstitial = function(data){
-    	var msgId = Stargate.createMessageId();
-        Stargate.messages[msgId] = new Message();
-        Stargate.messages[msgId].msgId = msgId;
-        Stargate.messages[msgId].exec = 'stargate.showInterstitial';
-        if (typeof data !== 'undefined'){
-            Stargate.messages[msgId].data = data;
-        }
-        Stargate.messages[msgId].send();
-
+    this.showInterstitial = function(data, callbackSuccess, callbackError){
+    	err("unimplemented");
+        callbackError("unimplemented");
     };
-    
-	this.test = function(){
-		alert("it works");
-	}
 };
-/* globals facebookConnectPlugin, deltadna, StatusBar, Connection, device */
+/* global deltadna */
+
+var onDeltaDNAStartedSuccess = function() {
+    deltadna.registerPushCallback(
+		onDeltaDNAPush
+	); 
+};
 
 
-// FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
-// FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
-// FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
-// 
-// move all code to stargate.js
-// 
-// FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
-// FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
-// FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
+var onDeltaDNAStartedError = function(error) {
+    err("[DeltaDNA] error: " + error);
+};
 
-var app = {
+var onDeltaDNAPush = function(pushDatas) {
+    if(ua.Android() && pushDatas.payload && pushDatas.payload.url && !pushDatas.foreground){
+		launchUrl(pushDatas.payload.url);
+	}
+    if(ua.iOS() && pushDatas.url){
+        launchUrl(pushDatas.url);
+    }
+};
+/* global facebookConnectPlugin */
 
-    height: '',
-    width: '',
-    appUrl: '',
-    version: '',
-    country: '',
-    selector: '',
-    api_selector: '',
-    app_prefix: '',
-    hybrid_conf: {},
-    crypter: {},
-    msgId: '',
-    busy: false,
-    back: 0,
-    
-    /*
-    isBusy: function(){
-        return app.busy;
-    },
-    
-    setBusy: function(value){
-        app.busy = value;
-        if (value){
-            startLoading();
-        } else {
-            stopLoading();
-        }
-    },
-    
-    hasFeature: function(feature){
-        return (typeof CONFIGS.label.features[feature] !== 'undefined' && CONFIGS.label.features[feature]);
-    },
 
-    handshake: function() {
-        appframe = document.getElementById('appframe');
-        appframe.contentWindow.postMessage("{'exec':'handshake'}", '*');
-    },
-    
-    initialUrl: function(requestedUrl) {
-        var uri2process = requestedUrl || CONFIGS.label.url;
+stargatePublic.facebookLogin = function(scope, callbackSuccess, callbackError) {
 
-        var uri = new Uri(uri2process);
 
-        if (CONFIGS.label.qps_fw && CONFIGS.label.qps_fw instanceof Array) {
-            for (var i = 0; i < CONFIGS.label.qps_fw.length; i=i+2) {
-                uri.addQueryParam( CONFIGS.label.qps_fw[i], CONFIGS.label.qps_fw[i+1] );
-            }
-        }
-        if (CONFIGS.label.qps && CONFIGS.label.qps instanceof Array) {
-            for (var i = 0; i < CONFIGS.label.qps.length; i=i+2) {
-                uri.addQueryParam( CONFIGS.label.qps[i], CONFIGS.label.qps[i+1] );
-            }
-        }
-        
-        if(app.version){
-            uri.addQueryParam('hv', app.version);
-        }
-        
-        return uri.toString();
-    },
+    // FIXME: check that facebook plugin is installed
+    // FIXME: check parameters
 
-    url: function() {
-        if (!app.appUrl){
-            app.appUrl = CONFIGS.label.url;
-        }
-        
-        return app.appUrl;
-    },
+    facebookConnectPlugin.login(
+        scope.split(","),
 
-    // Application Constructor
-    initialize: function() {
-        document.title = CONFIGS.label.title;
-
-        cordova.getAppVersion(function (version) {
-            if(version){
-                 app.version = version;
-                 console.log("[app] got version: "+version);
-            }
-        });
-        
-        // if i don't have network connection on startup/loading
-        // i show a page of error with a retry button
-        if(navigator.network.connection.type == Connection.NONE){
-            navigator.splashscreen.hide();
-            window.location.href = 'retry.html';
-            return;
-        }
-		StatusBar.hide();
-
-        // save iframe reference
-        app.iframe = document.getElementById("appframe");
-        
-        // -- bind events listener --
-        if (device.platform == "iOS") {
-			app.onOrientationChange();
-            window.addEventListener('orientationchange', app.onOrientationChange, false);
-        }
-        window.addEventListener('message', app.onMessageReceived, false);
-        
-        // stargate crypter implementation with forge
-        app.crypter = forge.pki.privateKeyFromPem(CONFIGS.label.privateKey);
-        
-        if (app.hasFeature('mfp')) {
-            MFP.check();
-        } else {
-        	app.launch(app.url());
-        }      
-        
-        // -- newton --
-        var newton_device_id;
-        
-        if (app.hasFeature('newton')) {
-
-            // get device id for newton from localstorage or calculate and save
-            if (window.localStorage.getItem('newton_device_id')){
-                newton_device_id = window.localStorage.getItem('newton_device_id');
-            } else {
-                newton_device_id = device.uuid;
-                window.localStorage.setItem('newton_device_id', newton_device_id);
-            }
-            // set the user id
-            window.newton.changeUser(newton_device_id, app.notificationListener, app.cordovaError);
-        }
-        // -- --
-
-        if (app.hasFeature('deltadna')) {
-            deltadna.startSDK(CONFIGS.label.deltadna.environmentKey, CONFIGS.label.deltadna.collectApi, CONFIGS.label.deltadna.engageApi, app.onDeltaDNAStartedSuccess, app.onDeltaDNAStartedError, CONFIGS.label.deltadna.settings);
-        }
-    },
-    
-    launch: function(url) {
-        console.log('launch: ' + url);
-        app.iframe.src = app.initialUrl(url);
-    },
-
-    onOrientationChange: function() {
-        // FIXME
-        var dim1 = screen.width,
-            dim2 = screen.height;
-        
-        var banner = 0, marginTop = 0;
-        
-        switch (window.orientation) {
-            case 90:
-            case -90:
-                //landscape
-                if (dim1 > dim2){
-                    app.width = dim1;
-                    app.height = dim2 - marginTop;
-                } else {
-                    app.width = dim2;
-                    app.height = dim1 - marginTop;
-                }
-                break;
-            case 0:
-            case 180:
-                //portrait
-                if (dim1 > dim2){
-                    app.width = dim2;
-                    app.height = dim1 - marginTop;
-                } else {
-                    app.width = dim1;
-                    app.height = dim2 - marginTop;
-                }
-                break;
-        }
-        
-        
-        app.iframe.style.height = (app.height) + "px";
-        app.iframe.style.width = (app.width) + "px";
-        
-        
-        
-        // DISPATCH RESIZE EVENT INSIDE GAMES
-        if (app.iframe.contentWindow.cr_sizeCanvas) {
-            app.iframe.contentWindow.cr_sizeCanvas(window.innerWidth, window.innerHeight);
-        } else {
-            var event = document.createEvent("OrientationEvent");
-            event.initEvent("orientationchange", false, false);
-            app.iframe.contentWindow.innerHeight = window.innerHeight;
-            app.iframe.contentWindow.innerWidth = window.innerWidth;
-            app.iframe.contentWindow.dispatchEvent(event);
-            
-            
-        }
-        
-        // iframe inside game, set main window size
-        if (app.iframe.contentDocument.getElementsByTagName("iframe").length > 0) {
-            document.body.style.height = (app.height) + "px";
-            document.body.style.width = (app.width) + "px";
-        }
-        else {
-            document.body.style.height = "";
-            document.body.style.width = "";
-        }
-        
-        console.log("[app] onOrientationChange");
-    },
-	
-	notificationListener: function(notification) {
-        console.log("Received notification: ", notification);
-
-        if ( !! window.localStorage.getItem('newton_disabled') ) {
-            console.log("Push disabled, ignoring notification.");
-            return;
-        }
-        
-        var notifObj = {
-            "push_id": notification.push_id
-        };
-        if (notification.title) {
-            notifObj["title"] = notification.title;
-        }
-        if (notification.body) {
-            notifObj["body"] = notification.body;
-        }
-        if (notification.custom_fields) {
-            if (typeof notification.custom_fields === "object") {
-                notifObj["custom_fields"] = notification.custom_fields;
-            } else {
-                try {
-                    notifObj["custom_fields"] = JSON.parse(notification.custom_fields);
-                }
-                catch (e) {
-                    notifObj["custom_fields"] = { "error": true, "errorType": "parseError", "errorMessage": e};
-                }
-            }
-        }
-
-        console.log("Parsed notification: ", notifObj);
-
-        // FIXME change url of iframe
-        if (notifObj.custom_fields.url) {
-            app.launch( notifObj.custom_fields.url );
-            return;
-        }
-        if (notifObj.custom_fields.eurl) {
-            var ref = window.open(notifObj.custom_fields.eurl,
-                '_system', 'location=no,toolbar=no');
-            app.launch( app.appUrl );
-            return;
-        }
-	},
-    */
-	cordovaError: function(err) {
-        if (err === null) {
-            // no result callback: isn't an error
-            return;
-        }
-		console.error("Error from Cordova: "+err);
-	},
-    onMessageReceived: function (event) {
-        
-        if ( event.origin !== CONFIGS.label.origin ) {
-			console.log("postMessage received from invalid origin", event);
-            return;
-        }
-        
-        var message = {};
-
-        try {
-            message = JSON.parse(event.data);
-        }
-        catch (e) {
-            console.log("Json error: ", event.data);
-            return;
-        }
-        
-        if (app.isBusy() && message.exec !== 'ready'){
-            console.log("Message received but the app is busy, ignoring");
-            return;
-        }
-
-        switch(message.exec){
-            case 'system':
-                window.open(message.url, "_system");
-                break;
-
-            /*
-            case 'ready':
-				navigator.splashscreen.hide();
-                app.setBusy(false);
-
-                if(message.country){
-					app.country = message.country;
-				}
-				if(message.selector){
-					app.selector = message.selector;
-				}
-				if(message.api_selector){
-					app.api_selector = message.api_selector;
-				}
-				if(message.app_prefix){
-					app.app_prefix = message.app_prefix;
-				}
-				if(message.hybrid_conf){
-                    if (typeof message.hybrid_conf === 'object') {
-                        app.hybrid_conf = message.hybrid_conf;
-                    } else {
-                        app.hybrid_conf = JSON.parse(decodeURIComponent(message.hybrid_conf));
-                    }
-				}
-				if (ua.iOS()){
-                    app.onOrientationChange();
-                }
-                if(message.msgId){
-                    // Stargate ready: Handshake
-                    app.sendBackToStargate('handshake', message.msgId, true, {});
-                }
-				IAP.initialize();
-				break;
-                */
-            case 'stargate.facebookLogin':
-                app.setBusy(true);
-                app.msgId = message.msgId;
-
-                facebookConnectPlugin.login(message.scope.split(","),
-                    app.onFbLoginSuccessStargate,
-                    function (error) {
-                        app.setBusy(false);
-                        // error.errorMessage
-                        console.log("Got FB login error:", error);
-                        app.sendBackToStargate('stargate.facebooklogin', app.msgId, false, {'error':error}, true);
-                    }
-                );
-                break;
-			case 'stargate.facebookShare':
-                app.setBusy(true);
-                app.msgId = message.msgId;
-
-				var options = {
-					method: "share",
-					href: message.url
-				};
-				
-				facebookConnectPlugin.showDialog(options, 
-					function(message){
-						app.sendBackToStargate('stargate.facebookShare', app.msgId, true, {'message':message}, false);
-					}, 
-					function(error){
-						app.setBusy(false);
-                        // error.errorMessage
-                        console.log("Got FB share error:", error);
-                        app.sendBackToStargate('stargate.facebookShare', app.msgId, false, {'error':error}, false);
-					}
-				);
-				break;
-            case 'fblogin':
-            	startLoading();
-                app.appUrl = message.url;
-                facebookConnectPlugin.login(message.scope.split(","),
-                                            app.onFbLoginSuccess,
-                                            function (error) {
-                                                // error.errorMessage
-                                                console.log("Got FB login error:", error);
-                                                stopLoading();
-                                            }
-                                            );
-                break;
-            case 'googlelogin':
-            	startLoading();
-				app.appUrl = message.url;
-				window.plugins.googleplus.login(
-					{'androidApiKey':CONFIGS.label.google_client_id},
-					app.onGoogleLoginSuccess,
-					function (error) {
-						console.log('Got Google login error: ' + error);
-						stopLoading();
-					}
-				);
-				break;
-            case 'purchase':
-				startLoading();
-				if (message.url){
-					app.appUrl = message.url;
-				}
-				store.order(IAP.id);
-				store.refresh();
-				break;
-            case 'stargate.purchase.subscription':
-                app.setBusy(true);
-                app.msgId = message.msgId;
-
-                if (message.returnUrl){
-                    app.appUrl = message.returnUrl;
-                }
-                if (typeof message.subscriptionUrl !==  'undefined'){
-                	IAP.subscribeMethod = message.subscriptionUrl;
-				}
-                
-                // TODO: callback error (to be modified inside IAP plugin),
-                store.order(IAP.id);
-                store.refresh();
-                break;
-			case 'restore':
-				startLoading();
-				if (message.url){
-					app.appUrl = message.url;
-				}
-				store.refresh();
-				storekit.restore();
-				break;
-            case 'stargate.restore':
-                app.setBusy(true);
-                app.msgId = message.msgId;
-                
-                if (message.returnUrl){
-                    app.appUrl = message.returnUrl;
-                }
-                if (typeof message.subscriptionUrl ===  'undefined'){
-                    IAP.subscribeMethod = 'stargate';
-                }
-                
-                // TODO: callback error (to be modified inside IAP plugin),
-                store.refresh();
-                storekit.restore();
-                break;
-            case 'stargate.googleLogin':
-                console.log(message);
-                // BUSY
-                app.setBusy(true);
-                app.msgId = message.msgId;
-                window.plugins.googleplus.login(
-                    {'androidApiKey':CONFIGS.label.google_client_id},
-                    app.onGoogleLoginSuccessStargate,
-                    function (error) {
-                        console.log('Got Google login error: ' + error);
-                        app.sendBackToStargate('stargate.googleLogin', app.msgId, false, {'error':error});
-                        app.setBusy(false);
-                    }
-                );
-                break;
-			case 'stargate.checkConnection':
-                app.msgId = message.msgId;
-				var networkState = navigator.connection.type;
-				app.sendBackToStargate('stargate.checkConnection', app.msgId, true, {'networkState' : networkState});
-                break;
-			case 'stargate.getDeviceID':
-                app.msgId = message.msgId;
-				var deviceID = device.uuid;
-				app.sendBackToStargate('stargate.getDeviceId', app.msgId, true, {'deviceID' : deviceID});
-                break;
-            case 'stargate.createBanner':
-                app.setBusy(true);
-                app.msgId = message.msgId;
-				var advConf = null;
-				
-				if(message.data){
-                    if (typeof message.data === 'object') {
-                        advConf = message.data;
-                    } else {
-                        advConf = JSON.parse(decodeURIComponent(message.data));
-                    }
-				}
-				
-				AdManager.createBanner(advConf);
-                app.setBusy(false);
-                break;
-            case 'stargate.hideBanner':
-                app.setBusy(true);
-                app.msgId = message.msgId;
-				var advConf = null;
-				
-				if(message.data){
-                    if (typeof message.data === 'object') {
-                        advConf = message.data;
-                    } else {
-                        advConf = JSON.parse(decodeURIComponent(message.data));
-                    }
-				}
-				
-				AdManager.hideBanner(advConf);
-                app.setBusy(false);
-                break;
-            case 'stargate.removeBanner':
-                app.setBusy(true);
-                app.msgId = message.msgId;
-				var advConf = null;
-				
-				if(message.data){
-                    if (typeof message.data === 'object') {
-                        advConf = message.data;
-                    } else {
-                        advConf = JSON.parse(decodeURIComponent(message.data));
-                    }
-				}
-				
-				AdManager.removeBanner(advConf);
-                app.setBusy(false);
-                break;
-            }
-    },
-    
-    onFbLoginSuccess: function (userData) {
-    	facebookConnectPlugin.getAccessToken(function(token) {
-            app.appUrl = app.appUrl + '&apk_fb_user_token='+token;
-            app.launch(app.appUrl);
-        }, function(err) {
-            console.log("Could not get access token: " + err);
-            reboot();
-        });
-    },
-    onGoogleLoginSuccess: function (userData) {
-				
-		if(window.localStorage.getItem('googleRefreshToken_'+userData.userId)){
-			app.appUrl = app.appUrl + '&apk_google_user_token='+window.localStorage.getItem('googleRefreshToken_'+userData.userId);
-			app.launch(app.appUrl);		
-		}
-		else {
-
-			window.plugins.googleplus.token(
-				{'email':userData.email,
-				'androidApiKey':CONFIGS.label.google_client_id},
-				function (userToken) {
-					app.onGoogleTokenSuccess(userToken, userData);
-				},
-				function (error) {
-					console.log('Got Google login error: ' + error);
-					stopLoading();
-				}
-			);
-		}
-		
-    },
-	onGoogleTokenSuccess: function (userToken, userData) {
-				
-		if(userToken.oauthToken){
-							
-			var xmlhttp;
-		
-			if (window.XMLHttpRequest) {// code for IE7+, Firefox, Chrome, Opera, Safari
-				xmlhttp=new XMLHttpRequest();
-			} else {// code for IE6, IE5
-				xmlhttp=new ActiveXObject("Microsoft.XMLHTTP");
-			}		
-			
-			// network info	
-			xmlhttp.onreadystatechange = function() {
-				if (xmlhttp.readyState === 4){
-					if(xmlhttp.status === 200) {
-						try {
-							var serverResponse = JSON.parse(xmlhttp.responseText);							
-							var refresh_token = serverResponse.refresh_token;
-							
-							if(refresh_token){
-								window.localStorage.setItem('googleRefreshToken_'+userData.userId, refresh_token);
-								app.appUrl = app.appUrl + '&apk_google_user_token='+refresh_token;
-								app.launch(app.appUrl);
-							}
-							else {
-								console.log("Could not get refresh token");
-								reboot();
-							}		
-							
-						}
-						catch(e){
-							// display error message
-							console.log("Error app.onGoogleLoginSuccess reading the response: " + e.toString());
-							reboot();
-						}
-					}
-					else {
-						console.log("Error app.onGoogleLoginSuccess", xmlhttp.statusText);
-						app.launch(app.url());
-					}
-				}
-			};
-			
-			var url = CONFIGS.api.googleToken;
-			
-			xmlhttp.open("POST",url,true);
-			xmlhttp.setRequestHeader("Content-type","application/x-www-form-urlencoded");
-			var params = "client_id="+CONFIGS.label.google_client_id+"&client_secret="+CONFIGS.label.google_client_secret+"&code="+userToken.oauthToken+"&redirect_uri=&grant_type=authorization_code";
-			xmlhttp.send(params);
-		
-		}
-		else {
-            console.log("Could not get google code");
-            reboot();
-        }
-		
-    },
-    onFbLoginSuccessStargate: function (userData, msgId) {
-		app.setBusy(false);
-        facebookConnectPlugin.getAccessToken(function(token) {
-            app.sendBackToStargate('stargate.facebooklogin', app.msgId, true, {'accessToken' : token});
-        }, function(err) {
-            app.sendBackToStargate('stargate.facebooklogin', app.msgId, false, {'error':err});
-        });
-    },
-    onGoogleLoginSuccessStargate: function (userData) {
-        console.log(userData, CONFIGS.label.google_client_id);
-
-            app._userData = userData;
-            window.plugins.googleplus.token(
-                {'email':userData.email,
-                 'androidApiKey':CONFIGS.label.google_client_id},
-                function (userToken) {
-                    app.onGoogleTokenSuccess(userToken, app._userData);
+        // success callback
+        function (userData, msgId) {
+            facebookConnectPlugin.getAccessToken(
+                function(token) {
+                    callbackSuccess({'accessToken' : token});
                 },
-                function (error) {
-                    app.sendBackToStargate('stargate.googleLogin',
-                                            app.msgId,
-                                            false,
-                                            {'error':error}
-                    );
-                    console.log('Got Google login error: ' + error);
-                    app.setBusy(false);
+                function(err) {
+                    callbackSuccess({'error':err});
                 }
             );
-    },
-    onDeltaDNAStartedSuccess: function(){
-        deltadna.registerPushCallback(
-			app.onDeltaDNAPush
-		); 
-    },
-    onDeltaDNAStartedError: function(){
-        
-    },
-    onDeltaDNAPush: function(pushDatas){
-        if(ua.Android() && pushDatas.payload && pushDatas.payload.url && !pushDatas.foreground){
-			app.appUrl = pushDatas.payload.url;
-			app.launch(app.appUrl);				
-		}
-        if(ua.iOS() && pushDatas.url){
-            app.appUrl = pushDatas.url;
-            app.launch(app.appUrl);
+        },
+
+        // error callback
+        function (error) {
+            err("Got FB login error:", error);
+            callbackError({'error':error});
         }
-    },
-    sendBackToStargate:function(exec, originalMsgId, success, cbParams, keepBusy){
-        /*
-          Send back message to Stargate
-        * @param {String} exec <action>  where action can be 'stargate.facebookLogin' for example
-        * @param {String} originalMsgId
-        * @param {boolean} success
-        * @param {object} cbParams : an object with callback parameters
-        * */
-        var pm = {};
-        pm.exec = exec;
-        pm.originalMsgId = originalMsgId;
-        pm.success = success;
-        pm.callbackParams = cbParams;
-        pm.timestamp = Date.now();
+    );
+};
+
+stargatePublic.facebookShare = function(url, callbackSuccess, callbackError) {
+
+    // FIXME: check that facebook plugin is installed
+    // FIXME: check parameters
+
+
+    var options = {
+        method: "share",
+        href: url
+    };
+    
+    facebookConnectPlugin.showDialog(
+        options, 
         
-        var md = forge.md.sha1.create();
-        md.update(pm.originalMsgId + pm.exec + pm.timestamp + (pm.success ? 'OK' : 'KO'), 'utf8');
-        pm.signature = ''; //app.crypter.sign(md);
+        function(message){
+            callbackSuccess({'message':message});
+        }, 
 
-        //Send back but first append the signature ArrayBuffer
-        app.iframe.contentWindow.postMessage(JSON.stringify(pm), '*');
-		if(!keepBusy) app.setBusy(false);
-    }
+        function(error){
+
+            // error.errorMessage
+            err("Got FB share error:", error);
+            callbackError({'error':error});
+        }
+    );
 };
 
-var CONFIGS = {
-
-    api: {
-        networkInfo: 'http://api.playme.info/xradio/network.info?apikey=%apikey%&country=it&format=json',
-        dictPlayme: 'http://api.playme.info/%api_selector%/dictionary.get',
-        mfpSet: '/mfpset.php?url=%url%%pony%',
-        mfpGet: 'http://api.motime.com/v01/mobileFingerprint.get?apikey=%apikey%&contents_inapp=%contents_inapp%&country=%country%&expire=%expire%',
-        googleToken: 'https://accounts.google.com/o/oauth2/token',
-        userCreate: '%domain%/%country%/%selector%/%app_prefix%/store/usercreate/'
-    },
-    
-    iap_android: {
-        id: 'test_subscription_trial',
-        alias: 'PlayMe Subscription',
-        type: 'PAID_SUBSCRIPTION',
-        verbosity: 'DEBUG',
-        paymethod: 'gwallet'
-    },
-    
-    iap_ios: {
-        id: 'playme.subscription.monthly',
-        alias: 'PlayMe Subscription',
-        type: 'PAID_SUBSCRIPTION',
-        verbosity: 'DEBUG',
-        paymethod: 'itunes'
-    }
-};
-
-CONFIGS.getText = function (str){
-    console.error("CONFIGS.getText is deprecated!");
-    return str;
-};
 /* globals store, accountmanager */
 
 var IAP = {
@@ -3181,20 +5151,35 @@ var IAP = {
 	verbosity: '',
 	paymethod: '',
     subscribeMethod: 'stargate',
+    returnUrl: '',
 	
 	initialize: function () {
         if (!window.store) {
-            console.log('Store not available');
+            log('Store not available');
             return;
         }
 		
-		IAP.id = (app.hybrid_conf.IAP.id) ? app.hybrid_conf.IAP.id : ((ua.Android())?CONFIGS.iap_android.id:CONFIGS.iap_ios.id);
-		IAP.alias = (app.hybrid_conf.IAP.alias) ? app.hybrid_conf.IAP.alias : ((ua.Android())?CONFIGS.iap_android.alias:CONFIGS.iap_ios.alias);
-		IAP.type = (app.hybrid_conf.IAP.type) ? app.hybrid_conf.IAP.type : ((ua.Android())?CONFIGS.iap_android.type:CONFIGS.iap_ios.type);
-		IAP.verbosity = (app.hybrid_conf.IAP.verbosity) ? app.hybrid_conf.IAP.verbosity : ((ua.Android())?CONFIGS.iap_android.verbosity:CONFIGS.iap_ios.verbosity);
-		IAP.paymethod = (app.hybrid_conf.IAP.paymethod) ? app.hybrid_conf.IAP.paymethod : ((ua.Android())?CONFIGS.iap_android.paymethod:CONFIGS.iap_ios.paymethod);		
-		
-        console.log('IAP initialize id: '+IAP.id);
+        if (hybrid_conf.IAP.id) {
+            IAP.id = hybrid_conf.IAP.id;
+        }
+
+        if (hybrid_conf.IAP.alias) {
+            IAP.alias = hybrid_conf.IAP.alias;
+        }
+
+        if (hybrid_conf.IAP.type) {
+            IAP.type = hybrid_conf.IAP.type;
+        }
+
+        if (hybrid_conf.IAP.verbosity) {
+            IAP.verbosity = hybrid_conf.IAP.verbosity;
+        }
+
+        if (hybrid_conf.IAP.paymethod) {
+            IAP.paymethod = hybrid_conf.IAP.paymethod;
+        }
+
+        log('IAP initialize id: '+IAP.id);
 		
 		if(ua.Android()){
 			IAP.getGoogleAccount();
@@ -3229,8 +5214,8 @@ var IAP = {
 	checkGoogleAccount: function(result){
 		
 		if(result) {
-			console.log('accounts');
-			console.log(result);
+			log('accounts');
+			log(result);
 			
 			for(var i in result){
 				window.localStorage.setItem('googleAccount', result[i].email);
@@ -3240,27 +5225,27 @@ var IAP = {
 	},
  
     onProductUpdate: function(p){
-        console.log('IAP> Product updated.');
-        console.log(JSON.stringify(p));
+        log('IAP> Product updated.');
+        log(JSON.stringify(p));
         if (p.owned) {
-            console.log('Subscribed!');
+            log('Subscribed!');
         } else {
-            console.log('Not Subscribed');
+            log('Not Subscribed');
         }
     },
     
     onPurchaseApproved: function(p){
-        console.log('IAP> Purchase approved.');
-        console.log(JSON.stringify(p));
+        log('IAP> Purchase approved.');
+        log(JSON.stringify(p));
         //p.verify(); TODO before finish		
         p.finish();
     },
     onPurchaseVerified: function(p){
-        console.log("subscription verified");
+        log("subscription verified");
         //p.finish(); TODO
     },
     onStoreReady: function(){
-        console.log("\\o/ STORE READY \\o/");
+        log("\\o/ STORE READY \\o/");
         /*store.ask(IAP.alias)
         .then(function(data) {
               console.log('Price: ' + data.price);
@@ -3285,8 +5270,8 @@ var IAP = {
 		}
         
         if (ua.Android()){
-            var purchase_token = p.transaction.purchaseToken + '|' + CONFIGS.label.id + '|' + IAP.id;
-            console.log('Purchase Token: '+purchase_token);
+            var purchase_token = p.transaction.purchaseToken + '|' + stargateConf.id + '|' + IAP.id;
+            log('Purchase Token: '+purchase_token);
             
             if(!window.localStorage.getItem('user_account')){
                 IAP.createUser(p, purchase_token);
@@ -3295,23 +5280,7 @@ var IAP = {
         } else {
         
             storekit.loadReceipts(function (receipts) {
-                console.log('appStoreReceipt: ' + receipts.appStoreReceipt);
-                
-                if (IAP.subscribeMethod == 'callback'){
-                    // next generation subscription management
-                    var pm = {};
-                    pm.exec = 'stargate.purchase.subscription';
-                    pm.originalMsgId = app.msgId;
-                    pm.callbackParams = {
-                        'product' : p,
-                        'purchase_token': purchase_token,
-                        'paymethod': IAP.paymethod,
-                    };
-                    pm.success = true;
-                    appframe = document.getElementById('appframe');
-                    appframe.contentWindow.postMessage(JSON.stringify(pm), '*');
-                    return;
-                }
+                log('appStoreReceipt: ' + receipts.appStoreReceipt);
                                   
                 if(!window.localStorage.getItem('user_account')){
                     IAP.createUser(p, receipts.appStoreReceipt);
@@ -3322,37 +5291,51 @@ var IAP = {
     },
     
     onCancelledProduct: function(p){
-		app.sendBackToStargate('stargate.purchase.subscription', app.msgId, false, {'iap_cancelled' : 1, 'return_url' : app.appUrl}, false);
-        console.log('IAP > Purchase cancelled ##################################');
+        err("UN-IMPLEMENTED!");
+        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
+        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
+
+		//app.sendBackToStargate('stargate.purchase.subscription', app.msgId, false, {'iap_cancelled' : 1, 'return_url' : app.appUrl}, false);
+        log('IAP > Purchase cancelled ##################################');
     },
     
     onOrderApproved: function(order){
-       console.log("ORDER APPROVED "+IAP.id);
+       log("ORDER APPROVED "+IAP.id);
        order.finish();
     },
 	
 	error: function(error) {
-		app.sendBackToStargate('stargate.purchase.subscription', app.msgId, false, {'iap_error' : 1, 'return_url' : app.appUrl}, false);
-		console.log('error');	
+		err("UN-IMPLEMENTED!");
+        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
+        
+        //app.sendBackToStargate('stargate.purchase.subscription', app.msgId, false, {'iap_error' : 1, 'return_url' : app.appUrl}, false);
+		log('error');	
 	},
 	
 	createUser: function(product, purchaseToken){
 	
 		window.localStorage.setItem('user_account', ua.Android() ? (window.localStorage.getItem('googleAccount') ? window.localStorage.getItem('googleAccount') : purchaseToken+'@google.com') : product.transaction.id+'@itunes.com');
 		
+        err("UN-IMPLEMENTED!");
+        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
+        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
+        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
+        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
+        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
+        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
+        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
+        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
+        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
+        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
+        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
+        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
+        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
+        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
+        
+        /*
 		var url = IAP.subscribeMethod;		
 		
-		if (IAP.subscribeMethod == 'stargate'){
 		
-			url = CONFIGS.api.userCreate;
-		
-			if(app.app_prefix)
-				url = url.replace('%app_prefix%', app.app_prefix).replace('%selector%', app.selector);
-			else
-				url = url.replace('%app_prefix%/', '').replace('%selector%/', '');
-			
-			url = url.replace('%domain%', app.url()).replace('%country%', app.country);
-		}
 		
 		$.ajax({
 		  type: "POST",
@@ -3375,8 +5358,31 @@ var IAP = {
 			app.sendBackToStargate('stargate.purchase.subscription', app.msgId, false, error, false);
 		  }
 		});
+        */
 	}
 };
+
+
+
+
+/* global ProgressIndicator */
+
+function startLoading(){
+    ProgressIndicator.showSimple(true);
+}
+function stopLoading(){
+    ProgressIndicator.hide();
+}
+function timeoutLoading(t){
+    startLoading();
+    setTimeout(function(){stopLoading();}, t);
+}
+// code already minified, remove warnings
+/* jshint -W004 */
+/* jshint -W033 */
+/* jshint -W016 */
+
+
 var md5=(function(){function e(e,t){var o=e[0],u=e[1],a=e[2],f=e[3];o=n(o,u,a,f,t[0],7,-680876936);f=n(f,o,u,a,t[1],
 12,-389564586);a=n(a,f,o,u,t[2],17,606105819);u=n(u,a,f,o,t[3],22,-1044525330);o=n(o,u,a,f,t[4],7,-176418897);f=n(f,o,u,a,t[5],
 12,1200080426);a=n(a,f,o,u,t[6],17,-1473231341);u=n(u,a,f,o,t[7],22,-45705983);o=n(o,u,a,f,t[8],7,1770035416);f=n(f,o,u,a,t[9],
@@ -3404,156 +5410,752 @@ function c(e){var t="",n=0;for(;n<4;n++)t+=a[e>>n*8+4&15]+a[e>>n*8&15];return t}
 function h(e){for(var t=0;t<e.length;t++)e[t]=c(e[t]);return e.join("")}
 function d(e){return h(o(unescape(encodeURIComponent(e))))}
 function m(e,t){return e+t&4294967295}var a="0123456789abcdef".split("");return d})();
-var MFP = {};
+var MFP = {
 
-MFP.check = function(){
-	
-	if(CONFIGS.label.country){
-		
-		MFP.get(CONFIGS.label.country);
-		
-	}else{
+	check: function(){
 
-		var xmlhttp;
-		
-		if (window.XMLHttpRequest) {// code for IE7+, Firefox, Chrome, Opera, Safari
-			xmlhttp=new XMLHttpRequest();
-		} else {// code for IE6, IE5
-			xmlhttp=new ActiveXObject("Microsoft.XMLHTTP");
+		//if (window.localStorage.getItem('mfpCheckDone')){
+		//	return;
+		//}
+
+		// country defined on main stargate.js
+		if (country) {		
+			MFP.get(country);
+		}else{
+			err("Country not defined!");
 		}
-		
-		
-		// network info	
-		xmlhttp.onreadystatechange = function() {
-			if (xmlhttp.readyState === 4){
-				if(xmlhttp.status === 200) {
-					try {
-						console.log(xmlhttp.responseText);
-						var serverResponse = JSON.parse(xmlhttp.responseText);
-						console.log(serverResponse);
-						
-						var country = serverResponse.response.realCountry;
-						MFP.get(country);
+	},
+
+	getContents: function(country, namespace, label, extData){
+		var contents_inapp = {};
+	    contents_inapp.api_country = label;
+	    contents_inapp.country = country;
+	    contents_inapp.fpnamespace = namespace;
+	    if (extData){
+	        contents_inapp.extData = extData;
+	    }
+	    
+	    var json_data = JSON.stringify(contents_inapp);
+	       
+	    return json_data;
+	},
+
+	getPonyValue: function(ponyWithEqual) {
+		try {
+			return ponyWithEqual.split('=')[1];
+		}
+		catch (e) {
+			err(e);
+		}
+		return '';
+	},
+
+	set: function(pony, country){
+
+		// baseUrl: read from main stargate.js
+		var appUrl = baseUrl;
+		if (window.localStorage.getItem('appUrl')){
+			appUrl = window.localStorage.getItem('appUrl');
+		}
+
+		var currentUrl = new URI(baseUrl);
+
+		// stargateConf.api.mfpSetUriTemplate:
+		// '{protocol}://{hostname}/mfpset.php{?url}&{pony}'
+		var hostname = currentUrl.hostname();
+		var newUrl = URITemplate(stargateConf.api.mfpSetUriTemplate)
+	  		.expand({
+	  			"protocol": currentUrl.protocol(),
+	  			"hostname": hostname,
+	  			"url": appUrl,
+	  			"domain": hostname,
+	  			"_PONY": MFP.getPonyValue(pony)
+	  	});
+				
+		log("MFP going to url: ", newUrl);
+
+		launchUrl(newUrl);
+	},
+
+	get: function(country){
+		var expire = "";
+
+	    // stargateConf.api.mfpGetUriTemplate:
+	    // "http://domain.com/path.ext{?apikey,contents_inapp,country,expire}",
+
+		var mfpUrl = URITemplate(stargateConf.api.mfpGetUriTemplate)
+	  		.expand({
+	  			"apikey": stargateConf.motime_apikey,
+	  			"contents_inapp": MFP.getContents(country, stargateConf.namespace, stargateConf.label),
+	  			"country": country,
+	  			"expire": expire
+	  	});
+
+
+	  	reqwest({
+		    url: mfpUrl,
+		  	type: 'jsonp',
+			method: 'get',
+			error: function (error) {
+
+				err("MFP.get() error: "+ error);
+			},
+			success: function (resp) {
+
+				log("MFP.get() resp: ", resp);
+
+				var ponyUrl = '';
+
+				if (resp.content.inappInfo){
+					var jsonStruct = JSON.parse(resp.content.inappInfo);
+	                if ((jsonStruct.extData) && (jsonStruct.extData.ponyUrl)){
+						ponyUrl = jsonStruct.extData.ponyUrl;
 					}
-					catch(e){
-						// display error message
-						console.log("Error MFP.check reading the response: " + e.toString());
-						app.launch(app.url());
-					}
-				}
-				else {
-					console.log("Error MFP.check", xmlhttp.statusText); 
-					app.launch(app.url());
+	                if ((jsonStruct.extData) && (jsonStruct.extData.return_url)){
+	                	window.localStorage.setItem('appUrl', jsonStruct.extData.return_url);
+	                }
+	                
+	                MFP.set(ponyUrl, country);                
+				}else{
+					log("MFP.get(): Empty session");
 				}
 			}
-		}
+		});
 		
-		var url = CONFIGS.api.networkInfo;
-		url = url.replace('%apikey%',CONFIGS.label.apimm_apikey);
-		
-		xmlhttp.open("GET",url,true);
-		xmlhttp.send();
 	}
 
 };
-MFP.getContents = function(country,namespace,label,extData) {
-	
-	var contents_inapp = {};
-    contents_inapp.api_country= label;
-    contents_inapp.country =country;
-    if (extData){
-        contents_inapp.extData= extData;
+
+/*!
+  * Reqwest! A general purpose XHR connection manager
+  * license MIT (c) Dustin Diaz 2015
+  * https://github.com/ded/reqwest
+  */
+
+!function (name, context, definition) {
+  if (typeof module != 'undefined' && module.exports) module.exports = definition()
+  else if (typeof define == 'function' && define.amd) define(definition)
+  else context[name] = definition()
+}('reqwest', this, function () {
+
+  var context = this
+
+  if ('window' in context) {
+    var doc = document
+      , byTag = 'getElementsByTagName'
+      , head = doc[byTag]('head')[0]
+  } else {
+    var XHR2
+    try {
+      XHR2 = require('xhr2')
+    } catch (ex) {
+      throw new Error('Peer dependency `xhr2` required! Please npm install xhr2')
     }
-    contents_inapp.fpnamespace= namespace;
-    
-    var json_data = JSON.stringify(contents_inapp);
-       
-    return json_data;
-
-};
-MFP.set = function(pony,country) {
-	
-	var url = CONFIGS.label.url + CONFIGS.api.mfpSet;
-	var appUrl = app.url();
-	if(pony){
-		pony = '&' + pony;
-	}
-	if (window.localStorage.getItem('appUrl')){
-		appUrl = window.localStorage.getItem('appUrl');
-	}
-	url = url.replace('%pony%',pony).replace('%url%',encodeURIComponent(appUrl));
-			
-	console.log("MFP going to url: ", url);
-
-	app.launch(url);
-	
-
-};
-MFP.get = function(country) {
-
-	var xmlhttp;
-	var ponyUrl = '';
-	
-	if (window.XMLHttpRequest) {// code for IE7+, Firefox, Chrome, Opera, Safari
-		xmlhttp=new XMLHttpRequest();
-	} else {// code for IE6, IE5
-		xmlhttp=new ActiveXObject("Microsoft.XMLHTTP");
-	}
-
-	xmlhttp.onreadystatechange = function() {
-		if (xmlhttp.readyState ===4){
-			
-			if(xmlhttp.status === 200) {
-				try {
-					
-					console.log(xmlhttp.responseText);
-					var serverResponse = JSON.parse(xmlhttp.responseText);
-					console.log(serverResponse);
-					
-					if (serverResponse.content.inappInfo){
-						var jsonStruct = JSON.parse(serverResponse.content.inappInfo);
-		                if ((jsonStruct.extData) && (jsonStruct.extData.ponyUrl)){
-							ponyUrl = jsonStruct.extData.ponyUrl;
-						}
-		                if ((jsonStruct.extData) && (jsonStruct.extData.return_url)){
-		                	window.localStorage.setItem('appUrl', jsonStruct.extData.return_url);
-		                }
-		                                        
-					}else{
-						console.log("Empty session MFP.get");
-					}
-					
-					MFP.set(ponyUrl,country);		
-					
-				}
-				catch(e){
-			        // display error message
-			        console.log("Error MFP.get reading the response: " + e.toString());
-			        app.launch(app.url());
-				}
-			}
-			else {
-				console.log("Error MFP.get", xmlhttp.statusText); 
-				app.launch(app.url());
-			}
-		} 
-	}
-	
-	var lang = navigator.language.split("-");
-	
-	var namespace = CONFIGS.label.namespace;
-    var expire = "";
-    var apikey = CONFIGS.label.motime_apikey;
-    var label   = CONFIGS.label.label;
-    var contents_inapp = MFP.getContents(country,namespace,label);
-	var url = CONFIGS.api.mfpGet;
-	url = url.replace('%apikey%', apikey).replace('%contents_inapp%', contents_inapp).replace('%country%', country).replace('%expire%', expire);
-	
-	xmlhttp.open("GET",url,true);
-	xmlhttp.send();
+  }
 
 
-};
+  var httpsRe = /^http/
+    , protocolRe = /(^\w+):\/\//
+    , twoHundo = /^(20\d|1223)$/ //http://stackoverflow.com/questions/10046972/msie-returns-status-code-of-1223-for-ajax-request
+    , readyState = 'readyState'
+    , contentType = 'Content-Type'
+    , requestedWith = 'X-Requested-With'
+    , uniqid = 0
+    , callbackPrefix = 'reqwest_' + (+new Date())
+    , lastValue // data stored by the most recent JSONP callback
+    , xmlHttpRequest = 'XMLHttpRequest'
+    , xDomainRequest = 'XDomainRequest'
+    , noop = function () {}
+
+    , isArray = typeof Array.isArray == 'function'
+        ? Array.isArray
+        : function (a) {
+            return a instanceof Array
+          }
+
+    , defaultHeaders = {
+          'contentType': 'application/x-www-form-urlencoded'
+        , 'requestedWith': xmlHttpRequest
+        , 'accept': {
+              '*':  'text/javascript, text/html, application/xml, text/xml, */*'
+            , 'xml':  'application/xml, text/xml'
+            , 'html': 'text/html'
+            , 'text': 'text/plain'
+            , 'json': 'application/json, text/javascript'
+            , 'js':   'application/javascript, text/javascript'
+          }
+      }
+
+    , xhr = function(o) {
+        // is it x-domain
+        if (o['crossOrigin'] === true) {
+          var xhr = context[xmlHttpRequest] ? new XMLHttpRequest() : null
+          if (xhr && 'withCredentials' in xhr) {
+            return xhr
+          } else if (context[xDomainRequest]) {
+            return new XDomainRequest()
+          } else {
+            throw new Error('Browser does not support cross-origin requests')
+          }
+        } else if (context[xmlHttpRequest]) {
+          return new XMLHttpRequest()
+        } else if (XHR2) {
+          return new XHR2()
+        } else {
+          return new ActiveXObject('Microsoft.XMLHTTP')
+        }
+      }
+    , globalSetupOptions = {
+        dataFilter: function (data) {
+          return data
+        }
+      }
+
+  function succeed(r) {
+    var protocol = protocolRe.exec(r.url)
+    protocol = (protocol && protocol[1]) || context.location.protocol
+    return httpsRe.test(protocol) ? twoHundo.test(r.request.status) : !!r.request.response
+  }
+
+  function handleReadyState(r, success, error) {
+    return function () {
+      // use _aborted to mitigate against IE err c00c023f
+      // (can't read props on aborted request objects)
+      if (r._aborted) return error(r.request)
+      if (r._timedOut) return error(r.request, 'Request is aborted: timeout')
+      if (r.request && r.request[readyState] == 4) {
+        r.request.onreadystatechange = noop
+        if (succeed(r)) success(r.request)
+        else
+          error(r.request)
+      }
+    }
+  }
+
+  function setHeaders(http, o) {
+    var headers = o['headers'] || {}
+      , h
+
+    headers['Accept'] = headers['Accept']
+      || defaultHeaders['accept'][o['type']]
+      || defaultHeaders['accept']['*']
+
+    var isAFormData = typeof FormData !== 'undefined' && (o['data'] instanceof FormData);
+    // breaks cross-origin requests with legacy browsers
+    if (!o['crossOrigin'] && !headers[requestedWith]) headers[requestedWith] = defaultHeaders['requestedWith']
+    if (!headers[contentType] && !isAFormData) headers[contentType] = o['contentType'] || defaultHeaders['contentType']
+    for (h in headers)
+      headers.hasOwnProperty(h) && 'setRequestHeader' in http && http.setRequestHeader(h, headers[h])
+  }
+
+  function setCredentials(http, o) {
+    if (typeof o['withCredentials'] !== 'undefined' && typeof http.withCredentials !== 'undefined') {
+      http.withCredentials = !!o['withCredentials']
+    }
+  }
+
+  function generalCallback(data) {
+    lastValue = data
+  }
+
+  function urlappend (url, s) {
+    return url + (/\?/.test(url) ? '&' : '?') + s
+  }
+
+  function handleJsonp(o, fn, err, url) {
+    var reqId = uniqid++
+      , cbkey = o['jsonpCallback'] || 'callback' // the 'callback' key
+      , cbval = o['jsonpCallbackName'] || reqwest.getcallbackPrefix(reqId)
+      , cbreg = new RegExp('((^|\\?|&)' + cbkey + ')=([^&]+)')
+      , match = url.match(cbreg)
+      , script = doc.createElement('script')
+      , loaded = 0
+      , isIE10 = navigator.userAgent.indexOf('MSIE 10.0') !== -1
+
+    if (match) {
+      if (match[3] === '?') {
+        url = url.replace(cbreg, '$1=' + cbval) // wildcard callback func name
+      } else {
+        cbval = match[3] // provided callback func name
+      }
+    } else {
+      url = urlappend(url, cbkey + '=' + cbval) // no callback details, add 'em
+    }
+
+    context[cbval] = generalCallback
+
+    script.type = 'text/javascript'
+    script.src = url
+    script.async = true
+    if (typeof script.onreadystatechange !== 'undefined' && !isIE10) {
+      // need this for IE due to out-of-order onreadystatechange(), binding script
+      // execution to an event listener gives us control over when the script
+      // is executed. See http://jaubourg.net/2010/07/loading-script-as-onclick-handler-of.html
+      script.htmlFor = script.id = '_reqwest_' + reqId
+    }
+
+    script.onload = script.onreadystatechange = function () {
+      if ((script[readyState] && script[readyState] !== 'complete' && script[readyState] !== 'loaded') || loaded) {
+        return false
+      }
+      script.onload = script.onreadystatechange = null
+      script.onclick && script.onclick()
+      // Call the user callback with the last value stored and clean up values and scripts.
+      fn(lastValue)
+      lastValue = undefined
+      head.removeChild(script)
+      loaded = 1
+    }
+
+    // Add the script to the DOM head
+    head.appendChild(script)
+
+    // Enable JSONP timeout
+    return {
+      abort: function () {
+        script.onload = script.onreadystatechange = null
+        err({}, 'Request is aborted: timeout', {})
+        lastValue = undefined
+        head.removeChild(script)
+        loaded = 1
+      }
+    }
+  }
+
+  function getRequest(fn, err) {
+    var o = this.o
+      , method = (o['method'] || 'GET').toUpperCase()
+      , url = typeof o === 'string' ? o : o['url']
+      // convert non-string objects to query-string form unless o['processData'] is false
+      , data = (o['processData'] !== false && o['data'] && typeof o['data'] !== 'string')
+        ? reqwest.toQueryString(o['data'])
+        : (o['data'] || null)
+      , http
+      , sendWait = false
+
+    // if we're working on a GET request and we have data then we should append
+    // query string to end of URL and not post data
+    if ((o['type'] == 'jsonp' || method == 'GET') && data) {
+      url = urlappend(url, data)
+      data = null
+    }
+
+    if (o['type'] == 'jsonp') return handleJsonp(o, fn, err, url)
+
+    // get the xhr from the factory if passed
+    // if the factory returns null, fall-back to ours
+    http = (o.xhr && o.xhr(o)) || xhr(o)
+
+    http.open(method, url, o['async'] === false ? false : true)
+    setHeaders(http, o)
+    setCredentials(http, o)
+    if (context[xDomainRequest] && http instanceof context[xDomainRequest]) {
+        http.onload = fn
+        http.onerror = err
+        // NOTE: see
+        // http://social.msdn.microsoft.com/Forums/en-US/iewebdevelopment/thread/30ef3add-767c-4436-b8a9-f1ca19b4812e
+        http.onprogress = function() {}
+        sendWait = true
+    } else {
+      http.onreadystatechange = handleReadyState(this, fn, err)
+    }
+    o['before'] && o['before'](http)
+    if (sendWait) {
+      setTimeout(function () {
+        http.send(data)
+      }, 200)
+    } else {
+      http.send(data)
+    }
+    return http
+  }
+
+  function Reqwest(o, fn) {
+    this.o = o
+    this.fn = fn
+
+    init.apply(this, arguments)
+  }
+
+  function setType(header) {
+    // json, javascript, text/plain, text/html, xml
+    if (header === null) return undefined; //In case of no content-type.
+    if (header.match('json')) return 'json'
+    if (header.match('javascript')) return 'js'
+    if (header.match('text')) return 'html'
+    if (header.match('xml')) return 'xml'
+  }
+
+  function init(o, fn) {
+
+    this.url = typeof o == 'string' ? o : o['url']
+    this.timeout = null
+
+    // whether request has been fulfilled for purpose
+    // of tracking the Promises
+    this._fulfilled = false
+    // success handlers
+    this._successHandler = function(){}
+    this._fulfillmentHandlers = []
+    // error handlers
+    this._errorHandlers = []
+    // complete (both success and fail) handlers
+    this._completeHandlers = []
+    this._erred = false
+    this._responseArgs = {}
+
+    var self = this
+
+    fn = fn || function () {}
+
+    if (o['timeout']) {
+      this.timeout = setTimeout(function () {
+        timedOut()
+      }, o['timeout'])
+    }
+
+    if (o['success']) {
+      this._successHandler = function () {
+        o['success'].apply(o, arguments)
+      }
+    }
+
+    if (o['error']) {
+      this._errorHandlers.push(function () {
+        o['error'].apply(o, arguments)
+      })
+    }
+
+    if (o['complete']) {
+      this._completeHandlers.push(function () {
+        o['complete'].apply(o, arguments)
+      })
+    }
+
+    function complete (resp) {
+      o['timeout'] && clearTimeout(self.timeout)
+      self.timeout = null
+      while (self._completeHandlers.length > 0) {
+        self._completeHandlers.shift()(resp)
+      }
+    }
+
+    function success (resp) {
+      var type = o['type'] || resp && setType(resp.getResponseHeader('Content-Type')) // resp can be undefined in IE
+      resp = (type !== 'jsonp') ? self.request : resp
+      // use global data filter on response text
+      var filteredResponse = globalSetupOptions.dataFilter(resp.responseText, type)
+        , r = filteredResponse
+      try {
+        resp.responseText = r
+      } catch (e) {
+        // can't assign this in IE<=8, just ignore
+      }
+      if (r) {
+        switch (type) {
+        case 'json':
+          try {
+            resp = context.JSON ? context.JSON.parse(r) : eval('(' + r + ')')
+          } catch (err) {
+            return error(resp, 'Could not parse JSON in response', err)
+          }
+          break
+        case 'js':
+          resp = eval(r)
+          break
+        case 'html':
+          resp = r
+          break
+        case 'xml':
+          resp = resp.responseXML
+              && resp.responseXML.parseError // IE trololo
+              && resp.responseXML.parseError.errorCode
+              && resp.responseXML.parseError.reason
+            ? null
+            : resp.responseXML
+          break
+        }
+      }
+
+      self._responseArgs.resp = resp
+      self._fulfilled = true
+      fn(resp)
+      self._successHandler(resp)
+      while (self._fulfillmentHandlers.length > 0) {
+        resp = self._fulfillmentHandlers.shift()(resp)
+      }
+
+      complete(resp)
+    }
+
+    function timedOut() {
+      self._timedOut = true
+      self.request.abort()
+    }
+
+    function error(resp, msg, t) {
+      resp = self.request
+      self._responseArgs.resp = resp
+      self._responseArgs.msg = msg
+      self._responseArgs.t = t
+      self._erred = true
+      while (self._errorHandlers.length > 0) {
+        self._errorHandlers.shift()(resp, msg, t)
+      }
+      complete(resp)
+    }
+
+    this.request = getRequest.call(this, success, error)
+  }
+
+  Reqwest.prototype = {
+    abort: function () {
+      this._aborted = true
+      this.request.abort()
+    }
+
+  , retry: function () {
+      init.call(this, this.o, this.fn)
+    }
+
+    /**
+     * Small deviation from the Promises A CommonJs specification
+     * http://wiki.commonjs.org/wiki/Promises/A
+     */
+
+    /**
+     * `then` will execute upon successful requests
+     */
+  , then: function (success, fail) {
+      success = success || function () {}
+      fail = fail || function () {}
+      if (this._fulfilled) {
+        this._responseArgs.resp = success(this._responseArgs.resp)
+      } else if (this._erred) {
+        fail(this._responseArgs.resp, this._responseArgs.msg, this._responseArgs.t)
+      } else {
+        this._fulfillmentHandlers.push(success)
+        this._errorHandlers.push(fail)
+      }
+      return this
+    }
+
+    /**
+     * `always` will execute whether the request succeeds or fails
+     */
+  , always: function (fn) {
+      if (this._fulfilled || this._erred) {
+        fn(this._responseArgs.resp)
+      } else {
+        this._completeHandlers.push(fn)
+      }
+      return this
+    }
+
+    /**
+     * `fail` will execute when the request fails
+     */
+  , fail: function (fn) {
+      if (this._erred) {
+        fn(this._responseArgs.resp, this._responseArgs.msg, this._responseArgs.t)
+      } else {
+        this._errorHandlers.push(fn)
+      }
+      return this
+    }
+  , 'catch': function (fn) {
+      return this.fail(fn)
+    }
+  }
+
+  function reqwest(o, fn) {
+    return new Reqwest(o, fn)
+  }
+
+  // normalize newline variants according to spec -> CRLF
+  function normalize(s) {
+    return s ? s.replace(/\r?\n/g, '\r\n') : ''
+  }
+
+  function serial(el, cb) {
+    var n = el.name
+      , t = el.tagName.toLowerCase()
+      , optCb = function (o) {
+          // IE gives value="" even where there is no value attribute
+          // 'specified' ref: http://www.w3.org/TR/DOM-Level-3-Core/core.html#ID-862529273
+          if (o && !o['disabled'])
+            cb(n, normalize(o['attributes']['value'] && o['attributes']['value']['specified'] ? o['value'] : o['text']))
+        }
+      , ch, ra, val, i
+
+    // don't serialize elements that are disabled or without a name
+    if (el.disabled || !n) return
+
+    switch (t) {
+    case 'input':
+      if (!/reset|button|image|file/i.test(el.type)) {
+        ch = /checkbox/i.test(el.type)
+        ra = /radio/i.test(el.type)
+        val = el.value
+        // WebKit gives us "" instead of "on" if a checkbox has no value, so correct it here
+        ;(!(ch || ra) || el.checked) && cb(n, normalize(ch && val === '' ? 'on' : val))
+      }
+      break
+    case 'textarea':
+      cb(n, normalize(el.value))
+      break
+    case 'select':
+      if (el.type.toLowerCase() === 'select-one') {
+        optCb(el.selectedIndex >= 0 ? el.options[el.selectedIndex] : null)
+      } else {
+        for (i = 0; el.length && i < el.length; i++) {
+          el.options[i].selected && optCb(el.options[i])
+        }
+      }
+      break
+    }
+  }
+
+  // collect up all form elements found from the passed argument elements all
+  // the way down to child elements; pass a '<form>' or form fields.
+  // called with 'this'=callback to use for serial() on each element
+  function eachFormElement() {
+    var cb = this
+      , e, i
+      , serializeSubtags = function (e, tags) {
+          var i, j, fa
+          for (i = 0; i < tags.length; i++) {
+            fa = e[byTag](tags[i])
+            for (j = 0; j < fa.length; j++) serial(fa[j], cb)
+          }
+        }
+
+    for (i = 0; i < arguments.length; i++) {
+      e = arguments[i]
+      if (/input|select|textarea/i.test(e.tagName)) serial(e, cb)
+      serializeSubtags(e, [ 'input', 'select', 'textarea' ])
+    }
+  }
+
+  // standard query string style serialization
+  function serializeQueryString() {
+    return reqwest.toQueryString(reqwest.serializeArray.apply(null, arguments))
+  }
+
+  // { 'name': 'value', ... } style serialization
+  function serializeHash() {
+    var hash = {}
+    eachFormElement.apply(function (name, value) {
+      if (name in hash) {
+        hash[name] && !isArray(hash[name]) && (hash[name] = [hash[name]])
+        hash[name].push(value)
+      } else hash[name] = value
+    }, arguments)
+    return hash
+  }
+
+  // [ { name: 'name', value: 'value' }, ... ] style serialization
+  reqwest.serializeArray = function () {
+    var arr = []
+    eachFormElement.apply(function (name, value) {
+      arr.push({name: name, value: value})
+    }, arguments)
+    return arr
+  }
+
+  reqwest.serialize = function () {
+    if (arguments.length === 0) return ''
+    var opt, fn
+      , args = Array.prototype.slice.call(arguments, 0)
+
+    opt = args.pop()
+    opt && opt.nodeType && args.push(opt) && (opt = null)
+    opt && (opt = opt.type)
+
+    if (opt == 'map') fn = serializeHash
+    else if (opt == 'array') fn = reqwest.serializeArray
+    else fn = serializeQueryString
+
+    return fn.apply(null, args)
+  }
+
+  reqwest.toQueryString = function (o, trad) {
+    var prefix, i
+      , traditional = trad || false
+      , s = []
+      , enc = encodeURIComponent
+      , add = function (key, value) {
+          // If value is a function, invoke it and return its value
+          value = ('function' === typeof value) ? value() : (value == null ? '' : value)
+          s[s.length] = enc(key) + '=' + enc(value)
+        }
+    // If an array was passed in, assume that it is an array of form elements.
+    if (isArray(o)) {
+      for (i = 0; o && i < o.length; i++) add(o[i]['name'], o[i]['value'])
+    } else {
+      // If traditional, encode the "old" way (the way 1.3.2 or older
+      // did it), otherwise encode params recursively.
+      for (prefix in o) {
+        if (o.hasOwnProperty(prefix)) buildParams(prefix, o[prefix], traditional, add)
+      }
+    }
+
+    // spaces should be + according to spec
+    return s.join('&').replace(/%20/g, '+')
+  }
+
+  function buildParams(prefix, obj, traditional, add) {
+    var name, i, v
+      , rbracket = /\[\]$/
+
+    if (isArray(obj)) {
+      // Serialize array item.
+      for (i = 0; obj && i < obj.length; i++) {
+        v = obj[i]
+        if (traditional || rbracket.test(prefix)) {
+          // Treat each array item as a scalar.
+          add(prefix, v)
+        } else {
+          buildParams(prefix + '[' + (typeof v === 'object' ? i : '') + ']', v, traditional, add)
+        }
+      }
+    } else if (obj && obj.toString() === '[object Object]') {
+      // Serialize object item.
+      for (name in obj) {
+        buildParams(prefix + '[' + name + ']', obj[name], traditional, add)
+      }
+
+    } else {
+      // Serialize scalar item.
+      add(prefix, obj)
+    }
+  }
+
+  reqwest.getcallbackPrefix = function () {
+    return callbackPrefix
+  }
+
+  // jQuery and Zepto compatibility, differences can be remapped here so you can call
+  // .ajax.compat(options, callback)
+  reqwest.compat = function (o, fn) {
+    if (o) {
+      o['type'] && (o['method'] = o['type']) && delete o['type']
+      o['dataType'] && (o['type'] = o['dataType'])
+      o['jsonpCallback'] && (o['jsonpCallbackName'] = o['jsonpCallback']) && delete o['jsonpCallback']
+      o['jsonp'] && (o['jsonpCallback'] = o['jsonp'])
+    }
+    return new Reqwest(o, fn)
+  }
+
+  reqwest.ajaxSetup = function (options) {
+    options = options || {}
+    for (var k in options) {
+      globalSetupOptions[k] = options[k]
+    }
+  }
+
+  return reqwest
+});
 
 /* global Q */
 
@@ -3562,6 +6164,9 @@ MFP.get = function(country) {
 * 
 * 
 */
+
+// current stargateVersion 
+var stargateVersion = 2;
 
 // logger function
 var log = function(msg, obj) {
@@ -3621,19 +6226,6 @@ window.pubKey = '';
 // @deprecated since v2
 window.forge = '';
 
-var getAppVersion = function() {
-
-    var deferred = Q.defer();
-
-    // FIXME: check if there is a fail callback
-
-    cordova.getAppVersion(function (version) {
-        log("[getAppVersionPromise] got version: "+version);
-        deferred.resolve(version);
-    });
-
-    return deferred.promise;
-};
 var getManifest = function() {
 
     var deferred = Q.defer();
@@ -3650,6 +6242,11 @@ var getManifest = function() {
     return deferred.promise;
 };
 
+var launchUrl = function (url) {
+    log("launchUrl: "+url);
+    document.location.href = url;
+};
+
 var isStargateInitialized = false;
 var isStargateOpen = false;
 var initializeCallback = null;
@@ -3657,71 +6254,140 @@ var initializeDeferred = null;
 
 var appVersion = '';
 
+/**
+ * 
+ * variables sent by server configuration
+ * 
+ */
 var country = '',
     selector = '',
     api_selector = '',
     app_prefix = '',
     hybrid_conf = {};
 
+/**
+ * 
+ * this is got from manifest
+ * 
+ */
+var baseUrl;
+
+var updateStatusBar = function() {
+
+    if (typeof StatusBar === "undefined") {
+        // missing cordova plugin
+        return err("[StatusBar] missing cordova plugin");
+    }
+    if (typeof stargateConf.stausbar === "undefined") {
+        return;
+    }
+    if (typeof stargateConf.stausbar.hideOnUrlPattern !== "undefined" && 
+        stargateConf.stausbar.hideOnUrlPattern.constructor === Array) {
+
+        var currentLocation = document.location.href;
+        var hide = false;
+
+        for (var i=0; i<stargateConf.stausbar.hideOnUrlPattern.length; i++) {
+
+            var re = new RegExp(stargateConf.stausbar.hideOnUrlPattern[i]);
+            
+            if (re.test(currentLocation)) {
+                hide = true;
+                break;
+            }
+        }
+
+        if (hide) {
+            StatusBar.hide();
+        }
+        else {
+            StatusBar.show();
+        }
+    }
+};
+
 var onPluginReady = function () {
-
-
-    // ---- start old atlantis initialize ----
-
-    document.title = CONFIGS.label.title;
     
-    StatusBar.hide();
+    // FIXME: this is needed ??
+    document.title = stargateConf.title;
+    
+
+    updateStatusBar();
 
     
-    // FIXME: check how to do mfp initialization
-    if (app.hasFeature('mfp')) {
+    if (hasFeature('mfp')) {
+        // FIXME FIXME FIXME FIXME FIXME 
+        // do this only on first launch, as the session is removed from MFP when got
         MFP.check();
     }
 
     
-    if (app.hasFeature('deltadna')) {
-        window.deltadna.startSDK(CONFIGS.label.deltadna.environmentKey, CONFIGS.label.deltadna.collectApi, CONFIGS.label.deltadna.engageApi, app.onDeltaDNAStartedSuccess, app.onDeltaDNAStartedError, CONFIGS.label.deltadna.settings);
+    if (hasFeature('deltadna')) {
+        window.deltadna.startSDK(
+            stargateConf.deltadna.environmentKey,
+            stargateConf.deltadna.collectApi,
+            stargateConf.deltadna.engageApi,
+
+            // FIXME
+            onDeltaDNAStartedSuccess,
+            onDeltaDNAStartedError,
+
+            stargateConf.deltadna.settings
+        );
     }
 
     // FIXME: stargate.ad is public ?
-    if(AdStargate){
-        stargatePublic.ad = new AdStargate();
-    }
+    //if(AdStargate){
+    //    stargatePublic.ad = new AdStargate();
+    //}
 
     navigator.splashscreen.hide();
-    app.setBusy(false);
+    setBusy(false);
 
     IAP.initialize();
 
     document.cookie="hybrid=1; path=/";
+    document.cookie="stargateVersion="+stargateVersion+"; path=/";
+
+    if (window.localStorage.getItem('hybrid') !== null) {
+        window.localStorage.setItem('hybrid', 1);
+    }
+    if (window.localStorage.getItem('stargateVersion') !== null) {
+        window.localStorage.setItem('stargateVersion', stargateVersion);
+    }
 
     // initialize finished
     isStargateOpen = true;
 
-    //FIXME: call callback when device ready arrived
+    //execute callback
     initializeCallback();
+
+    initializeDeferred.resolve("Stargate.initialize() done");
 };
 
 var onDeviceReady = function () {
     initDevice();
 
-    // 
-    var getAppVersionPromise = getAppVersion();
-    var getManifestPromise = getManifest();
-
     Q.all([
-        getAppVersionPromise,
-        getManifestPromise
+        // include here all needed initializazion
+        cordova.getAppVersion.getVersionNumber(),
+        getManifest()
     ])
-    .then(function(version, manifest) {
+    .then(function(results) {
         
-        appVersion = version;
+        appVersion = results[0];
 
-        stargateConf = manifest.stargateConf;
+        baseUrl = results[1].start_url;
+
+        stargateConf = results[1].stargateConf;
 
         onPluginReady();
     })
+    .fail(function (error) {
+        err("onDeviceReady() error: "+error);
+    });
 };
+
 
 stargatePublic.initialize = function(configurations, pubKey, forge, callback) {
 
@@ -3759,7 +6425,7 @@ stargatePublic.initialize = function(configurations, pubKey, forge, callback) {
     // finish the initialization of cordova plugin when deviceReady is received
     document.addEventListener('deviceready', onDeviceReady, false);
     
-    return initDeferred.promise;
+    return initializeDeferred.promise;
 };
 
 stargatePublic.isInitialized = function() {
@@ -3769,40 +6435,45 @@ stargatePublic.isOpen = function() {
     return isStargateOpen;
 };
 
-stargatePublic.openUrl = function(url) {};
-stargatePublic.inAppPurchase = function(productId, callbackSuccess, callbackError, createUserUrl) {};
-stargatePublic.inAppPurchaseSubscription = function(callbackSuccess, callbackError, subscriptionUrl, returnUrl) {};
-stargatePublic.inAppRestore = function(callbackSuccess, callbackError, subscriptionUrl, returnUrl) {};
-stargatePublic.facebookLogin = function(scope, callbackSuccess, callbackError) {};
-stargatePublic.facebookShare = function(url, callbackSuccess, callbackError) {};
-stargatePublic.googleLogin = function(callbackSuccess, callbackError) {};
-stargatePublic.checkConnection = function(callbackSuccess, callbackError) {};
-stargatePublic.getDeviceID = function(callbackSuccess, callbackError) {};
+stargatePublic.openUrl = function(url) {
+
+    // FIXME: check that inappbrowser plugin is installed otherwise retunr error
+
+    window.open(url, "_system");
+};
+
+stargatePublic.googleLogin = function(callbackSuccess, callbackError) {
+
+    // FIXME: implement it; get code from old stargate
+
+    err("unimplemented");
+    callbackError("unimplemented");
+};
+stargatePublic.checkConnection = function(callbackSuccess, callbackError) {
+
+    // FIXME: check that network plugin is installed
+
+    var networkState = navigator.connection.type;
+    callbackSuccess({'networkState': networkState});
+};
+stargatePublic.getDeviceID = function(callbackSuccess, callbackError) {
+
+    // FIXME: check that device plugin is installed
+    // FIXME: integrate with other stargate device handling method
+
+    var deviceID = device.uuid;
+    callbackSuccess({'deviceID': deviceID});
+                
+
+};
 
 
 
 /*
 var Stargate = {
     
-    openUrl: function(url){
-        Stargate.messages.system = new Message();
-        Stargate.messages.system.exec = 'system';
-        Stargate.messages.system.url = url;
-        Stargate.messages.system.send();
-    },
-        
-    inAppPurchase: function(productId, callbackSuccess, callbackError, createUserUrl){
-        var msgId = Stargate.createMessageId(); 
-        Stargate.messages[msgId] = new Message();
-        Stargate.messages[msgId].msgId = msgId;
-        Stargate.messages[msgId].exec = 'stargate.purchase';
-        if (typeof createUserUrl !== 'undefined'){
-            Stargate.messages[msgId].createUserUrl =  createUserUrl;
-        }
-        Stargate.messages[msgId].callbackSuccess = callbackSuccess;
-        Stargate.messages[msgId].callbackError = callbackError;
-        Stargate.messages[msgId].send();
-    },
+
+    
 
     inAppPurchaseSubscription: function(callbackSuccess, callbackError, subscriptionUrl, returnUrl){
         var msgId = Stargate.createMessageId(); 
@@ -3836,27 +6507,7 @@ var Stargate = {
         Stargate.messages[msgId].send();        
     },
     
-    facebookLogin: function(scope, callbackSuccess, callbackError){
-        var msgId = Stargate.createMessageId(); 
-        Stargate.messages[msgId] = new Message();
-        Stargate.messages[msgId].msgId = msgId;
-        Stargate.messages[msgId].exec = 'stargate.facebookLogin';
-        Stargate.messages[msgId].scope = scope;
-        Stargate.messages[msgId].callbackSuccess = callbackSuccess;
-        Stargate.messages[msgId].callbackError = callbackError;
-        Stargate.messages[msgId].send();
-    },
     
-    facebookShare: function(url, callbackSuccess, callbackError){
-        var msgId = Stargate.createMessageId(); 
-        Stargate.messages[msgId] = new Message();
-        Stargate.messages[msgId].msgId = msgId;
-        Stargate.messages[msgId].exec = 'stargate.facebookShare';
-        Stargate.messages[msgId].url = url;
-        Stargate.messages[msgId].callbackSuccess = callbackSuccess;
-        Stargate.messages[msgId].callbackError = callbackError;
-        Stargate.messages[msgId].send();
-    },
     
     googleLogin: function(callbackSuccess, callbackError){
         var msgId = Stargate.createMessageId();
@@ -3867,26 +6518,7 @@ var Stargate = {
         Stargate.messages[msgId].callbackError = callbackError;
         Stargate.messages[msgId].send();
     },  
-    
-    checkConnection: function(callbackSuccess, callbackError){
-        var msgId = Stargate.createMessageId();
-        Stargate.messages[msgId] = new Message();
-        Stargate.messages[msgId].msgId = msgId;
-        Stargate.messages[msgId].exec = 'stargate.checkConnection';
-        Stargate.messages[msgId].callbackSuccess = callbackSuccess;
-        Stargate.messages[msgId].callbackError = callbackError;
-        Stargate.messages[msgId].send();
-    },  
-    
-    getDeviceID: function(callbackSuccess, callbackError){
-        var msgId = Stargate.createMessageId();
-        Stargate.messages[msgId] = new Message();
-        Stargate.messages[msgId].msgId = msgId;
-        Stargate.messages[msgId].exec = 'stargate.getDeviceID';
-        Stargate.messages[msgId].callbackSuccess = callbackSuccess;
-        Stargate.messages[msgId].callbackError = callbackError;
-        Stargate.messages[msgId].send();
-    },  
+
     
 }
 */
@@ -3920,419 +6552,6 @@ var hasFeature = function(feature) {
 
 
 
-/*!
- * jsUri
- * https://github.com/derek-watson/jsUri
- *
- * Copyright 2013, Derek Watson
- * Released under the MIT license.
- *
- * Includes parseUri regular expressions
- * http://blog.stevenlevithan.com/archives/parseuri
- * Copyright 2007, Steven Levithan
- * Released under the MIT license.
- */
-
- /*globals define, module */
-
-(function(global) {
-
-  var re = {
-    starts_with_slashes: /^\/+/,
-    ends_with_slashes: /\/+$/,
-    pluses: /\+/g,
-    query_separator: /[&;]/,
-    uri_parser: /^(?:(?![^:@]+:[^:@\/]*@)([^:\/?#.]+):)?(?:\/\/)?((?:(([^:@\/]*)(?::([^:@]*))?)?@)?([^:\/?#]*)(?::(\d*))?)(((\/(?:[^?#](?![^?#\/]*\.[^?#\/.]+(?:[?#]|$)))*\/?)?([^?#\/]*))(?:\?([^#]*))?(?:#(.*))?)/
-  };
-
-  /**
-   * Define forEach for older js environments
-   * @see https://developer.mozilla.org/en-US/docs/JavaScript/Reference/Global_Objects/Array/forEach#Compatibility
-   */
-  if (!Array.prototype.forEach) {
-    Array.prototype.forEach = function(fn, scope) {
-      for (var i = 0, len = this.length; i < len; ++i) {
-        fn.call(scope || this, this[i], i, this);
-      }
-    };
-  }
-
-  /**
-   * unescape a query param value
-   * @param  {string} s encoded value
-   * @return {string}   decoded value
-   */
-  function decode(s) {
-    if (s) {
-      s = decodeURIComponent(s);
-      s = s.replace(re.pluses, ' ');
-    }
-    return s;
-  }
-
-  /**
-   * Breaks a uri string down into its individual parts
-   * @param  {string} str uri
-   * @return {object}     parts
-   */
-  function parseUri(str) {
-    var parser = re.uri_parser;
-    var parserKeys = ["source", "protocol", "authority", "userInfo", "user", "password", "host", "port", "relative", "path", "directory", "file", "query", "anchor"];
-    var m = parser.exec(str || '');
-    var parts = {};
-
-    parserKeys.forEach(function(key, i) {
-      parts[key] = m[i] || '';
-    });
-
-    return parts;
-  }
-
-  /**
-   * Breaks a query string down into an array of key/value pairs
-   * @param  {string} str query
-   * @return {array}      array of arrays (key/value pairs)
-   */
-  function parseQuery(str) {
-    var i, ps, p, n, k, v;
-    var pairs = [];
-
-    if (typeof(str) === 'undefined' || str === null || str === '') {
-      return pairs;
-    }
-
-    if (str.indexOf('?') === 0) {
-      str = str.substring(1);
-    }
-
-    ps = str.toString().split(re.query_separator);
-
-    for (i = 0; i < ps.length; i++) {
-      p = ps[i];
-      n = p.indexOf('=');
-
-      if (n !== 0) {
-        k = decodeURIComponent(p.substring(0, n));
-        v = decodeURIComponent(p.substring(n + 1));
-        pairs.push(n === -1 ? [p, null] : [k, v]);
-      }
-
-    }
-    return pairs;
-  }
-
-  /**
-   * Creates a new Uri object
-   * @constructor
-   * @param {string} str
-   */
-  function Uri(str) {
-    this.uriParts = parseUri(str);
-    this.queryPairs = parseQuery(this.uriParts.query);
-    this.hasAuthorityPrefixUserPref = null;
-  }
-
-  /**
-   * Define getter/setter methods
-   */
-  ['protocol', 'userInfo', 'host', 'port', 'path', 'anchor'].forEach(function(key) {
-    Uri.prototype[key] = function(val) {
-      if (typeof val !== 'undefined') {
-        this.uriParts[key] = val;
-      }
-      return this.uriParts[key];
-    };
-  });
-
-  /**
-   * if there is no protocol, the leading // can be enabled or disabled
-   * @param  {Boolean}  val
-   * @return {Boolean}
-   */
-  Uri.prototype.hasAuthorityPrefix = function(val) {
-    if (typeof val !== 'undefined') {
-      this.hasAuthorityPrefixUserPref = val;
-    }
-
-    if (this.hasAuthorityPrefixUserPref === null) {
-      return (this.uriParts.source.indexOf('//') !== -1);
-    } else {
-      return this.hasAuthorityPrefixUserPref;
-    }
-  };
-
-  /**
-   * Serializes the internal state of the query pairs
-   * @param  {string} [val]   set a new query string
-   * @return {string}         query string
-   */
-  Uri.prototype.query = function(val) {
-    var s = '', i, param;
-
-    if (typeof val !== 'undefined') {
-      this.queryPairs = parseQuery(val);
-    }
-
-    for (i = 0; i < this.queryPairs.length; i++) {
-      param = this.queryPairs[i];
-      if (s.length > 0) {
-        s += '&';
-      }
-      if (param[1] === null) {
-        s += param[0];
-      } else {
-        s += param[0];
-        s += '=';
-        if (param[1]) {
-          s += encodeURIComponent(param[1]);
-        }
-      }
-    }
-    return s.length > 0 ? '?' + s : s;
-  };
-
-  /**
-   * returns the first query param value found for the key
-   * @param  {string} key query key
-   * @return {string}     first value found for key
-   */
-  Uri.prototype.getQueryParamValue = function (key) {
-    var param, i;
-    for (i = 0; i < this.queryPairs.length; i++) {
-      param = this.queryPairs[i];
-      if (key === param[0]) {
-        return param[1];
-      }
-    }
-  };
-
-  /**
-   * returns an array of query param values for the key
-   * @param  {string} key query key
-   * @return {array}      array of values
-   */
-  Uri.prototype.getQueryParamValues = function (key) {
-    var arr = [], i, param;
-    for (i = 0; i < this.queryPairs.length; i++) {
-      param = this.queryPairs[i];
-      if (key === param[0]) {
-        arr.push(param[1]);
-      }
-    }
-    return arr;
-  };
-
-  /**
-   * removes query parameters
-   * @param  {string} key     remove values for key
-   * @param  {val}    [val]   remove a specific value, otherwise removes all
-   * @return {Uri}            returns self for fluent chaining
-   */
-  Uri.prototype.deleteQueryParam = function (key, val) {
-    var arr = [], i, param, keyMatchesFilter, valMatchesFilter;
-
-    for (i = 0; i < this.queryPairs.length; i++) {
-
-      param = this.queryPairs[i];
-      keyMatchesFilter = decode(param[0]) === decode(key);
-      valMatchesFilter = param[1] === val;
-
-      if ((arguments.length === 1 && !keyMatchesFilter) || (arguments.length === 2 && (!keyMatchesFilter || !valMatchesFilter))) {
-        arr.push(param);
-      }
-    }
-
-    this.queryPairs = arr;
-
-    return this;
-  };
-
-  /**
-   * adds a query parameter
-   * @param  {string}  key        add values for key
-   * @param  {string}  val        value to add
-   * @param  {integer} [index]    specific index to add the value at
-   * @return {Uri}                returns self for fluent chaining
-   */
-  Uri.prototype.addQueryParam = function (key, val, index) {
-    if (arguments.length === 3 && index !== -1) {
-      index = Math.min(index, this.queryPairs.length);
-      this.queryPairs.splice(index, 0, [key, val]);
-    } else if (arguments.length > 0) {
-      this.queryPairs.push([key, val]);
-    }
-    return this;
-  };
-
-  /**
-   * replaces query param values
-   * @param  {string} key         key to replace value for
-   * @param  {string} newVal      new value
-   * @param  {string} [oldVal]    replace only one specific value (otherwise replaces all)
-   * @return {Uri}                returns self for fluent chaining
-   */
-  Uri.prototype.replaceQueryParam = function (key, newVal, oldVal) {
-    var index = -1, i, param;
-
-    if (arguments.length === 3) {
-      for (i = 0; i < this.queryPairs.length; i++) {
-        param = this.queryPairs[i];
-        if (decode(param[0]) === decode(key) && decodeURIComponent(param[1]) === decode(oldVal)) {
-          index = i;
-          break;
-        }
-      }
-      this.deleteQueryParam(key, decode(oldVal)).addQueryParam(key, newVal, index);
-    } else {
-      for (i = 0; i < this.queryPairs.length; i++) {
-        param = this.queryPairs[i];
-        if (decode(param[0]) === decode(key)) {
-          index = i;
-          break;
-        }
-      }
-      this.deleteQueryParam(key);
-      this.addQueryParam(key, newVal, index);
-    }
-    return this;
-  };
-
-  /**
-   * Define fluent setter methods (setProtocol, setHasAuthorityPrefix, etc)
-   */
-  ['protocol', 'hasAuthorityPrefix', 'userInfo', 'host', 'port', 'path', 'query', 'anchor'].forEach(function(key) {
-    var method = 'set' + key.charAt(0).toUpperCase() + key.slice(1);
-    Uri.prototype[method] = function(val) {
-      this[key](val);
-      return this;
-    };
-  });
-
-  /**
-   * Scheme name, colon and doubleslash, as required
-   * @return {string} http:// or possibly just //
-   */
-  Uri.prototype.scheme = function() {
-    var s = '';
-
-    if (this.protocol()) {
-      s += this.protocol();
-      if (this.protocol().indexOf(':') !== this.protocol().length - 1) {
-        s += ':';
-      }
-      s += '//';
-    } else {
-      if (this.hasAuthorityPrefix() && this.host()) {
-        s += '//';
-      }
-    }
-
-    return s;
-  };
-
-  /**
-   * Same as Mozilla nsIURI.prePath
-   * @return {string} scheme://user:password@host:port
-   * @see  https://developer.mozilla.org/en/nsIURI
-   */
-  Uri.prototype.origin = function() {
-    var s = this.scheme();
-
-    if (s == 'file://') {
-      return s + this.uriParts.authority;
-    }
-
-    if (this.userInfo() && this.host()) {
-      s += this.userInfo();
-      if (this.userInfo().indexOf('@') !== this.userInfo().length - 1) {
-        s += '@';
-      }
-    }
-
-    if (this.host()) {
-      s += this.host();
-      if (this.port()) {
-        s += ':' + this.port();
-      }
-    }
-
-    return s;
-  };
-
-  /**
-   * Adds a trailing slash to the path
-   */
-  Uri.prototype.addTrailingSlash = function() {
-    var path = this.path() || '';
-
-    if (path.substr(-1) !== '/') {
-      this.path(path + '/');
-    }
-
-    return this;
-  };
-
-  /**
-   * Serializes the internal state of the Uri object
-   * @return {string}
-   */
-  Uri.prototype.toString = function() {
-    var path, s = this.origin();
-
-    if (this.path()) {
-      path = this.path();
-      if (!(re.ends_with_slashes.test(s) || re.starts_with_slashes.test(path))) {
-        s += '/';
-      } else {
-        if (s) {
-          s.replace(re.ends_with_slashes, '/');
-        }
-        path = path.replace(re.starts_with_slashes, '/');
-      }
-      s += path;
-    } else {
-      if (this.host() && (this.query().toString() || this.anchor())) {
-        s += '/';
-      }
-    }
-    if (this.query().toString()) {
-      if (this.query().toString().indexOf('?') !== 0) {
-        s += '?';
-      }
-      s += this.query().toString();
-    }
-
-    if (this.anchor()) {
-      if (this.anchor().indexOf('#') !== 0) {
-        s += '#';
-      }
-      s += this.anchor();
-    }
-
-    return s;
-  };
-
-  /**
-   * Clone a Uri object
-   * @return {Uri} duplicate copy of the Uri
-   */
-  Uri.prototype.clone = function() {
-    return new Uri(this.toString());
-  };
-
-  /**
-   * export via AMD or CommonJS, otherwise leak a global
-   */
-  if (typeof define === 'function' && define.amd) {
-    define(function() {
-      return Uri;
-    });
-  } else if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
-    module.exports = Uri;
-  } else {
-    global.Uri = Uri;
-  }
-}(this));
 
 
 var ua = {
@@ -4353,9 +6572,10 @@ var ua = {
     }
 };
 
-function reboot(){
-    window.location.href = 'index.html';
-}
+// FIXME
+//function reboot(){
+//    window.location.href = 'index.html';
+//}
 
 
 var utils = {
@@ -4417,16 +6637,7 @@ var utils = {
 	}
 };
 
-function startLoading(){
-    document.getElementById("waiting").className = "on";
-}
-function stopLoading(){
-    document.getElementById("waiting").className = "";
-}
-function timeoutLoading(t){
-    startLoading();
-    setTimeout(function(){stopLoading();}, t);
-}
+
 
 function ab2str(buf) {
     return String.fromCharCode.apply(null, new Uint16Array(buf));

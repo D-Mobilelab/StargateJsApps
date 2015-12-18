@@ -7,6 +7,9 @@
 * 
 */
 
+// current stargateVersion 
+var stargateVersion = 2;
+
 // logger function
 var log = function(msg, obj) {
     if (typeof obj !== 'undefined') {
@@ -65,19 +68,6 @@ window.pubKey = '';
 // @deprecated since v2
 window.forge = '';
 
-var getAppVersion = function() {
-
-    var deferred = Q.defer();
-
-    // FIXME: check if there is a fail callback
-
-    cordova.getAppVersion(function (version) {
-        log("[getAppVersionPromise] got version: "+version);
-        deferred.resolve(version);
-    });
-
-    return deferred.promise;
-};
 var getManifest = function() {
 
     var deferred = Q.defer();
@@ -94,6 +84,11 @@ var getManifest = function() {
     return deferred.promise;
 };
 
+var launchUrl = function (url) {
+    log("launchUrl: "+url);
+    document.location.href = url;
+};
+
 var isStargateInitialized = false;
 var isStargateOpen = false;
 var initializeCallback = null;
@@ -101,71 +96,140 @@ var initializeDeferred = null;
 
 var appVersion = '';
 
+/**
+ * 
+ * variables sent by server configuration
+ * 
+ */
 var country = '',
     selector = '',
     api_selector = '',
     app_prefix = '',
     hybrid_conf = {};
 
+/**
+ * 
+ * this is got from manifest
+ * 
+ */
+var baseUrl;
+
+var updateStatusBar = function() {
+
+    if (typeof StatusBar === "undefined") {
+        // missing cordova plugin
+        return err("[StatusBar] missing cordova plugin");
+    }
+    if (typeof stargateConf.stausbar === "undefined") {
+        return;
+    }
+    if (typeof stargateConf.stausbar.hideOnUrlPattern !== "undefined" && 
+        stargateConf.stausbar.hideOnUrlPattern.constructor === Array) {
+
+        var currentLocation = document.location.href;
+        var hide = false;
+
+        for (var i=0; i<stargateConf.stausbar.hideOnUrlPattern.length; i++) {
+
+            var re = new RegExp(stargateConf.stausbar.hideOnUrlPattern[i]);
+            
+            if (re.test(currentLocation)) {
+                hide = true;
+                break;
+            }
+        }
+
+        if (hide) {
+            StatusBar.hide();
+        }
+        else {
+            StatusBar.show();
+        }
+    }
+};
+
 var onPluginReady = function () {
-
-
-    // ---- start old atlantis initialize ----
-
-    document.title = CONFIGS.label.title;
     
-    StatusBar.hide();
+    // FIXME: this is needed ??
+    document.title = stargateConf.title;
+    
+
+    updateStatusBar();
 
     
-    // FIXME: check how to do mfp initialization
-    if (app.hasFeature('mfp')) {
+    if (hasFeature('mfp')) {
+        // FIXME FIXME FIXME FIXME FIXME 
+        // do this only on first launch, as the session is removed from MFP when got
         MFP.check();
     }
 
     
-    if (app.hasFeature('deltadna')) {
-        window.deltadna.startSDK(CONFIGS.label.deltadna.environmentKey, CONFIGS.label.deltadna.collectApi, CONFIGS.label.deltadna.engageApi, app.onDeltaDNAStartedSuccess, app.onDeltaDNAStartedError, CONFIGS.label.deltadna.settings);
+    if (hasFeature('deltadna')) {
+        window.deltadna.startSDK(
+            stargateConf.deltadna.environmentKey,
+            stargateConf.deltadna.collectApi,
+            stargateConf.deltadna.engageApi,
+
+            // FIXME
+            onDeltaDNAStartedSuccess,
+            onDeltaDNAStartedError,
+
+            stargateConf.deltadna.settings
+        );
     }
 
     // FIXME: stargate.ad is public ?
-    if(AdStargate){
-        stargatePublic.ad = new AdStargate();
-    }
+    //if(AdStargate){
+    //    stargatePublic.ad = new AdStargate();
+    //}
 
     navigator.splashscreen.hide();
-    app.setBusy(false);
+    setBusy(false);
 
     IAP.initialize();
 
     document.cookie="hybrid=1; path=/";
+    document.cookie="stargateVersion="+stargateVersion+"; path=/";
+
+    if (window.localStorage.getItem('hybrid') !== null) {
+        window.localStorage.setItem('hybrid', 1);
+    }
+    if (window.localStorage.getItem('stargateVersion') !== null) {
+        window.localStorage.setItem('stargateVersion', stargateVersion);
+    }
 
     // initialize finished
     isStargateOpen = true;
 
-    //FIXME: call callback when device ready arrived
+    //execute callback
     initializeCallback();
+
+    initializeDeferred.resolve("Stargate.initialize() done");
 };
 
 var onDeviceReady = function () {
     initDevice();
 
-    // 
-    var getAppVersionPromise = getAppVersion();
-    var getManifestPromise = getManifest();
-
     Q.all([
-        getAppVersionPromise,
-        getManifestPromise
+        // include here all needed initializazion
+        cordova.getAppVersion.getVersionNumber(),
+        getManifest()
     ])
-    .then(function(version, manifest) {
+    .then(function(results) {
         
-        appVersion = version;
+        appVersion = results[0];
 
-        stargateConf = manifest.stargateConf;
+        baseUrl = results[1].start_url;
+
+        stargateConf = results[1].stargateConf;
 
         onPluginReady();
     })
+    .fail(function (error) {
+        err("onDeviceReady() error: "+error);
+    });
 };
+
 
 stargatePublic.initialize = function(configurations, pubKey, forge, callback) {
 
@@ -203,7 +267,7 @@ stargatePublic.initialize = function(configurations, pubKey, forge, callback) {
     // finish the initialization of cordova plugin when deviceReady is received
     document.addEventListener('deviceready', onDeviceReady, false);
     
-    return initDeferred.promise;
+    return initializeDeferred.promise;
 };
 
 stargatePublic.isInitialized = function() {
@@ -213,40 +277,45 @@ stargatePublic.isOpen = function() {
     return isStargateOpen;
 };
 
-stargatePublic.openUrl = function(url) {};
-stargatePublic.inAppPurchase = function(productId, callbackSuccess, callbackError, createUserUrl) {};
-stargatePublic.inAppPurchaseSubscription = function(callbackSuccess, callbackError, subscriptionUrl, returnUrl) {};
-stargatePublic.inAppRestore = function(callbackSuccess, callbackError, subscriptionUrl, returnUrl) {};
-stargatePublic.facebookLogin = function(scope, callbackSuccess, callbackError) {};
-stargatePublic.facebookShare = function(url, callbackSuccess, callbackError) {};
-stargatePublic.googleLogin = function(callbackSuccess, callbackError) {};
-stargatePublic.checkConnection = function(callbackSuccess, callbackError) {};
-stargatePublic.getDeviceID = function(callbackSuccess, callbackError) {};
+stargatePublic.openUrl = function(url) {
+
+    // FIXME: check that inappbrowser plugin is installed otherwise retunr error
+
+    window.open(url, "_system");
+};
+
+stargatePublic.googleLogin = function(callbackSuccess, callbackError) {
+
+    // FIXME: implement it; get code from old stargate
+
+    err("unimplemented");
+    callbackError("unimplemented");
+};
+stargatePublic.checkConnection = function(callbackSuccess, callbackError) {
+
+    // FIXME: check that network plugin is installed
+
+    var networkState = navigator.connection.type;
+    callbackSuccess({'networkState': networkState});
+};
+stargatePublic.getDeviceID = function(callbackSuccess, callbackError) {
+
+    // FIXME: check that device plugin is installed
+    // FIXME: integrate with other stargate device handling method
+
+    var deviceID = device.uuid;
+    callbackSuccess({'deviceID': deviceID});
+                
+
+};
 
 
 
 /*
 var Stargate = {
     
-    openUrl: function(url){
-        Stargate.messages.system = new Message();
-        Stargate.messages.system.exec = 'system';
-        Stargate.messages.system.url = url;
-        Stargate.messages.system.send();
-    },
-        
-    inAppPurchase: function(productId, callbackSuccess, callbackError, createUserUrl){
-        var msgId = Stargate.createMessageId(); 
-        Stargate.messages[msgId] = new Message();
-        Stargate.messages[msgId].msgId = msgId;
-        Stargate.messages[msgId].exec = 'stargate.purchase';
-        if (typeof createUserUrl !== 'undefined'){
-            Stargate.messages[msgId].createUserUrl =  createUserUrl;
-        }
-        Stargate.messages[msgId].callbackSuccess = callbackSuccess;
-        Stargate.messages[msgId].callbackError = callbackError;
-        Stargate.messages[msgId].send();
-    },
+
+    
 
     inAppPurchaseSubscription: function(callbackSuccess, callbackError, subscriptionUrl, returnUrl){
         var msgId = Stargate.createMessageId(); 
@@ -280,27 +349,7 @@ var Stargate = {
         Stargate.messages[msgId].send();        
     },
     
-    facebookLogin: function(scope, callbackSuccess, callbackError){
-        var msgId = Stargate.createMessageId(); 
-        Stargate.messages[msgId] = new Message();
-        Stargate.messages[msgId].msgId = msgId;
-        Stargate.messages[msgId].exec = 'stargate.facebookLogin';
-        Stargate.messages[msgId].scope = scope;
-        Stargate.messages[msgId].callbackSuccess = callbackSuccess;
-        Stargate.messages[msgId].callbackError = callbackError;
-        Stargate.messages[msgId].send();
-    },
     
-    facebookShare: function(url, callbackSuccess, callbackError){
-        var msgId = Stargate.createMessageId(); 
-        Stargate.messages[msgId] = new Message();
-        Stargate.messages[msgId].msgId = msgId;
-        Stargate.messages[msgId].exec = 'stargate.facebookShare';
-        Stargate.messages[msgId].url = url;
-        Stargate.messages[msgId].callbackSuccess = callbackSuccess;
-        Stargate.messages[msgId].callbackError = callbackError;
-        Stargate.messages[msgId].send();
-    },
     
     googleLogin: function(callbackSuccess, callbackError){
         var msgId = Stargate.createMessageId();
@@ -311,26 +360,7 @@ var Stargate = {
         Stargate.messages[msgId].callbackError = callbackError;
         Stargate.messages[msgId].send();
     },  
-    
-    checkConnection: function(callbackSuccess, callbackError){
-        var msgId = Stargate.createMessageId();
-        Stargate.messages[msgId] = new Message();
-        Stargate.messages[msgId].msgId = msgId;
-        Stargate.messages[msgId].exec = 'stargate.checkConnection';
-        Stargate.messages[msgId].callbackSuccess = callbackSuccess;
-        Stargate.messages[msgId].callbackError = callbackError;
-        Stargate.messages[msgId].send();
-    },  
-    
-    getDeviceID: function(callbackSuccess, callbackError){
-        var msgId = Stargate.createMessageId();
-        Stargate.messages[msgId] = new Message();
-        Stargate.messages[msgId].msgId = msgId;
-        Stargate.messages[msgId].exec = 'stargate.getDeviceID';
-        Stargate.messages[msgId].callbackSuccess = callbackSuccess;
-        Stargate.messages[msgId].callbackError = callbackError;
-        Stargate.messages[msgId].send();
-    },  
+
     
 }
 */

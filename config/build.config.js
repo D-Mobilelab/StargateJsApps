@@ -1,5 +1,7 @@
 var pkg = require('../package.json');
 
+var interfaceName = 'Stargate';
+
 module.exports = {
 	banner: '/*!\n' +
 	    ' * StargateJS Apps\n' +
@@ -22,7 +24,7 @@ module.exports = {
 		'        module.exports = factory();\n' +
 		'    } else {\n' +
 		'        // Browser globals (root is window)\n' +
-		'        root.stargate = factory();\n' +
+		'        root.'+interfaceName+' = factory();\n' +
 		'    }\n' +
 		'}(this, function () {\n' +
 		'    // Public interface\n' +
@@ -40,6 +42,14 @@ module.exports = {
 
 	dist: 'dist/',
 	build: 'build/',
+	
 	bowerAllIncludes: 'includes.bower.js',
-	distFile: 'stargate.js'
+	bowerFileList: [
+		'bower_components/urijs/src/URI.js',
+		'bower_components/urijs/src/URITemplate.js',
+		'bower_components/q/q.js'
+	],
+
+	distFile: 'stargate.js',
+    interfaceName: interfaceName
 };

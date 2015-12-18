@@ -18,9 +18,10 @@ var ua = {
     }
 };
 
-function reboot(){
-    window.location.href = 'index.html';
-}
+// FIXME
+//function reboot(){
+//    window.location.href = 'index.html';
+//}
 
 
 var utils = {
@@ -82,16 +83,7 @@ var utils = {
 	}
 };
 
-function startLoading(){
-    document.getElementById("waiting").className = "on";
-}
-function stopLoading(){
-    document.getElementById("waiting").className = "";
-}
-function timeoutLoading(t){
-    startLoading();
-    setTimeout(function(){stopLoading();}, t);
-}
+
 
 function ab2str(buf) {
     return String.fromCharCode.apply(null, new Uint16Array(buf));

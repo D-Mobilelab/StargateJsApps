@@ -8,20 +8,35 @@ var IAP = {
 	verbosity: '',
 	paymethod: '',
     subscribeMethod: 'stargate',
+    returnUrl: '',
 	
 	initialize: function () {
         if (!window.store) {
-            console.log('Store not available');
+            log('Store not available');
             return;
         }
 		
-		IAP.id = (app.hybrid_conf.IAP.id) ? app.hybrid_conf.IAP.id : ((ua.Android())?CONFIGS.iap_android.id:CONFIGS.iap_ios.id);
-		IAP.alias = (app.hybrid_conf.IAP.alias) ? app.hybrid_conf.IAP.alias : ((ua.Android())?CONFIGS.iap_android.alias:CONFIGS.iap_ios.alias);
-		IAP.type = (app.hybrid_conf.IAP.type) ? app.hybrid_conf.IAP.type : ((ua.Android())?CONFIGS.iap_android.type:CONFIGS.iap_ios.type);
-		IAP.verbosity = (app.hybrid_conf.IAP.verbosity) ? app.hybrid_conf.IAP.verbosity : ((ua.Android())?CONFIGS.iap_android.verbosity:CONFIGS.iap_ios.verbosity);
-		IAP.paymethod = (app.hybrid_conf.IAP.paymethod) ? app.hybrid_conf.IAP.paymethod : ((ua.Android())?CONFIGS.iap_android.paymethod:CONFIGS.iap_ios.paymethod);		
-		
-        console.log('IAP initialize id: '+IAP.id);
+        if (hybrid_conf.IAP.id) {
+            IAP.id = hybrid_conf.IAP.id;
+        }
+
+        if (hybrid_conf.IAP.alias) {
+            IAP.alias = hybrid_conf.IAP.alias;
+        }
+
+        if (hybrid_conf.IAP.type) {
+            IAP.type = hybrid_conf.IAP.type;
+        }
+
+        if (hybrid_conf.IAP.verbosity) {
+            IAP.verbosity = hybrid_conf.IAP.verbosity;
+        }
+
+        if (hybrid_conf.IAP.paymethod) {
+            IAP.paymethod = hybrid_conf.IAP.paymethod;
+        }
+
+        log('IAP initialize id: '+IAP.id);
 		
 		if(ua.Android()){
 			IAP.getGoogleAccount();
@@ -56,8 +71,8 @@ var IAP = {
 	checkGoogleAccount: function(result){
 		
 		if(result) {
-			console.log('accounts');
-			console.log(result);
+			log('accounts');
+			log(result);
 			
 			for(var i in result){
 				window.localStorage.setItem('googleAccount', result[i].email);
@@ -67,27 +82,27 @@ var IAP = {
 	},
  
     onProductUpdate: function(p){
-        console.log('IAP> Product updated.');
-        console.log(JSON.stringify(p));
+        log('IAP> Product updated.');
+        log(JSON.stringify(p));
         if (p.owned) {
-            console.log('Subscribed!');
+            log('Subscribed!');
         } else {
-            console.log('Not Subscribed');
+            log('Not Subscribed');
         }
     },
     
     onPurchaseApproved: function(p){
-        console.log('IAP> Purchase approved.');
-        console.log(JSON.stringify(p));
+        log('IAP> Purchase approved.');
+        log(JSON.stringify(p));
         //p.verify(); TODO before finish		
         p.finish();
     },
     onPurchaseVerified: function(p){
-        console.log("subscription verified");
+        log("subscription verified");
         //p.finish(); TODO
     },
     onStoreReady: function(){
-        console.log("\\o/ STORE READY \\o/");
+        log("\\o/ STORE READY \\o/");
         /*store.ask(IAP.alias)
         .then(function(data) {
               console.log('Price: ' + data.price);
@@ -112,8 +127,8 @@ var IAP = {
 		}
         
         if (ua.Android()){
-            var purchase_token = p.transaction.purchaseToken + '|' + CONFIGS.label.id + '|' + IAP.id;
-            console.log('Purchase Token: '+purchase_token);
+            var purchase_token = p.transaction.purchaseToken + '|' + stargateConf.id + '|' + IAP.id;
+            log('Purchase Token: '+purchase_token);
             
             if(!window.localStorage.getItem('user_account')){
                 IAP.createUser(p, purchase_token);
@@ -122,23 +137,7 @@ var IAP = {
         } else {
         
             storekit.loadReceipts(function (receipts) {
-                console.log('appStoreReceipt: ' + receipts.appStoreReceipt);
-                
-                if (IAP.subscribeMethod == 'callback'){
-                    // next generation subscription management
-                    var pm = {};
-                    pm.exec = 'stargate.purchase.subscription';
-                    pm.originalMsgId = app.msgId;
-                    pm.callbackParams = {
-                        'product' : p,
-                        'purchase_token': purchase_token,
-                        'paymethod': IAP.paymethod,
-                    };
-                    pm.success = true;
-                    appframe = document.getElementById('appframe');
-                    appframe.contentWindow.postMessage(JSON.stringify(pm), '*');
-                    return;
-                }
+                log('appStoreReceipt: ' + receipts.appStoreReceipt);
                                   
                 if(!window.localStorage.getItem('user_account')){
                     IAP.createUser(p, receipts.appStoreReceipt);
@@ -149,37 +148,51 @@ var IAP = {
     },
     
     onCancelledProduct: function(p){
-		app.sendBackToStargate('stargate.purchase.subscription', app.msgId, false, {'iap_cancelled' : 1, 'return_url' : app.appUrl}, false);
-        console.log('IAP > Purchase cancelled ##################################');
+        err("UN-IMPLEMENTED!");
+        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
+        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
+
+		//app.sendBackToStargate('stargate.purchase.subscription', app.msgId, false, {'iap_cancelled' : 1, 'return_url' : app.appUrl}, false);
+        log('IAP > Purchase cancelled ##################################');
     },
     
     onOrderApproved: function(order){
-       console.log("ORDER APPROVED "+IAP.id);
+       log("ORDER APPROVED "+IAP.id);
        order.finish();
     },
 	
 	error: function(error) {
-		app.sendBackToStargate('stargate.purchase.subscription', app.msgId, false, {'iap_error' : 1, 'return_url' : app.appUrl}, false);
-		console.log('error');	
+		err("UN-IMPLEMENTED!");
+        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
+        
+        //app.sendBackToStargate('stargate.purchase.subscription', app.msgId, false, {'iap_error' : 1, 'return_url' : app.appUrl}, false);
+		log('error');	
 	},
 	
 	createUser: function(product, purchaseToken){
 	
 		window.localStorage.setItem('user_account', ua.Android() ? (window.localStorage.getItem('googleAccount') ? window.localStorage.getItem('googleAccount') : purchaseToken+'@google.com') : product.transaction.id+'@itunes.com');
 		
+        err("UN-IMPLEMENTED!");
+        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
+        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
+        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
+        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
+        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
+        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
+        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
+        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
+        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
+        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
+        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
+        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
+        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
+        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
+        
+        /*
 		var url = IAP.subscribeMethod;		
 		
-		if (IAP.subscribeMethod == 'stargate'){
 		
-			url = CONFIGS.api.userCreate;
-		
-			if(app.app_prefix)
-				url = url.replace('%app_prefix%', app.app_prefix).replace('%selector%', app.selector);
-			else
-				url = url.replace('%app_prefix%/', '').replace('%selector%/', '');
-			
-			url = url.replace('%domain%', app.url()).replace('%country%', app.country);
-		}
 		
 		$.ajax({
 		  type: "POST",
@@ -202,5 +215,9 @@ var IAP = {
 			app.sendBackToStargate('stargate.purchase.subscription', app.msgId, false, error, false);
 		  }
 		});
+        */
 	}
 };
+
+
+
