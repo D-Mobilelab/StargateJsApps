@@ -158,8 +158,6 @@ var onPluginReady = function () {
 
     
     if (hasFeature('mfp')) {
-        // FIXME FIXME FIXME FIXME FIXME 
-        // do this only on first launch, as the session is removed from MFP when got
         MFP.check();
     }
 
@@ -170,7 +168,6 @@ var onPluginReady = function () {
             stargateConf.deltadna.collectApi,
             stargateConf.deltadna.engageApi,
 
-            // FIXME
             onDeltaDNAStartedSuccess,
             onDeltaDNAStartedError,
 
@@ -305,65 +302,9 @@ stargatePublic.getDeviceID = function(callbackSuccess, callbackError) {
 
     var deviceID = device.uuid;
     callbackSuccess({'deviceID': deviceID});
-                
-
 };
 
 
-
-/*
-var Stargate = {
-    
-
-    
-
-    inAppPurchaseSubscription: function(callbackSuccess, callbackError, subscriptionUrl, returnUrl){
-        var msgId = Stargate.createMessageId(); 
-        Stargate.messages[msgId] = new Message();
-        Stargate.messages[msgId].msgId = msgId;
-        Stargate.messages[msgId].exec = 'stargate.purchase.subscription';
-        if (typeof subscriptionUrl !== 'undefined'){
-            Stargate.messages[msgId].subscriptionUrl =  subscriptionUrl;
-        }
-        if (typeof returnUrl !== 'undefined'){
-            Stargate.messages[msgId].returnUrl =  returnUrl;
-        }
-        Stargate.messages[msgId].callbackSuccess = callbackSuccess;
-        Stargate.messages[msgId].callbackError = callbackError;
-        Stargate.messages[msgId].send();
-    },
-
-    inAppRestore: function(callbackSuccess, callbackError, subscriptionUrl, returnUrl){
-        var msgId = this.createMessageId(); 
-        Stargate.messages[msgId] = new Message();
-        Stargate.messages[msgId].msgId = msgId;
-        Stargate.messages[msgId].exec = 'stargate.restore';
-        if (typeof subscriptionUrl !== 'undefined'){
-            Stargate.messages[msgId].subscriptionUrl =  subscriptionUrl;
-        }
-        if (typeof returnUrl !== 'undefined'){
-            Stargate.messages[msgId].returnUrl =  returnUrl;
-        }
-        Stargate.messages[msgId].callbackSuccess = callbackSuccess;
-        Stargate.messages[msgId].callbackError = callbackError;
-        Stargate.messages[msgId].send();        
-    },
-    
-    
-    
-    googleLogin: function(callbackSuccess, callbackError){
-        var msgId = Stargate.createMessageId();
-        Stargate.messages[msgId] = new Message();
-        Stargate.messages[msgId].msgId = msgId;
-        Stargate.messages[msgId].exec = 'stargate.googleLogin';
-        Stargate.messages[msgId].callbackSuccess = callbackSuccess;
-        Stargate.messages[msgId].callbackError = callbackError;
-        Stargate.messages[msgId].send();
-    },  
-
-    
-}
-*/
 
 var stargateBusy = false;
 var isBusy = function() { return stargateBusy; };
@@ -384,7 +325,6 @@ var stargateConf = {};
 var hasFeature = function(feature) {
     return (typeof stargateConf.features[feature] !== 'undefined' && stargateConf.features[feature]);
 };
-
 
 
 
