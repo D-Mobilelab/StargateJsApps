@@ -3,7 +3,7 @@
 var onDeltaDNAStartedSuccess = function() {
     deltadna.registerPushCallback(
 		onDeltaDNAPush
-	); 
+	);
 };
 
 
