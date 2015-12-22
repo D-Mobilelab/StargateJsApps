@@ -17,7 +17,7 @@ stargatePublic.facebookLogin = function(scope, callbackSuccess, callbackError) {
                     callbackSuccess({'accessToken' : token});
                 },
                 function(err) {
-                    callbackSuccess({'error':err});
+                    callbackError({'error': err});
                 }
             );
         },
@@ -25,7 +25,7 @@ stargatePublic.facebookLogin = function(scope, callbackSuccess, callbackError) {
         // error callback
         function (error) {
             err("Got FB login error:", error);
-            callbackError({'error':error});
+            callbackError({'error': error});
         }
     );
 };
