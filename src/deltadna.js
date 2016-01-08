@@ -12,10 +12,10 @@ var onDeltaDNAStartedError = function(error) {
 };
 
 var onDeltaDNAPush = function(pushDatas) {
-    if(ua.Android() && pushDatas.payload && pushDatas.payload.url && !pushDatas.foreground){
-		launchUrl(pushDatas.payload.url);
+    if(isRunningOnAndroid() && pushDatas.payload && pushDatas.payload.url && !pushDatas.foreground){
+		return launchUrl(pushDatas.payload.url);
 	}
-    if(ua.iOS() && pushDatas.url){
-        launchUrl(pushDatas.url);
+    if(isRunningOnIos() && pushDatas.url){
+        return launchUrl(pushDatas.url);
     }
 };
