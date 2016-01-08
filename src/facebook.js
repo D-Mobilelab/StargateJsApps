@@ -11,7 +11,9 @@ stargatePublic.facebookLogin = function(scope, callbackSuccess, callbackError) {
         scope.split(","),
 
         // success callback
-        function (userData, msgId) {
+        function (userData) {
+            log("[facebook] got userdata: ", userData);
+            
             facebookConnectPlugin.getAccessToken(
                 function(token) {
                     callbackSuccess({'accessToken' : token});
