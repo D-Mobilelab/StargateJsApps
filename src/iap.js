@@ -1,4 +1,4 @@
-/* globals store, accountmanager */
+/* globals store, storekit */
 
 var IAP = {
 
@@ -9,8 +9,8 @@ var IAP = {
 	paymethod: '',
     subscribeMethod: 'stargate',
     returnUrl: '',
-    callbackSuccess: function(){log("[IAP] Undefined callbackSuccess")},
-    callbackError: function(){log("[IAP] Undefined callbackError")},
+    callbackSuccess: function(){log("[IAP] Undefined callbackSuccess");},
+    callbackError: function(){log("[IAP] Undefined callbackError");},
 	
 	initialize: function () {
         if (!window.store) {
@@ -107,7 +107,7 @@ var IAP = {
         p.finish();
     },
     onPurchaseVerified: function(p){
-        log("subscription verified");
+        log("subscription verified ", p);
         //p.finish(); TODO
     },
     onStoreReady: function(){
@@ -205,7 +205,7 @@ var IAP = {
             success: function(user)
             {
                 log('[IAP] createUser success ', user);
-                user.device_id = device.uuid;
+                user.device_id = runningDevice.uuid;
                 if(window.localStorage.getItem('transaction_id')){
                     user.transaction_id = window.localStorage.getItem('transaction_id');
                 }
@@ -248,50 +248,26 @@ stargatePublic.inAppPurchaseSubscription = function(callbackSuccess, callbackErr
 
 stargatePublic.inAppRestore = function(callbackSuccess, callbackError, subscriptionUrl, returnUrl) {
 
+    setBusy(true);
+
+    if (typeof subscriptionUrl !==  'undefined'){
+        IAP.subscribeMethod = subscriptionUrl;
+    }
+    if (typeof returnUrl !==  'undefined'){
+        IAP.returnUrl = returnUrl;
+    }
     
+    IAP.callbackSuccess = callbackSuccess;
+    IAP.callbackError = callbackError;
+    
+    // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
+    // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
+    // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
+
+    err("[IAP] unimplemented restore, FIXME!");
+    var stargateResponseError = {"iap_error" : "1", "return_url" : IAP.returnUrl};
+    setBusy(false);
+    IAP.callbackError(stargateResponseError);
 };
-
-/*
-var Stargate = {
-    
-
-    
-
-    inAppPurchaseSubscription: function(callbackSuccess, callbackError, subscriptionUrl, returnUrl){
-        var msgId = Stargate.createMessageId(); 
-        Stargate.messages[msgId] = new Message();
-        Stargate.messages[msgId].msgId = msgId;
-        Stargate.messages[msgId].exec = 'stargate.purchase.subscription';
-        if (typeof subscriptionUrl !== 'undefined'){
-            Stargate.messages[msgId].subscriptionUrl =  subscriptionUrl;
-        }
-        if (typeof returnUrl !== 'undefined'){
-            Stargate.messages[msgId].returnUrl =  returnUrl;
-        }
-        Stargate.messages[msgId].callbackSuccess = callbackSuccess;
-        Stargate.messages[msgId].callbackError = callbackError;
-        Stargate.messages[msgId].send();
-    },
-
-    inAppRestore: function(callbackSuccess, callbackError, subscriptionUrl, returnUrl){
-        var msgId = this.createMessageId(); 
-        Stargate.messages[msgId] = new Message();
-        Stargate.messages[msgId].msgId = msgId;
-        Stargate.messages[msgId].exec = 'stargate.restore';
-        if (typeof subscriptionUrl !== 'undefined'){
-            Stargate.messages[msgId].subscriptionUrl =  subscriptionUrl;
-        }
-        if (typeof returnUrl !== 'undefined'){
-            Stargate.messages[msgId].returnUrl =  returnUrl;
-        }
-        Stargate.messages[msgId].callbackSuccess = callbackSuccess;
-        Stargate.messages[msgId].callbackError = callbackError;
-        Stargate.messages[msgId].send();        
-    },
-    
-}
-*/
-
-
 
 
