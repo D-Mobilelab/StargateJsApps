@@ -49,4 +49,4 @@ function AdStargate() {
     	err("unimplemented");
         callbackError("unimplemented");
     };
-};
+}

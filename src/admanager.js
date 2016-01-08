@@ -83,9 +83,9 @@ var AdManager = {
 	},
 	
 	/* TODO if needed */
-	initMoPub: function(options, success, fail){
-	
-	},	
+	//initMoPub: function(options, success, fail){
+	//
+	//},	
 	
 	registerAdEvents: function(eventManager) {
 		document.addEventListener('onAdFailLoad', eventManager);
@@ -113,7 +113,7 @@ var AdManager = {
 	*/
 	createBanner: function(data, success, fail) {
 		var options = {};
-		var opt = new Array();
+		var opt = [];
 		var userAgent = AdManager.getUserAgent();
 		
 		/* no data, we use DefaultOptions */
@@ -167,7 +167,7 @@ var AdManager = {
 	*/
 	showBannerAtSelectedPosition: function(data) {
 	
-		var opt = new Array();
+		var opt = [];
 		var userAgent = AdManager.getUserAgent();
 		
 		/* no data, we use DefaultOptions */
@@ -207,7 +207,7 @@ var AdManager = {
 	*/
 	showBannerAtGivenXY: function(data) {
 	
-		var opt = new Array();
+		var opt = [];
 		var userAgent = AdManager.getUserAgent();
 		
 		/* no data, we use DefaultOptions */
@@ -246,7 +246,7 @@ var AdManager = {
 	*/
 	hideBanner: function(data) {
 	
-		var opt = new Array();
+		var opt = [];
 		var userAgent = AdManager.getUserAgent();
 		
 		/* no data, we use DefaultOptions */
@@ -285,7 +285,7 @@ var AdManager = {
 	*/
 	removeBanner: function(data) {
 	
-		var opt = new Array();
+		var opt = [];
 		var userAgent = AdManager.getUserAgent();
 		
 		/* no data, we use DefaultOptions */
@@ -325,7 +325,7 @@ var AdManager = {
 	prepareInterstitial: function(data, success, fail) {
 	
 		var options = {};
-		var opt = new Array();
+		var opt = [];
 		var userAgent = AdManager.getUserAgent();
 		
 		/* no data, we use DefaultOptions */
@@ -366,7 +366,7 @@ var AdManager = {
 	*/
 	showInterstitial: function(data) {
 	
-		var opt = new Array();
+		var opt = [];
 		var userAgent = AdManager.getUserAgent();
 		
 		/* no data, we use DefaultOptions */
