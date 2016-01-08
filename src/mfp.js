@@ -1,3 +1,6 @@
+/* global URI, URITemplate  */
+
+
 var MFP = {
 
 	check: function(){
@@ -38,7 +41,7 @@ var MFP = {
 		return '';
 	},
 
-	set: function(pony, country){
+	set: function(pony){
 
 		// baseUrl: read from main stargate.js
 		var appUrl = baseUrl;
@@ -103,7 +106,7 @@ var MFP = {
 	                	window.localStorage.setItem('appUrl', jsonStruct.extData.return_url);
 	                }
 	                
-	                MFP.set(ponyUrl, country);                
+	                MFP.set(ponyUrl);                
 				}else{
 					log("MFP.get(): Empty session");
 				}
