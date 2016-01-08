@@ -1,4 +1,4 @@
-
+/* global ProgressIndicator */
 
 
 var startLoading = function() {
@@ -7,15 +7,17 @@ var startLoading = function() {
 var stopLoading = function() {
     ProgressIndicator.hide();
 };
-var timeoutLoading = function(t) {
-    startLoading();
-    setTimeout(
-        function(){
-            stopLoading();
-        },
-        t
-    );
-};
+
+// - not used, enable if needed -
+//var timeoutLoading = function(t) {
+//    startLoading();
+//    setTimeout(
+//        function(){
+//            stopLoading();
+//        },
+//        t
+//    );
+//};
 
 // FIXME: used inside store.js
 window.startLoading = startLoading;
