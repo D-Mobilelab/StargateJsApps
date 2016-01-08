@@ -1,5 +1,5 @@
 
-/* global Q */
+/* globals Q */
 
 /***
 * 
@@ -45,9 +45,10 @@ var isRunningOnAndroid = function() {
 var isRunningOnIos = function() {
     return runningDevice.platform == "iOS";
 };
-var isRunningOnCordova = function () {
-    return (typeof window.cordova !== "undefined");
-};
+// - not used, enable if needed -
+//var isRunningOnCordova = function () {
+//    return (typeof window.cordova !== "undefined");
+//};
 var initDevice = function() {
     if (typeof window.device === 'undefined') {
         return err("Missing cordova device plugin");
@@ -62,17 +63,11 @@ var initDevice = function() {
 
 
 
-// global variable used by old stargate client
-// @deprecated since v2
-window.pubKey = '';
-// @deprecated since v2
-window.forge = '';
-
 var getManifest = function() {
 
     var deferred = Q.defer();
 
-    hostedwebapp.getManifest(
+    window.hostedwebapp.getManifest(
         function(manifest){
             deferred.resolve(manifest);
         },
@@ -116,7 +111,7 @@ var baseUrl;
 
 var updateStatusBar = function() {
 
-    if (typeof StatusBar === "undefined") {
+    if (typeof window.StatusBar === "undefined") {
         // missing cordova plugin
         return err("[StatusBar] missing cordova plugin");
     }
@@ -140,10 +135,10 @@ var updateStatusBar = function() {
         }
 
         if (hide) {
-            StatusBar.hide();
+            window.StatusBar.hide();
         }
         else {
-            StatusBar.show();
+            window.StatusBar.show();
         }
     }
 };
@@ -175,10 +170,6 @@ var onPluginReady = function () {
         );
     }
 
-    // FIXME: stargate.ad is public ?
-    //if(AdStargate){
-    //    stargatePublic.ad = new AdStargate();
-    //}
 
     navigator.splashscreen.hide();
     setBusy(false);
@@ -228,86 +219,11 @@ var onDeviceReady = function () {
 };
 
 
-stargatePublic.initialize = function(configurations, pubKey, forge, callback) {
-
-
-    if (isStargateInitialized) {
-        Q.defer().reject(new Error("Stargate.initialize() already called!"));
-    }
-    
-    isStargateInitialized = true;
-
-    initializeCallback = callback;
-    initializeDeferred = Q.defer();
-
-
-    if(configurations.country){
-        country = configurations.country;
-    }
-    if(configurations.selector){
-        selector = configurations.selector;
-    }
-    if(configurations.api_selector){
-        api_selector = configurations.api_selector;
-    }
-    if(configurations.app_prefix){
-        app_prefix = configurations.app_prefix;
-    }
-    if(configurations.hybrid_conf){
-        if (typeof configurations.hybrid_conf === 'object') {
-            hybrid_conf = configurations.hybrid_conf;
-        } else {
-            hybrid_conf = JSON.parse(decodeURIComponent(configurations.hybrid_conf));
-        }
-    }
-
-    // finish the initialization of cordova plugin when deviceReady is received
-    document.addEventListener('deviceready', onDeviceReady, false);
-    
-    return initializeDeferred.promise;
-};
-
-stargatePublic.isInitialized = function() {
-    return isStargateInitialized;
-};
-stargatePublic.isOpen = function() {
-    return isStargateOpen;
-};
-
-stargatePublic.openUrl = function(url) {
-
-    // FIXME: check that inappbrowser plugin is installed otherwise retunr error
-
-    window.open(url, "_system");
-};
-
-stargatePublic.googleLogin = function(callbackSuccess, callbackError) {
-
-    // FIXME: implement it; get code from old stargate
-
-    err("unimplemented");
-    callbackError("unimplemented");
-};
-stargatePublic.checkConnection = function(callbackSuccess, callbackError) {
-
-    // FIXME: check that network plugin is installed
-
-    var networkState = navigator.connection.type;
-    callbackSuccess({'networkState': networkState});
-};
-stargatePublic.getDeviceID = function(callbackSuccess, callbackError) {
-
-    // FIXME: check that device plugin is installed
-    // FIXME: integrate with other stargate device handling method
-
-    var deviceID = device.uuid;
-    callbackSuccess({'deviceID': deviceID});
-};
-
-
 
 var stargateBusy = false;
-var isBusy = function() { return stargateBusy; };
+
+// - not used, enable if needed -
+//var isBusy = function() { return stargateBusy; };
 
 var setBusy = function(value) {
     if (value) {
