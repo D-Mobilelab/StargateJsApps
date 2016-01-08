@@ -4673,9 +4673,9 @@ var AdManager = {
 	},
 	
 	/* TODO if needed */
-	initMoPub: function(options, success, fail){
-	
-	},	
+	//initMoPub: function(options, success, fail){
+	//
+	//},	
 	
 	registerAdEvents: function(eventManager) {
 		document.addEventListener('onAdFailLoad', eventManager);
@@ -4703,7 +4703,7 @@ var AdManager = {
 	*/
 	createBanner: function(data, success, fail) {
 		var options = {};
-		var opt = new Array();
+		var opt = [];
 		var userAgent = AdManager.getUserAgent();
 		
 		/* no data, we use DefaultOptions */
@@ -4757,7 +4757,7 @@ var AdManager = {
 	*/
 	showBannerAtSelectedPosition: function(data) {
 	
-		var opt = new Array();
+		var opt = [];
 		var userAgent = AdManager.getUserAgent();
 		
 		/* no data, we use DefaultOptions */
@@ -4797,7 +4797,7 @@ var AdManager = {
 	*/
 	showBannerAtGivenXY: function(data) {
 	
-		var opt = new Array();
+		var opt = [];
 		var userAgent = AdManager.getUserAgent();
 		
 		/* no data, we use DefaultOptions */
@@ -4836,7 +4836,7 @@ var AdManager = {
 	*/
 	hideBanner: function(data) {
 	
-		var opt = new Array();
+		var opt = [];
 		var userAgent = AdManager.getUserAgent();
 		
 		/* no data, we use DefaultOptions */
@@ -4875,7 +4875,7 @@ var AdManager = {
 	*/
 	removeBanner: function(data) {
 	
-		var opt = new Array();
+		var opt = [];
 		var userAgent = AdManager.getUserAgent();
 		
 		/* no data, we use DefaultOptions */
@@ -4915,7 +4915,7 @@ var AdManager = {
 	prepareInterstitial: function(data, success, fail) {
 	
 		var options = {};
-		var opt = new Array();
+		var opt = [];
 		var userAgent = AdManager.getUserAgent();
 		
 		/* no data, we use DefaultOptions */
@@ -4956,7 +4956,7 @@ var AdManager = {
 	*/
 	showInterstitial: function(data) {
 	
-		var opt = new Array();
+		var opt = [];
 		var userAgent = AdManager.getUserAgent();
 		
 		/* no data, we use DefaultOptions */
@@ -5060,13 +5060,14 @@ function AdStargate() {
     	err("unimplemented");
         callbackError("unimplemented");
     };
-};
+}
+
 /* global deltadna */
 
 var onDeltaDNAStartedSuccess = function() {
     deltadna.registerPushCallback(
 		onDeltaDNAPush
-	); 
+	);
 };
 
 
@@ -5075,11 +5076,11 @@ var onDeltaDNAStartedError = function(error) {
 };
 
 var onDeltaDNAPush = function(pushDatas) {
-    if(ua.Android() && pushDatas.payload && pushDatas.payload.url && !pushDatas.foreground){
-		launchUrl(pushDatas.payload.url);
+    if(isRunningOnAndroid() && pushDatas.payload && pushDatas.payload.url && !pushDatas.foreground){
+		return launchUrl(pushDatas.payload.url);
 	}
-    if(ua.iOS() && pushDatas.url){
-        launchUrl(pushDatas.url);
+    if(isRunningOnIos() && pushDatas.url){
+        return launchUrl(pushDatas.url);
     }
 };
 /* global facebookConnectPlugin */
@@ -5095,13 +5096,15 @@ stargatePublic.facebookLogin = function(scope, callbackSuccess, callbackError) {
         scope.split(","),
 
         // success callback
-        function (userData, msgId) {
+        function (userData) {
+            log("[facebook] got userdata: ", userData);
+            
             facebookConnectPlugin.getAccessToken(
                 function(token) {
                     callbackSuccess({'accessToken' : token});
                 },
                 function(err) {
-                    callbackSuccess({'error':err});
+                    callbackError({'error': err});
                 }
             );
         },
@@ -5109,7 +5112,7 @@ stargatePublic.facebookLogin = function(scope, callbackSuccess, callbackError) {
         // error callback
         function (error) {
             err("Got FB login error:", error);
-            callbackError({'error':error});
+            callbackError({'error': error});
         }
     );
 };
@@ -5141,7 +5144,7 @@ stargatePublic.facebookShare = function(url, callbackSuccess, callbackError) {
     );
 };
 
-/* globals store, accountmanager */
+/* globals store, storekit */
 
 var IAP = {
 
@@ -5152,55 +5155,64 @@ var IAP = {
 	paymethod: '',
     subscribeMethod: 'stargate',
     returnUrl: '',
+    callbackSuccess: function(){log("[IAP] Undefined callbackSuccess");},
+    callbackError: function(){log("[IAP] Undefined callbackError");},
 	
 	initialize: function () {
         if (!window.store) {
-            log('Store not available');
+            err('Store not available');
             return;
         }
 		
+        // initialize with current url
+        IAP.returnUrl = document.location.href;
+
         if (hybrid_conf.IAP.id) {
             IAP.id = hybrid_conf.IAP.id;
         }
 
+        // 
         if (hybrid_conf.IAP.alias) {
             IAP.alias = hybrid_conf.IAP.alias;
         }
 
+        //  --- type ---
+        // store.FREE_SUBSCRIPTION = "free subscription";
+        // store.PAID_SUBSCRIPTION = "paid subscription";
+        // store.CONSUMABLE        = "consumable";
+        // store.NON_CONSUMABLE    = "non consumable";
         if (hybrid_conf.IAP.type) {
             IAP.type = hybrid_conf.IAP.type;
         }
 
-        if (hybrid_conf.IAP.verbosity) {
-            IAP.verbosity = hybrid_conf.IAP.verbosity;
-        }
+        // Available values: DEBUG, INFO, WARNING, ERROR, QUIET
+        IAP.verbosity = 'DEBUG';
 
-        if (hybrid_conf.IAP.paymethod) {
-            IAP.paymethod = hybrid_conf.IAP.paymethod;
-        }
+        IAP.paymethod = isRunningOnAndroid() ? 'gwallet' : 'itunes';
+
 
         log('IAP initialize id: '+IAP.id);
 		
-		if(ua.Android()){
+		if(isRunningOnAndroid()){
 			IAP.getGoogleAccount();
 		}
-        store.verbosity = store[IAP.verbosity];
+        window.store.verbosity = window.store[IAP.verbosity];
         // store.validator = ... TODO
         
-        store.register({
-                   id:    IAP.id,
-                   alias: IAP.alias,
-                   type:  store[IAP.type]
-                   });
+        window.store.register({
+            id:    IAP.id,
+            alias: IAP.alias,
+            type:  store[IAP.type]
+        });
         
-        store.when(IAP.alias).approved(function(p){IAP.onPurchaseApproved(p);});
-        store.when(IAP.alias).verified(function(p){IAP.onPurchaseVerified(p);});
-        store.when(IAP.alias).updated(function(p){IAP.onProductUpdate(p);});
-		store.when(IAP.alias).owned(function(p){IAP.onProductOwned(p);});
-		store.when(IAP.alias).cancelled(function(p){IAP.onCancelledProduct(p); });
-		store.when(IAP.alias).error(function(err){IAP.error(JSON.stringify(err));});
-        store.ready(function(){ IAP.onStoreReady();});
-        store.when("order "+IAP.id).approved(function(order){IAP.onOrderApproved(order);});
+        window.store.when(IAP.alias).approved(function(p){IAP.onPurchaseApproved(p);});
+        window.store.when(IAP.alias).verified(function(p){IAP.onPurchaseVerified(p);});
+        window.store.when(IAP.alias).updated(function(p){IAP.onProductUpdate(p);});
+		window.store.when(IAP.alias).owned(function(p){IAP.onProductOwned(p);});
+		window.store.when(IAP.alias).cancelled(function(p){IAP.onCancelledProduct(p); });
+		window.store.when(IAP.alias).error(function(errorPar){IAP.error(JSON.stringify(errorPar));});
+        window.store.ready(function(){ IAP.onStoreReady();});
+        window.store.when("order "+IAP.id).approved(function(order){IAP.onOrderApproved(order);});
     },
 
     getPassword: function (transactionId){
@@ -5214,7 +5226,7 @@ var IAP = {
 	checkGoogleAccount: function(result){
 		
 		if(result) {
-			log('accounts');
+			log('[IAP] accounts');
 			log(result);
 			
 			for(var i in result){
@@ -5228,9 +5240,9 @@ var IAP = {
         log('IAP> Product updated.');
         log(JSON.stringify(p));
         if (p.owned) {
-            log('Subscribed!');
+            log('[IAP] Subscribed!');
         } else {
-            log('Not Subscribed');
+            log('[IAP] Not Subscribed');
         }
     },
     
@@ -5241,7 +5253,7 @@ var IAP = {
         p.finish();
     },
     onPurchaseVerified: function(p){
-        log("subscription verified");
+        log("subscription verified ", p);
         //p.finish(); TODO
     },
     onStoreReady: function(){
@@ -5259,19 +5271,19 @@ var IAP = {
     },
     
     onProductOwned: function(p){
-        console.log('IAP > Product Owned.');
-        if (!p.transaction.id && ua.iOS()){
-            console.log('IAP > no transaction id');
+        log('[IAP] > Product Owned.');
+        if (!p.transaction.id && isRunningOnIos()){
+            log('[IAP] > no transaction id');
             return false;
         }
         window.localStorage.setItem('product', p);
-		if(ua.iOS()){
+		if(isRunningOnIos()){
 			window.localStorage.setItem('transaction_id', p.transaction.id);
 		}
         
-        if (ua.Android()){
+        if (isRunningOnAndroid()){
             var purchase_token = p.transaction.purchaseToken + '|' + stargateConf.id + '|' + IAP.id;
-            log('Purchase Token: '+purchase_token);
+            log('[IAP] Purchase Token: '+purchase_token);
             
             if(!window.localStorage.getItem('user_account')){
                 IAP.createUser(p, purchase_token);
@@ -5280,7 +5292,7 @@ var IAP = {
         } else {
         
             storekit.loadReceipts(function (receipts) {
-                log('appStoreReceipt: ' + receipts.appStoreReceipt);
+                log('[IAP] appStoreReceipt: ' + receipts.appStoreReceipt);
                                   
                 if(!window.localStorage.getItem('user_account')){
                     IAP.createUser(p, receipts.appStoreReceipt);
@@ -5291,125 +5303,419 @@ var IAP = {
     },
     
     onCancelledProduct: function(p){
-        err("UN-IMPLEMENTED!");
-        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
-        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
-
-		//app.sendBackToStargate('stargate.purchase.subscription', app.msgId, false, {'iap_cancelled' : 1, 'return_url' : app.appUrl}, false);
-        log('IAP > Purchase cancelled ##################################');
+        setBusy(false);
+        IAP.callbackError({'iap_cancelled': 1, 'return_url' : IAP.returnUrl});
+        log('[IAP] > Purchase cancelled ##################################', p);
     },
     
     onOrderApproved: function(order){
-       log("ORDER APPROVED "+IAP.id);
+       log("[IAP] ORDER APPROVED "+IAP.id);
        order.finish();
     },
 	
 	error: function(error) {
-		err("UN-IMPLEMENTED!");
-        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
-        
-        //app.sendBackToStargate('stargate.purchase.subscription', app.msgId, false, {'iap_error' : 1, 'return_url' : app.appUrl}, false);
-		log('error');	
+        setBusy(false);
+        IAP.callbackError({'iap_error': 1, 'return_url' : IAP.returnUrl});
+
+		err('[IAP] error: '+error);	
 	},
 	
 	createUser: function(product, purchaseToken){
 	
-		window.localStorage.setItem('user_account', ua.Android() ? (window.localStorage.getItem('googleAccount') ? window.localStorage.getItem('googleAccount') : purchaseToken+'@google.com') : product.transaction.id+'@itunes.com');
+		window.localStorage.setItem('user_account', 
+            isRunningOnAndroid() ? 
+                (window.localStorage.getItem('googleAccount') ? 
+                    window.localStorage.getItem('googleAccount')
+                    : purchaseToken+'@google.com')
+                : product.transaction.id+'@itunes.com');
 		
-        err("UN-IMPLEMENTED!");
-        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
-        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
-        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
-        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
-        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
-        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
-        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
-        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
-        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
-        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
-        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
-        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
-        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
-        // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
-        
-        /*
-		var url = IAP.subscribeMethod;		
+        var url = IAP.subscribeMethod;		
 		
-		
-		
-		$.ajax({
-		  type: "POST",
-		  url: url,
-		  data: "paymethod="+IAP.paymethod+"&user_account="+window.localStorage.getItem('user_account')+"&purchase_token="+encodeURIComponent(purchaseToken)+"&return_url="+encodeURIComponent(app.url())+"&inapp_pwd="+IAP.getPassword(purchaseToken)+"&hybrid=1",
-		  dataType: "json",
-		  success: function(user)
-		  {
-			console.log(user);
-			user.device_id = device.uuid;
-			if(window.localStorage.getItem('transaction_id')){
-				user.transaction_id = window.localStorage.getItem('transaction_id');
-			}
-			app.sendBackToStargate('stargate.purchase.subscription', app.msgId, true, user, false);
-		  },
-		  error: function(err)
-		  {
-			console.log("Chiamata fallita, si prega di riprovare...", err);
-			var error = {"iap_error" : "1", "return_url" : app.url()};
-			app.sendBackToStargate('stargate.purchase.subscription', app.msgId, false, error, false);
-		  }
+
+
+		reqwest({
+            method: "post",
+            url: url,
+
+            data: {
+                'paymethod': IAP.paymethod,
+                'user_account': window.localStorage.getItem('user_account'),
+                'purchase_token': purchaseToken,
+                'return_url': IAP.returnUrl,
+                'inapp_pwd': IAP.getPassword(purchaseToken),
+                'hybrid': 1
+            },
+
+            type: 'jsonp',
+
+            success: function(user)
+            {
+                log('[IAP] createUser success ', user);
+                user.device_id = runningDevice.uuid;
+                if(window.localStorage.getItem('transaction_id')){
+                    user.transaction_id = window.localStorage.getItem('transaction_id');
+                }
+                setBusy(false);
+                IAP.callbackSuccess(user);
+            },
+
+            error: function(error)
+            {
+                err("[IAP] Call failed, please try again...", error);
+                var stargateResponseError = {"iap_error" : "1", "return_url" : IAP.returnUrl};
+                setBusy(false);
+                IAP.callbackError(stargateResponseError);
+            }
 		});
-        */
 	}
 };
 
 
 
+stargatePublic.inAppPurchaseSubscription = function(callbackSuccess, callbackError, subscriptionUrl, returnUrl) {
+
+    setBusy(true);
+
+    if (typeof returnUrl !==  'undefined'){
+        IAP.returnUrl = returnUrl;
+    }
+    if (typeof subscriptionUrl !==  'undefined'){
+        IAP.subscribeMethod = subscriptionUrl;
+    }
+    
+    IAP.callbackSuccess = callbackSuccess;
+    IAP.callbackError = callbackError;
+
+    window.store.order(IAP.id);
+    window.store.refresh();
+    
+};
+
+
+stargatePublic.inAppRestore = function(callbackSuccess, callbackError, subscriptionUrl, returnUrl) {
+
+    setBusy(true);
+
+    if (typeof subscriptionUrl !==  'undefined'){
+        IAP.subscribeMethod = subscriptionUrl;
+    }
+    if (typeof returnUrl !==  'undefined'){
+        IAP.returnUrl = returnUrl;
+    }
+    
+    IAP.callbackSuccess = callbackSuccess;
+    IAP.callbackError = callbackError;
+    
+    // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
+    // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
+    // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
+
+    err("[IAP] unimplemented restore, FIXME!");
+    var stargateResponseError = {"iap_error" : "1", "return_url" : IAP.returnUrl};
+    setBusy(false);
+    IAP.callbackError(stargateResponseError);
+};
+
+
 
 /* global ProgressIndicator */
 
-function startLoading(){
+
+var startLoading = function() {
     ProgressIndicator.showSimple(true);
-}
-function stopLoading(){
+};
+var stopLoading = function() {
     ProgressIndicator.hide();
-}
-function timeoutLoading(t){
-    startLoading();
-    setTimeout(function(){stopLoading();}, t);
-}
-// code already minified, remove warnings
-/* jshint -W004 */
-/* jshint -W033 */
-/* jshint -W016 */
+};
+
+// - not used, enable if needed -
+//var timeoutLoading = function(t) {
+//    startLoading();
+//    setTimeout(
+//        function(){
+//            stopLoading();
+//        },
+//        t
+//    );
+//};
+
+// FIXME: used inside store.js
+window.startLoading = startLoading;
+window.stopLoading = stopLoading;
+
+/*
+ * JavaScript MD5
+ * https://github.com/blueimp/JavaScript-MD5
+ *
+ * Copyright 2011, Sebastian Tschan
+ * https://blueimp.net
+ *
+ * Licensed under the MIT license:
+ * http://www.opensource.org/licenses/MIT
+ *
+ * Based on
+ * A JavaScript implementation of the RSA Data Security, Inc. MD5 Message
+ * Digest Algorithm, as defined in RFC 1321.
+ * Version 2.2 Copyright (C) Paul Johnston 1999 - 2009
+ * Other contributors: Greg Holt, Andrew Kepert, Ydnar, Lostinet
+ * Distributed under the BSD License
+ * See http://pajhome.org.uk/crypt/md5 for more info.
+ */
+
+/*jslint bitwise: true */
+/*global unescape, define, module */
+
+var md5 = (function () {
+    'use strict';
+
+    /*
+    * Add integers, wrapping at 2^32. This uses 16-bit operations internally
+    * to work around bugs in some JS interpreters.
+    */
+    function safe_add(x, y) {
+        var lsw = (x & 0xFFFF) + (y & 0xFFFF),
+            msw = (x >> 16) + (y >> 16) + (lsw >> 16);
+        return (msw << 16) | (lsw & 0xFFFF);
+    }
+
+    /*
+    * Bitwise rotate a 32-bit number to the left.
+    */
+    function bit_rol(num, cnt) {
+        return (num << cnt) | (num >>> (32 - cnt));
+    }
+
+    /*
+    * These functions implement the four basic operations the algorithm uses.
+    */
+    function md5_cmn(q, a, b, x, s, t) {
+        return safe_add(bit_rol(safe_add(safe_add(a, q), safe_add(x, t)), s), b);
+    }
+    function md5_ff(a, b, c, d, x, s, t) {
+        return md5_cmn((b & c) | ((~b) & d), a, b, x, s, t);
+    }
+    function md5_gg(a, b, c, d, x, s, t) {
+        return md5_cmn((b & d) | (c & (~d)), a, b, x, s, t);
+    }
+    function md5_hh(a, b, c, d, x, s, t) {
+        return md5_cmn(b ^ c ^ d, a, b, x, s, t);
+    }
+    function md5_ii(a, b, c, d, x, s, t) {
+        return md5_cmn(c ^ (b | (~d)), a, b, x, s, t);
+    }
+
+    /*
+    * Calculate the MD5 of an array of little-endian words, and a bit length.
+    */
+    function binl_md5(x, len) {
+        /* append padding */
+        x[len >> 5] |= 0x80 << (len % 32);
+        x[(((len + 64) >>> 9) << 4) + 14] = len;
+
+        var i, olda, oldb, oldc, oldd,
+            a =  1732584193,
+            b = -271733879,
+            c = -1732584194,
+            d =  271733878;
+
+        for (i = 0; i < x.length; i += 16) {
+            olda = a;
+            oldb = b;
+            oldc = c;
+            oldd = d;
+
+            a = md5_ff(a, b, c, d, x[i],       7, -680876936);
+            d = md5_ff(d, a, b, c, x[i +  1], 12, -389564586);
+            c = md5_ff(c, d, a, b, x[i +  2], 17,  606105819);
+            b = md5_ff(b, c, d, a, x[i +  3], 22, -1044525330);
+            a = md5_ff(a, b, c, d, x[i +  4],  7, -176418897);
+            d = md5_ff(d, a, b, c, x[i +  5], 12,  1200080426);
+            c = md5_ff(c, d, a, b, x[i +  6], 17, -1473231341);
+            b = md5_ff(b, c, d, a, x[i +  7], 22, -45705983);
+            a = md5_ff(a, b, c, d, x[i +  8],  7,  1770035416);
+            d = md5_ff(d, a, b, c, x[i +  9], 12, -1958414417);
+            c = md5_ff(c, d, a, b, x[i + 10], 17, -42063);
+            b = md5_ff(b, c, d, a, x[i + 11], 22, -1990404162);
+            a = md5_ff(a, b, c, d, x[i + 12],  7,  1804603682);
+            d = md5_ff(d, a, b, c, x[i + 13], 12, -40341101);
+            c = md5_ff(c, d, a, b, x[i + 14], 17, -1502002290);
+            b = md5_ff(b, c, d, a, x[i + 15], 22,  1236535329);
+
+            a = md5_gg(a, b, c, d, x[i +  1],  5, -165796510);
+            d = md5_gg(d, a, b, c, x[i +  6],  9, -1069501632);
+            c = md5_gg(c, d, a, b, x[i + 11], 14,  643717713);
+            b = md5_gg(b, c, d, a, x[i],      20, -373897302);
+            a = md5_gg(a, b, c, d, x[i +  5],  5, -701558691);
+            d = md5_gg(d, a, b, c, x[i + 10],  9,  38016083);
+            c = md5_gg(c, d, a, b, x[i + 15], 14, -660478335);
+            b = md5_gg(b, c, d, a, x[i +  4], 20, -405537848);
+            a = md5_gg(a, b, c, d, x[i +  9],  5,  568446438);
+            d = md5_gg(d, a, b, c, x[i + 14],  9, -1019803690);
+            c = md5_gg(c, d, a, b, x[i +  3], 14, -187363961);
+            b = md5_gg(b, c, d, a, x[i +  8], 20,  1163531501);
+            a = md5_gg(a, b, c, d, x[i + 13],  5, -1444681467);
+            d = md5_gg(d, a, b, c, x[i +  2],  9, -51403784);
+            c = md5_gg(c, d, a, b, x[i +  7], 14,  1735328473);
+            b = md5_gg(b, c, d, a, x[i + 12], 20, -1926607734);
+
+            a = md5_hh(a, b, c, d, x[i +  5],  4, -378558);
+            d = md5_hh(d, a, b, c, x[i +  8], 11, -2022574463);
+            c = md5_hh(c, d, a, b, x[i + 11], 16,  1839030562);
+            b = md5_hh(b, c, d, a, x[i + 14], 23, -35309556);
+            a = md5_hh(a, b, c, d, x[i +  1],  4, -1530992060);
+            d = md5_hh(d, a, b, c, x[i +  4], 11,  1272893353);
+            c = md5_hh(c, d, a, b, x[i +  7], 16, -155497632);
+            b = md5_hh(b, c, d, a, x[i + 10], 23, -1094730640);
+            a = md5_hh(a, b, c, d, x[i + 13],  4,  681279174);
+            d = md5_hh(d, a, b, c, x[i],      11, -358537222);
+            c = md5_hh(c, d, a, b, x[i +  3], 16, -722521979);
+            b = md5_hh(b, c, d, a, x[i +  6], 23,  76029189);
+            a = md5_hh(a, b, c, d, x[i +  9],  4, -640364487);
+            d = md5_hh(d, a, b, c, x[i + 12], 11, -421815835);
+            c = md5_hh(c, d, a, b, x[i + 15], 16,  530742520);
+            b = md5_hh(b, c, d, a, x[i +  2], 23, -995338651);
+
+            a = md5_ii(a, b, c, d, x[i],       6, -198630844);
+            d = md5_ii(d, a, b, c, x[i +  7], 10,  1126891415);
+            c = md5_ii(c, d, a, b, x[i + 14], 15, -1416354905);
+            b = md5_ii(b, c, d, a, x[i +  5], 21, -57434055);
+            a = md5_ii(a, b, c, d, x[i + 12],  6,  1700485571);
+            d = md5_ii(d, a, b, c, x[i +  3], 10, -1894986606);
+            c = md5_ii(c, d, a, b, x[i + 10], 15, -1051523);
+            b = md5_ii(b, c, d, a, x[i +  1], 21, -2054922799);
+            a = md5_ii(a, b, c, d, x[i +  8],  6,  1873313359);
+            d = md5_ii(d, a, b, c, x[i + 15], 10, -30611744);
+            c = md5_ii(c, d, a, b, x[i +  6], 15, -1560198380);
+            b = md5_ii(b, c, d, a, x[i + 13], 21,  1309151649);
+            a = md5_ii(a, b, c, d, x[i +  4],  6, -145523070);
+            d = md5_ii(d, a, b, c, x[i + 11], 10, -1120210379);
+            c = md5_ii(c, d, a, b, x[i +  2], 15,  718787259);
+            b = md5_ii(b, c, d, a, x[i +  9], 21, -343485551);
+
+            a = safe_add(a, olda);
+            b = safe_add(b, oldb);
+            c = safe_add(c, oldc);
+            d = safe_add(d, oldd);
+        }
+        return [a, b, c, d];
+    }
+
+    /*
+    * Convert an array of little-endian words to a string
+    */
+    function binl2rstr(input) {
+        var i,
+            output = '';
+        for (i = 0; i < input.length * 32; i += 8) {
+            output += String.fromCharCode((input[i >> 5] >>> (i % 32)) & 0xFF);
+        }
+        return output;
+    }
+
+    /*
+    * Convert a raw string to an array of little-endian words
+    * Characters >255 have their high-byte silently ignored.
+    */
+    function rstr2binl(input) {
+        var i,
+            output = [];
+        output[(input.length >> 2) - 1] = undefined;
+        for (i = 0; i < output.length; i += 1) {
+            output[i] = 0;
+        }
+        for (i = 0; i < input.length * 8; i += 8) {
+            output[i >> 5] |= (input.charCodeAt(i / 8) & 0xFF) << (i % 32);
+        }
+        return output;
+    }
+
+    /*
+    * Calculate the MD5 of a raw string
+    */
+    function rstr_md5(s) {
+        return binl2rstr(binl_md5(rstr2binl(s), s.length * 8));
+    }
+
+    /*
+    * Calculate the HMAC-MD5, of a key and some data (raw strings)
+    */
+    function rstr_hmac_md5(key, data) {
+        var i,
+            bkey = rstr2binl(key),
+            ipad = [],
+            opad = [],
+            hash;
+        ipad[15] = opad[15] = undefined;
+        if (bkey.length > 16) {
+            bkey = binl_md5(bkey, key.length * 8);
+        }
+        for (i = 0; i < 16; i += 1) {
+            ipad[i] = bkey[i] ^ 0x36363636;
+            opad[i] = bkey[i] ^ 0x5C5C5C5C;
+        }
+        hash = binl_md5(ipad.concat(rstr2binl(data)), 512 + data.length * 8);
+        return binl2rstr(binl_md5(opad.concat(hash), 512 + 128));
+    }
+
+    /*
+    * Convert a raw string to a hex string
+    */
+    function rstr2hex(input) {
+        var hex_tab = '0123456789abcdef',
+            output = '',
+            x,
+            i;
+        for (i = 0; i < input.length; i += 1) {
+            x = input.charCodeAt(i);
+            output += hex_tab.charAt((x >>> 4) & 0x0F) +
+                hex_tab.charAt(x & 0x0F);
+        }
+        return output;
+    }
+
+    /*
+    * Encode a string as utf-8
+    */
+    function str2rstr_utf8(input) {
+        return unescape(encodeURIComponent(input));
+    }
+
+    /*
+    * Take string arguments and return either raw or hex encoded strings
+    */
+    function raw_md5(s) {
+        return rstr_md5(str2rstr_utf8(s));
+    }
+    function hex_md5(s) {
+        return rstr2hex(raw_md5(s));
+    }
+    function raw_hmac_md5(k, d) {
+        return rstr_hmac_md5(str2rstr_utf8(k), str2rstr_utf8(d));
+    }
+    function hex_hmac_md5(k, d) {
+        return rstr2hex(raw_hmac_md5(k, d));
+    }
+
+    function md5(string, key, raw) {
+        if (!key) {
+            if (!raw) {
+                return hex_md5(string);
+            }
+            return raw_md5(string);
+        }
+        if (!raw) {
+            return hex_hmac_md5(key, string);
+        }
+        return raw_hmac_md5(key, string);
+    }
+
+    return md5;
+}());
 
 
-var md5=(function(){function e(e,t){var o=e[0],u=e[1],a=e[2],f=e[3];o=n(o,u,a,f,t[0],7,-680876936);f=n(f,o,u,a,t[1],
-12,-389564586);a=n(a,f,o,u,t[2],17,606105819);u=n(u,a,f,o,t[3],22,-1044525330);o=n(o,u,a,f,t[4],7,-176418897);f=n(f,o,u,a,t[5],
-12,1200080426);a=n(a,f,o,u,t[6],17,-1473231341);u=n(u,a,f,o,t[7],22,-45705983);o=n(o,u,a,f,t[8],7,1770035416);f=n(f,o,u,a,t[9],
-12,-1958414417);a=n(a,f,o,u,t[10],17,-42063);u=n(u,a,f,o,t[11],22,-1990404162);o=n(o,u,a,f,t[12],7,1804603682);f=n(f,o,u,a,t[13],
-12,-40341101);a=n(a,f,o,u,t[14],17,-1502002290);u=n(u,a,f,o,t[15],22,1236535329);o=r(o,u,a,f,t[1],5,-165796510);f=r(f,o,u,a,t[6],
-9,-1069501632);a=r(a,f,o,u,t[11],14,643717713);u=r(u,a,f,o,t[0],20,-373897302);o=r(o,u,a,f,t[5],5,-701558691);f=r(f,o,u,a,t[10],
-9,38016083);a=r(a,f,o,u,t[15],14,-660478335);u=r(u,a,f,o,t[4],20,-405537848);o=r(o,u,a,f,t[9],5,568446438);f=r(f,o,u,a,t[14],
-9,-1019803690);a=r(a,f,o,u,t[3],14,-187363961);u=r(u,a,f,o,t[8],20,1163531501);o=r(o,u,a,f,t[13],5,-1444681467);f=r(f,o,u,a,t[2],
-9,-51403784);a=r(a,f,o,u,t[7],14,1735328473);u=r(u,a,f,o,t[12],20,-1926607734);o=i(o,u,a,f,t[5],4,-378558);f=i(f,o,u,a,t[8],
-11,-2022574463);a=i(a,f,o,u,t[11],16,1839030562);u=i(u,a,f,o,t[14],23,-35309556);o=i(o,u,a,f,t[1],4,-1530992060);f=i(f,o,u,a,t[4],
-11,1272893353);a=i(a,f,o,u,t[7],16,-155497632);u=i(u,a,f,o,t[10],23,-1094730640);o=i(o,u,a,f,t[13],4,681279174);f=i(f,o,u,a,t[0],
-11,-358537222);a=i(a,f,o,u,t[3],16,-722521979);u=i(u,a,f,o,t[6],23,76029189);o=i(o,u,a,f,t[9],4,-640364487);f=i(f,o,u,a,t[12],
-11,-421815835);a=i(a,f,o,u,t[15],16,530742520);u=i(u,a,f,o,t[2],23,-995338651);o=s(o,u,a,f,t[0],6,-198630844);f=s(f,o,u,a,t[7],
-10,1126891415);a=s(a,f,o,u,t[14],15,-1416354905);u=s(u,a,f,o,t[5],21,-57434055);o=s(o,u,a,f,t[12],6,1700485571);f=s(f,o,u,a,t[3],
-10,-1894986606);a=s(a,f,o,u,t[10],15,-1051523);u=s(u,a,f,o,t[1],21,-2054922799);o=s(o,u,a,f,t[8],6,1873313359);f=s(f,o,u,a,t[15],
-10,-30611744);a=s(a,f,o,u,t[6],15,-1560198380);u=s(u,a,f,o,t[13],21,1309151649);o=s(o,u,a,f,t[4],6,-145523070);f=s(f,o,u,a,t[11],
-10,-1120210379);a=s(a,f,o,u,t[2],15,718787259);u=s(u,a,f,o,t[9],21,-343485551);e[0]=m(o,e[0]);e[1]=m(u,e[1]);e[2]=m(a,e[2]);e[3]=m(f,e[3])}
-function t(e,t,n,r,i,s){t=m(m(t,e),m(r,s));return m(t<<i|t>>>32-i,n)}function n(e,n,r,i,s,o,u){return t(n&r|~n&i,e,n,s,o,u)}
-function r(e,n,r,i,s,o,u){return t(n&i|r&~i,e,n,s,o,u)}function i(e,n,r,i,s,o,u){return t(n^r^i,e,n,s,o,u)}
-function s(e,n,r,i,s,o,u){return t(r^(n|~i),e,n,s,o,u)}function o(t){var n=t.length,r=[1732584193,-271733879,-1732584194,271733878],i;
-for(i=64;i<=t.length;i+=64){e(r,u(t.substring(i-64,i)))}t=t.substring(i-64);var s=[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
-for(i=0;i<t.length;i++)s[i>>2]|=t.charCodeAt(i)<<(i%4<<3);s[i>>2]|=128<<(i%4<<3);if(i>55){e(r,s);for(i=0;i<16;i++)s[i]=0}s[14]=n*8;e(r,s);return r}
-function u(e){var t=[],n;for(n=0;n<64;n+=4){t[n>>2]=e.charCodeAt(n)+(e.charCodeAt(n+1)<<8)+(e.charCodeAt(n+2)<<16)+(e.charCodeAt(n+3)<<24)}return t}
-function c(e){var t="",n=0;for(;n<4;n++)t+=a[e>>n*8+4&15]+a[e>>n*8&15];return t}
-function h(e){for(var t=0;t<e.length;t++)e[t]=c(e[t]);return e.join("")}
-function d(e){return h(o(unescape(encodeURIComponent(e))))}
-function m(e,t){return e+t&4294967295}var a="0123456789abcdef".split("");return d})();
+/* global URI, URITemplate  */
+
+
 var MFP = {
 
 	check: function(){
@@ -5450,7 +5756,7 @@ var MFP = {
 		return '';
 	},
 
-	set: function(pony, country){
+	set: function(pony){
 
 		// baseUrl: read from main stargate.js
 		var appUrl = baseUrl;
@@ -5515,7 +5821,7 @@ var MFP = {
 	                	window.localStorage.setItem('appUrl', jsonStruct.extData.return_url);
 	                }
 	                
-	                MFP.set(ponyUrl, country);                
+	                MFP.set(ponyUrl);                
 				}else{
 					log("MFP.get(): Empty session");
 				}
@@ -5526,638 +5832,676 @@ var MFP = {
 
 };
 
+
+
+/* jshint -W030 */
+/* jshint -W041 */
+
+
+
 /*!
-  * Reqwest! A general purpose XHR connection manager
-  * license MIT (c) Dustin Diaz 2015
-  * https://github.com/ded/reqwest
-  */
+ * Reqwest! A general purpose XHR connection manager
+ * license MIT (c) Dustin Diaz 2015
+ * https://github.com/ded/reqwest
+ */
+var reqwest = (function () {
 
-!function (name, context, definition) {
-  if (typeof module != 'undefined' && module.exports) module.exports = definition()
-  else if (typeof define == 'function' && define.amd) define(definition)
-  else context[name] = definition()
-}('reqwest', this, function () {
+    var context = this;
 
-  var context = this
-
-  if ('window' in context) {
-    var doc = document
-      , byTag = 'getElementsByTagName'
-      , head = doc[byTag]('head')[0]
-  } else {
-    var XHR2
-    try {
-      XHR2 = require('xhr2')
-    } catch (ex) {
-      throw new Error('Peer dependency `xhr2` required! Please npm install xhr2')
+    if ('window' in context) {
+        var doc = document,
+            byTag = 'getElementsByTagName',
+            head = doc[byTag]('head')[0];
+    } else {
+        throw new Error('Running outside a browser window is not supported!');
     }
-  }
 
 
-  var httpsRe = /^http/
-    , protocolRe = /(^\w+):\/\//
-    , twoHundo = /^(20\d|1223)$/ //http://stackoverflow.com/questions/10046972/msie-returns-status-code-of-1223-for-ajax-request
-    , readyState = 'readyState'
-    , contentType = 'Content-Type'
-    , requestedWith = 'X-Requested-With'
-    , uniqid = 0
-    , callbackPrefix = 'reqwest_' + (+new Date())
-    , lastValue // data stored by the most recent JSONP callback
-    , xmlHttpRequest = 'XMLHttpRequest'
-    , xDomainRequest = 'XDomainRequest'
-    , noop = function () {}
+    var httpsRe = /^http/,
+        protocolRe = /(^\w+):\/\//,
+        twoHundo = /^(20\d|1223)$/, //http://stackoverflow.com/questions/10046972/msie-returns-status-code-of-1223-for-ajax-request
+        readyState = 'readyState',
+        contentType = 'Content-Type',
+        requestedWith = 'X-Requested-With',
+        uniqid = 0,
+        callbackPrefix = 'reqwest_' + (+new Date()),
+        lastValue, // data stored by the most recent JSONP callback
+        xmlHttpRequest = 'XMLHttpRequest',
+        xDomainRequest = 'XDomainRequest',
+        noop = function () {},
 
-    , isArray = typeof Array.isArray == 'function'
-        ? Array.isArray
-        : function (a) {
-            return a instanceof Array
-          }
+    isArray = typeof Array.isArray == 'function' ? Array.isArray : function (a) {
+        return a instanceof Array;
+    },
 
-    , defaultHeaders = {
-          'contentType': 'application/x-www-form-urlencoded'
-        , 'requestedWith': xmlHttpRequest
-        , 'accept': {
-              '*':  'text/javascript, text/html, application/xml, text/xml, */*'
-            , 'xml':  'application/xml, text/xml'
-            , 'html': 'text/html'
-            , 'text': 'text/plain'
-            , 'json': 'application/json, text/javascript'
-            , 'js':   'application/javascript, text/javascript'
-          }
-      }
+    defaultHeaders = {
+        'contentType': 'application/x-www-form-urlencoded',
+        'requestedWith': xmlHttpRequest,
+        'accept': {
+            '*': 'text/javascript, text/html, application/xml, text/xml, */*',
+            'xml': 'application/xml, text/xml',
+            'html': 'text/html',
+            'text': 'text/plain',
+            'json': 'application/json, text/javascript',
+            'js': 'application/javascript, text/javascript'
+        }
+    },
 
-    , xhr = function(o) {
+    xhr = function (o) {
         // is it x-domain
-        if (o['crossOrigin'] === true) {
-          var xhr = context[xmlHttpRequest] ? new XMLHttpRequest() : null
-          if (xhr && 'withCredentials' in xhr) {
-            return xhr
-          } else if (context[xDomainRequest]) {
-            return new XDomainRequest()
-          } else {
-            throw new Error('Browser does not support cross-origin requests')
-          }
+        if (o.crossOrigin === true) {
+            var xhr = context[xmlHttpRequest] ? new XMLHttpRequest() : null;
+            if (xhr && 'withCredentials' in xhr) {
+                return xhr;
+            } else if (context[xDomainRequest]) {
+                return new XDomainRequest();
+            } else {
+                throw new Error('Browser does not support cross-origin requests');
+            }
         } else if (context[xmlHttpRequest]) {
-          return new XMLHttpRequest()
-        } else if (XHR2) {
-          return new XHR2()
+            return new XMLHttpRequest();
+        // node not supported
+        //} else if (XHR2) {
+        //    return new XHR2();
         } else {
-          return new ActiveXObject('Microsoft.XMLHTTP')
+            /* globals ActiveXObject */
+            return new ActiveXObject('Microsoft.XMLHTTP');
+            /* globals -ActiveXObject */
         }
-      }
-    , globalSetupOptions = {
+    },
+    globalSetupOptions = {
         dataFilter: function (data) {
-          return data
+            return data;
         }
-      }
+    };
 
-  function succeed(r) {
-    var protocol = protocolRe.exec(r.url)
-    protocol = (protocol && protocol[1]) || context.location.protocol
-    return httpsRe.test(protocol) ? twoHundo.test(r.request.status) : !!r.request.response
-  }
-
-  function handleReadyState(r, success, error) {
-    return function () {
-      // use _aborted to mitigate against IE err c00c023f
-      // (can't read props on aborted request objects)
-      if (r._aborted) return error(r.request)
-      if (r._timedOut) return error(r.request, 'Request is aborted: timeout')
-      if (r.request && r.request[readyState] == 4) {
-        r.request.onreadystatechange = noop
-        if (succeed(r)) success(r.request)
-        else
-          error(r.request)
-      }
-    }
-  }
-
-  function setHeaders(http, o) {
-    var headers = o['headers'] || {}
-      , h
-
-    headers['Accept'] = headers['Accept']
-      || defaultHeaders['accept'][o['type']]
-      || defaultHeaders['accept']['*']
-
-    var isAFormData = typeof FormData !== 'undefined' && (o['data'] instanceof FormData);
-    // breaks cross-origin requests with legacy browsers
-    if (!o['crossOrigin'] && !headers[requestedWith]) headers[requestedWith] = defaultHeaders['requestedWith']
-    if (!headers[contentType] && !isAFormData) headers[contentType] = o['contentType'] || defaultHeaders['contentType']
-    for (h in headers)
-      headers.hasOwnProperty(h) && 'setRequestHeader' in http && http.setRequestHeader(h, headers[h])
-  }
-
-  function setCredentials(http, o) {
-    if (typeof o['withCredentials'] !== 'undefined' && typeof http.withCredentials !== 'undefined') {
-      http.withCredentials = !!o['withCredentials']
-    }
-  }
-
-  function generalCallback(data) {
-    lastValue = data
-  }
-
-  function urlappend (url, s) {
-    return url + (/\?/.test(url) ? '&' : '?') + s
-  }
-
-  function handleJsonp(o, fn, err, url) {
-    var reqId = uniqid++
-      , cbkey = o['jsonpCallback'] || 'callback' // the 'callback' key
-      , cbval = o['jsonpCallbackName'] || reqwest.getcallbackPrefix(reqId)
-      , cbreg = new RegExp('((^|\\?|&)' + cbkey + ')=([^&]+)')
-      , match = url.match(cbreg)
-      , script = doc.createElement('script')
-      , loaded = 0
-      , isIE10 = navigator.userAgent.indexOf('MSIE 10.0') !== -1
-
-    if (match) {
-      if (match[3] === '?') {
-        url = url.replace(cbreg, '$1=' + cbval) // wildcard callback func name
-      } else {
-        cbval = match[3] // provided callback func name
-      }
-    } else {
-      url = urlappend(url, cbkey + '=' + cbval) // no callback details, add 'em
+    function succeed(r) {
+        var protocol = protocolRe.exec(r.url);
+        protocol = (protocol && protocol[1]) || context.location.protocol;
+        return httpsRe.test(protocol) ? twoHundo.test(r.request.status) : !!r.request.response;
     }
 
-    context[cbval] = generalCallback
-
-    script.type = 'text/javascript'
-    script.src = url
-    script.async = true
-    if (typeof script.onreadystatechange !== 'undefined' && !isIE10) {
-      // need this for IE due to out-of-order onreadystatechange(), binding script
-      // execution to an event listener gives us control over when the script
-      // is executed. See http://jaubourg.net/2010/07/loading-script-as-onclick-handler-of.html
-      script.htmlFor = script.id = '_reqwest_' + reqId
+    function handleReadyState(r, success, error) {
+        return function () {
+            // use _aborted to mitigate against IE err c00c023f
+            // (can't read props on aborted request objects)
+            if (r._aborted) {
+                return error(r.request);
+            }
+            if (r._timedOut) {
+                return error(r.request, 'Request is aborted: timeout');
+            }
+            if (r.request && r.request[readyState] == 4) {
+                r.request.onreadystatechange = noop;
+                if (succeed(r)) {
+                    success(r.request);
+                } else {
+                    error(r.request);
+                }
+            }
+        };
     }
 
-    script.onload = script.onreadystatechange = function () {
-      if ((script[readyState] && script[readyState] !== 'complete' && script[readyState] !== 'loaded') || loaded) {
-        return false
-      }
-      script.onload = script.onreadystatechange = null
-      script.onclick && script.onclick()
-      // Call the user callback with the last value stored and clean up values and scripts.
-      fn(lastValue)
-      lastValue = undefined
-      head.removeChild(script)
-      loaded = 1
-    }
+    function setHeaders(http, o) {
+        var headers = o.headers || {},
+            h;
 
-    // Add the script to the DOM head
-    head.appendChild(script)
+        headers.Accept = headers.Accept || defaultHeaders.accept[o.type] || defaultHeaders.accept['*'];
 
-    // Enable JSONP timeout
-    return {
-      abort: function () {
-        script.onload = script.onreadystatechange = null
-        err({}, 'Request is aborted: timeout', {})
-        lastValue = undefined
-        head.removeChild(script)
-        loaded = 1
-      }
-    }
-  }
-
-  function getRequest(fn, err) {
-    var o = this.o
-      , method = (o['method'] || 'GET').toUpperCase()
-      , url = typeof o === 'string' ? o : o['url']
-      // convert non-string objects to query-string form unless o['processData'] is false
-      , data = (o['processData'] !== false && o['data'] && typeof o['data'] !== 'string')
-        ? reqwest.toQueryString(o['data'])
-        : (o['data'] || null)
-      , http
-      , sendWait = false
-
-    // if we're working on a GET request and we have data then we should append
-    // query string to end of URL and not post data
-    if ((o['type'] == 'jsonp' || method == 'GET') && data) {
-      url = urlappend(url, data)
-      data = null
-    }
-
-    if (o['type'] == 'jsonp') return handleJsonp(o, fn, err, url)
-
-    // get the xhr from the factory if passed
-    // if the factory returns null, fall-back to ours
-    http = (o.xhr && o.xhr(o)) || xhr(o)
-
-    http.open(method, url, o['async'] === false ? false : true)
-    setHeaders(http, o)
-    setCredentials(http, o)
-    if (context[xDomainRequest] && http instanceof context[xDomainRequest]) {
-        http.onload = fn
-        http.onerror = err
-        // NOTE: see
-        // http://social.msdn.microsoft.com/Forums/en-US/iewebdevelopment/thread/30ef3add-767c-4436-b8a9-f1ca19b4812e
-        http.onprogress = function() {}
-        sendWait = true
-    } else {
-      http.onreadystatechange = handleReadyState(this, fn, err)
-    }
-    o['before'] && o['before'](http)
-    if (sendWait) {
-      setTimeout(function () {
-        http.send(data)
-      }, 200)
-    } else {
-      http.send(data)
-    }
-    return http
-  }
-
-  function Reqwest(o, fn) {
-    this.o = o
-    this.fn = fn
-
-    init.apply(this, arguments)
-  }
-
-  function setType(header) {
-    // json, javascript, text/plain, text/html, xml
-    if (header === null) return undefined; //In case of no content-type.
-    if (header.match('json')) return 'json'
-    if (header.match('javascript')) return 'js'
-    if (header.match('text')) return 'html'
-    if (header.match('xml')) return 'xml'
-  }
-
-  function init(o, fn) {
-
-    this.url = typeof o == 'string' ? o : o['url']
-    this.timeout = null
-
-    // whether request has been fulfilled for purpose
-    // of tracking the Promises
-    this._fulfilled = false
-    // success handlers
-    this._successHandler = function(){}
-    this._fulfillmentHandlers = []
-    // error handlers
-    this._errorHandlers = []
-    // complete (both success and fail) handlers
-    this._completeHandlers = []
-    this._erred = false
-    this._responseArgs = {}
-
-    var self = this
-
-    fn = fn || function () {}
-
-    if (o['timeout']) {
-      this.timeout = setTimeout(function () {
-        timedOut()
-      }, o['timeout'])
-    }
-
-    if (o['success']) {
-      this._successHandler = function () {
-        o['success'].apply(o, arguments)
-      }
-    }
-
-    if (o['error']) {
-      this._errorHandlers.push(function () {
-        o['error'].apply(o, arguments)
-      })
-    }
-
-    if (o['complete']) {
-      this._completeHandlers.push(function () {
-        o['complete'].apply(o, arguments)
-      })
-    }
-
-    function complete (resp) {
-      o['timeout'] && clearTimeout(self.timeout)
-      self.timeout = null
-      while (self._completeHandlers.length > 0) {
-        self._completeHandlers.shift()(resp)
-      }
-    }
-
-    function success (resp) {
-      var type = o['type'] || resp && setType(resp.getResponseHeader('Content-Type')) // resp can be undefined in IE
-      resp = (type !== 'jsonp') ? self.request : resp
-      // use global data filter on response text
-      var filteredResponse = globalSetupOptions.dataFilter(resp.responseText, type)
-        , r = filteredResponse
-      try {
-        resp.responseText = r
-      } catch (e) {
-        // can't assign this in IE<=8, just ignore
-      }
-      if (r) {
-        switch (type) {
-        case 'json':
-          try {
-            resp = context.JSON ? context.JSON.parse(r) : eval('(' + r + ')')
-          } catch (err) {
-            return error(resp, 'Could not parse JSON in response', err)
-          }
-          break
-        case 'js':
-          resp = eval(r)
-          break
-        case 'html':
-          resp = r
-          break
-        case 'xml':
-          resp = resp.responseXML
-              && resp.responseXML.parseError // IE trololo
-              && resp.responseXML.parseError.errorCode
-              && resp.responseXML.parseError.reason
-            ? null
-            : resp.responseXML
-          break
+        var isAFormData = typeof FormData !== 'undefined' && (o.data instanceof FormData);
+        // breaks cross-origin requests with legacy browsers
+        if (!o.crossOrigin && !headers[requestedWith]) {
+            headers[requestedWith] = defaultHeaders.requestedWith;
         }
-      }
-
-      self._responseArgs.resp = resp
-      self._fulfilled = true
-      fn(resp)
-      self._successHandler(resp)
-      while (self._fulfillmentHandlers.length > 0) {
-        resp = self._fulfillmentHandlers.shift()(resp)
-      }
-
-      complete(resp)
-    }
-
-    function timedOut() {
-      self._timedOut = true
-      self.request.abort()
-    }
-
-    function error(resp, msg, t) {
-      resp = self.request
-      self._responseArgs.resp = resp
-      self._responseArgs.msg = msg
-      self._responseArgs.t = t
-      self._erred = true
-      while (self._errorHandlers.length > 0) {
-        self._errorHandlers.shift()(resp, msg, t)
-      }
-      complete(resp)
-    }
-
-    this.request = getRequest.call(this, success, error)
-  }
-
-  Reqwest.prototype = {
-    abort: function () {
-      this._aborted = true
-      this.request.abort()
-    }
-
-  , retry: function () {
-      init.call(this, this.o, this.fn)
-    }
-
-    /**
-     * Small deviation from the Promises A CommonJs specification
-     * http://wiki.commonjs.org/wiki/Promises/A
-     */
-
-    /**
-     * `then` will execute upon successful requests
-     */
-  , then: function (success, fail) {
-      success = success || function () {}
-      fail = fail || function () {}
-      if (this._fulfilled) {
-        this._responseArgs.resp = success(this._responseArgs.resp)
-      } else if (this._erred) {
-        fail(this._responseArgs.resp, this._responseArgs.msg, this._responseArgs.t)
-      } else {
-        this._fulfillmentHandlers.push(success)
-        this._errorHandlers.push(fail)
-      }
-      return this
-    }
-
-    /**
-     * `always` will execute whether the request succeeds or fails
-     */
-  , always: function (fn) {
-      if (this._fulfilled || this._erred) {
-        fn(this._responseArgs.resp)
-      } else {
-        this._completeHandlers.push(fn)
-      }
-      return this
-    }
-
-    /**
-     * `fail` will execute when the request fails
-     */
-  , fail: function (fn) {
-      if (this._erred) {
-        fn(this._responseArgs.resp, this._responseArgs.msg, this._responseArgs.t)
-      } else {
-        this._errorHandlers.push(fn)
-      }
-      return this
-    }
-  , 'catch': function (fn) {
-      return this.fail(fn)
-    }
-  }
-
-  function reqwest(o, fn) {
-    return new Reqwest(o, fn)
-  }
-
-  // normalize newline variants according to spec -> CRLF
-  function normalize(s) {
-    return s ? s.replace(/\r?\n/g, '\r\n') : ''
-  }
-
-  function serial(el, cb) {
-    var n = el.name
-      , t = el.tagName.toLowerCase()
-      , optCb = function (o) {
-          // IE gives value="" even where there is no value attribute
-          // 'specified' ref: http://www.w3.org/TR/DOM-Level-3-Core/core.html#ID-862529273
-          if (o && !o['disabled'])
-            cb(n, normalize(o['attributes']['value'] && o['attributes']['value']['specified'] ? o['value'] : o['text']))
+        if (!headers[contentType] && !isAFormData) {
+            headers[contentType] = o.contentType || defaultHeaders.contentType;
         }
-      , ch, ra, val, i
-
-    // don't serialize elements that are disabled or without a name
-    if (el.disabled || !n) return
-
-    switch (t) {
-    case 'input':
-      if (!/reset|button|image|file/i.test(el.type)) {
-        ch = /checkbox/i.test(el.type)
-        ra = /radio/i.test(el.type)
-        val = el.value
-        // WebKit gives us "" instead of "on" if a checkbox has no value, so correct it here
-        ;(!(ch || ra) || el.checked) && cb(n, normalize(ch && val === '' ? 'on' : val))
-      }
-      break
-    case 'textarea':
-      cb(n, normalize(el.value))
-      break
-    case 'select':
-      if (el.type.toLowerCase() === 'select-one') {
-        optCb(el.selectedIndex >= 0 ? el.options[el.selectedIndex] : null)
-      } else {
-        for (i = 0; el.length && i < el.length; i++) {
-          el.options[i].selected && optCb(el.options[i])
-        }
-      }
-      break
-    }
-  }
-
-  // collect up all form elements found from the passed argument elements all
-  // the way down to child elements; pass a '<form>' or form fields.
-  // called with 'this'=callback to use for serial() on each element
-  function eachFormElement() {
-    var cb = this
-      , e, i
-      , serializeSubtags = function (e, tags) {
-          var i, j, fa
-          for (i = 0; i < tags.length; i++) {
-            fa = e[byTag](tags[i])
-            for (j = 0; j < fa.length; j++) serial(fa[j], cb)
-          }
-        }
-
-    for (i = 0; i < arguments.length; i++) {
-      e = arguments[i]
-      if (/input|select|textarea/i.test(e.tagName)) serial(e, cb)
-      serializeSubtags(e, [ 'input', 'select', 'textarea' ])
-    }
-  }
-
-  // standard query string style serialization
-  function serializeQueryString() {
-    return reqwest.toQueryString(reqwest.serializeArray.apply(null, arguments))
-  }
-
-  // { 'name': 'value', ... } style serialization
-  function serializeHash() {
-    var hash = {}
-    eachFormElement.apply(function (name, value) {
-      if (name in hash) {
-        hash[name] && !isArray(hash[name]) && (hash[name] = [hash[name]])
-        hash[name].push(value)
-      } else hash[name] = value
-    }, arguments)
-    return hash
-  }
-
-  // [ { name: 'name', value: 'value' }, ... ] style serialization
-  reqwest.serializeArray = function () {
-    var arr = []
-    eachFormElement.apply(function (name, value) {
-      arr.push({name: name, value: value})
-    }, arguments)
-    return arr
-  }
-
-  reqwest.serialize = function () {
-    if (arguments.length === 0) return ''
-    var opt, fn
-      , args = Array.prototype.slice.call(arguments, 0)
-
-    opt = args.pop()
-    opt && opt.nodeType && args.push(opt) && (opt = null)
-    opt && (opt = opt.type)
-
-    if (opt == 'map') fn = serializeHash
-    else if (opt == 'array') fn = reqwest.serializeArray
-    else fn = serializeQueryString
-
-    return fn.apply(null, args)
-  }
-
-  reqwest.toQueryString = function (o, trad) {
-    var prefix, i
-      , traditional = trad || false
-      , s = []
-      , enc = encodeURIComponent
-      , add = function (key, value) {
-          // If value is a function, invoke it and return its value
-          value = ('function' === typeof value) ? value() : (value == null ? '' : value)
-          s[s.length] = enc(key) + '=' + enc(value)
-        }
-    // If an array was passed in, assume that it is an array of form elements.
-    if (isArray(o)) {
-      for (i = 0; o && i < o.length; i++) add(o[i]['name'], o[i]['value'])
-    } else {
-      // If traditional, encode the "old" way (the way 1.3.2 or older
-      // did it), otherwise encode params recursively.
-      for (prefix in o) {
-        if (o.hasOwnProperty(prefix)) buildParams(prefix, o[prefix], traditional, add)
-      }
+        for (h in headers)
+            headers.hasOwnProperty(h) && 'setRequestHeader' in http && http.setRequestHeader(h, headers[h]);
     }
 
-    // spaces should be + according to spec
-    return s.join('&').replace(/%20/g, '+')
-  }
+    function setCredentials(http, o) {
+        if (typeof o.withCredentials !== 'undefined' && typeof http.withCredentials !== 'undefined') {
+            http.withCredentials = !!o.withCredentials;
+        }
+    }
 
-  function buildParams(prefix, obj, traditional, add) {
-    var name, i, v
-      , rbracket = /\[\]$/
+    function generalCallback(data) {
+        lastValue = data;
+    }
 
-    if (isArray(obj)) {
-      // Serialize array item.
-      for (i = 0; obj && i < obj.length; i++) {
-        v = obj[i]
-        if (traditional || rbracket.test(prefix)) {
-          // Treat each array item as a scalar.
-          add(prefix, v)
+    function urlappend(url, s) {
+        return url + (/\?/.test(url) ? '&' : '?') + s;
+    }
+
+    function handleJsonp(o, fn, err, url) {
+        var reqId = uniqid += 1,
+            cbkey = o.jsonpCallback || 'callback', // the 'callback' key
+            cbval = o.jsonpCallbackName || reqwest.getcallbackPrefix(reqId),
+            cbreg = new RegExp('((^|\\?|&)' + cbkey + ')=([^&]+)'),
+            match = url.match(cbreg),
+            script = doc.createElement('script'),
+            loaded = 0,
+            isIE10 = navigator.userAgent.indexOf('MSIE 10.0') !== -1;
+
+        if (match) {
+            if (match[3] === '?') {
+                url = url.replace(cbreg, '$1=' + cbval); // wildcard callback func name
+            } else {
+                cbval = match[3]; // provided callback func name
+            }
         } else {
-          buildParams(prefix + '[' + (typeof v === 'object' ? i : '') + ']', v, traditional, add)
+            url = urlappend(url, cbkey + '=' + cbval); // no callback details, add 'em
         }
-      }
-    } else if (obj && obj.toString() === '[object Object]') {
-      // Serialize object item.
-      for (name in obj) {
-        buildParams(prefix + '[' + name + ']', obj[name], traditional, add)
-      }
 
-    } else {
-      // Serialize scalar item.
-      add(prefix, obj)
+        context[cbval] = generalCallback;
+
+        script.type = 'text/javascript';
+        script.src = url;
+        script.async = true;
+        if (typeof script.onreadystatechange !== 'undefined' && !isIE10) {
+            // need this for IE due to out-of-order onreadystatechange(), binding script
+            // execution to an event listener gives us control over when the script
+            // is executed. See http://jaubourg.net/2010/07/loading-script-as-onclick-handler-of.html
+            script.htmlFor = script.id = '_reqwest_' + reqId;
+        }
+
+        script.onload = script.onreadystatechange = function () {
+            if ((script[readyState] && script[readyState] !== 'complete' && script[readyState] !== 'loaded') || loaded) {
+                return false;
+            }
+            script.onload = script.onreadystatechange = null;
+            script.onclick && script.onclick();
+                // Call the user callback with the last value stored and clean up values and scripts.
+            fn(lastValue);
+            lastValue = undefined;
+            head.removeChild(script);
+            loaded = 1;
+        };
+
+        // Add the script to the DOM head
+        head.appendChild(script);
+
+        // Enable JSONP timeout
+        return {
+            abort: function () {
+                script.onload = script.onreadystatechange = null;
+                err({}, 'Request is aborted: timeout', {});
+                lastValue = undefined;
+                head.removeChild(script);
+                loaded = 1;
+            }
+        };
     }
-  }
 
-  reqwest.getcallbackPrefix = function () {
-    return callbackPrefix
-  }
+    function getRequest(fn, err) {
+        var o = this.o,
+            method = (o.method || 'GET').toUpperCase(),
+            url = typeof o === 'string' ? o : o.url,
+            // convert non-string objects to query-string form unless o['processData'] is false
+            data = (o.processData !== false && o.data && typeof o.data !== 'string') ? reqwest.toQueryString(o.data) : (o.data || null),
+            http, sendWait = false;
 
-  // jQuery and Zepto compatibility, differences can be remapped here so you can call
-  // .ajax.compat(options, callback)
-  reqwest.compat = function (o, fn) {
-    if (o) {
-      o['type'] && (o['method'] = o['type']) && delete o['type']
-      o['dataType'] && (o['type'] = o['dataType'])
-      o['jsonpCallback'] && (o['jsonpCallbackName'] = o['jsonpCallback']) && delete o['jsonpCallback']
-      o['jsonp'] && (o['jsonpCallback'] = o['jsonp'])
+        // if we're working on a GET request and we have data then we should append
+        // query string to end of URL and not post data
+        if ((o.type == 'jsonp' || method == 'GET') && data) {
+            url = urlappend(url, data);
+            data = null;
+        }
+
+        if (o.type == 'jsonp') {
+            return handleJsonp(o, fn, err, url);
+        }
+
+        // get the xhr from the factory if passed
+        // if the factory returns null, fall-back to ours
+        http = (o.xhr && o.xhr(o)) || xhr(o);
+
+        http.open(method, url, o.async === false ? false : true);
+        setHeaders(http, o);
+        setCredentials(http, o);
+        if (context[xDomainRequest] && http instanceof context[xDomainRequest]) {
+            http.onload = fn;
+            http.onerror = err;
+                // NOTE: see
+                // http://social.msdn.microsoft.com/Forums/en-US/iewebdevelopment/thread/30ef3add-767c-4436-b8a9-f1ca19b4812e
+            http.onprogress = function () {};
+            sendWait = true;
+        } else {
+            http.onreadystatechange = handleReadyState(this, fn, err);
+        }
+        o.before && o.before(http);
+        if (sendWait) {
+            setTimeout(function () {
+                http.send(data);
+            }, 200);
+        } else {
+            http.send(data);
+        }
+        return http;
     }
-    return new Reqwest(o, fn)
-  }
 
-  reqwest.ajaxSetup = function (options) {
-    options = options || {}
-    for (var k in options) {
-      globalSetupOptions[k] = options[k]
+    function Reqwest(o, fn) {
+        this.o = o;
+        this.fn = fn;
+
+        init.apply(this, arguments);
     }
-  }
 
-  return reqwest
+    function setType(header) {
+        // json, javascript, text/plain, text/html, xml
+        if (header === null) {
+            return undefined;
+        } //In case of no content-type.
+        if (header.match('json')) {
+            return 'json';
+        }
+        if (header.match('javascript')) {
+            return 'js';
+        }
+        if (header.match('text')) {
+            return 'html';
+        }
+        if (header.match('xml')) {
+            return 'xml';
+        }
+    }
+
+    function init(o, fn) {
+
+        this.url = typeof o == 'string' ? o : o.url;
+        this.timeout = null;
+
+        // whether request has been fulfilled for purpose
+        // of tracking the Promises
+        this._fulfilled = false;
+            // success handlers
+        this._successHandler = function () {};
+        this._fulfillmentHandlers = [];
+            // error handlers
+        this._errorHandlers = [];
+            // complete (both success and fail) handlers
+        this._completeHandlers = [];
+        this._erred = false;
+        this._responseArgs = {};
+
+        var self = this;
+
+        fn = fn || function () {};
+
+        if (o.timeout) {
+            this.timeout = setTimeout(function () {
+                timedOut();
+            }, o.timeout);
+        }
+
+        if (o.success) {
+            this._successHandler = function () {
+                o.success.apply(o, arguments);
+            };
+        }
+
+        if (o.error) {
+            this._errorHandlers.push(function () {
+                o.error.apply(o, arguments);
+            });
+        }
+
+        if (o.complete) {
+            this._completeHandlers.push(function () {
+                o.complete.apply(o, arguments);
+            });
+        }
+
+        function complete(resp) {
+            o.timeout && clearTimeout(self.timeout);
+            self.timeout = null;
+            while (self._completeHandlers.length > 0) {
+                self._completeHandlers.shift()(resp);
+            }
+        }
+
+        function success(resp) {
+            var type = o.type || resp && setType(resp.getResponseHeader('Content-Type')); // resp can be undefined in IE
+            resp = (type !== 'jsonp') ? self.request : resp;
+                // use global data filter on response text
+            var filteredResponse = globalSetupOptions.dataFilter(resp.responseText, type),
+                r = filteredResponse;
+            try {
+                resp.responseText = r;
+            } catch (e) {
+                // can't assign this in IE<=8, just ignore
+            }
+            if (r) {
+                switch (type) {
+                case 'json':
+                    try {
+                        //resp = context.JSON ? context.JSON.parse(r) : eval('(' + r + ')');
+                        resp = context.JSON.parse(r);
+                    } catch (err) {
+                        return error(resp, 'Could not parse JSON in response', err);
+                    }
+                    break;
+                // disabled for security pourposes
+                //case 'js':
+                //    resp = eval(r);
+                //    break;
+                case 'html':
+                    resp = r;
+                    break;
+                case 'xml':
+                    resp = resp.responseXML && resp.responseXML.parseError && // IE trololo
+                        resp.responseXML.parseError.errorCode && resp.responseXML.parseError.reason ? null : resp.responseXML;
+                    break;
+                }
+            }
+
+            self._responseArgs.resp = resp;
+            self._fulfilled = true;
+            fn(resp);
+            self._successHandler(resp);
+            while (self._fulfillmentHandlers.length > 0) {
+                resp = self._fulfillmentHandlers.shift()(resp);
+            }
+
+            complete(resp);
+        }
+
+        function timedOut() {
+            self._timedOut = true;
+            self.request.abort();
+        }
+
+        function error(resp, msg, t) {
+            resp = self.request;
+            self._responseArgs.resp = resp;
+            self._responseArgs.msg = msg;
+            self._responseArgs.t = t;
+            self._erred = true;
+            while (self._errorHandlers.length > 0) {
+                self._errorHandlers.shift()(resp, msg, t);
+            }
+            complete(resp);
+        }
+
+        this.request = getRequest.call(this, success, error);
+    }
+
+    Reqwest.prototype = {
+        abort: function () {
+            this._aborted = true;
+            this.request.abort();
+        },
+
+        retry: function () {
+            init.call(this, this.o, this.fn);
+        },
+
+        /**
+         * Small deviation from the Promises A CommonJs specification
+         * http://wiki.commonjs.org/wiki/Promises/A
+         */
+
+        /**
+         * `then` will execute upon successful requests
+         */
+        then: function (success, fail) {
+            success = success || function () {};
+            fail = fail || function () {};
+            if (this._fulfilled) {
+                this._responseArgs.resp = success(this._responseArgs.resp);
+            } else if (this._erred) {
+                fail(this._responseArgs.resp, this._responseArgs.msg, this._responseArgs.t);
+            } else {
+                this._fulfillmentHandlers.push(success);
+                this._errorHandlers.push(fail);
+            }
+            return this;
+        },
+
+        /**
+         * `always` will execute whether the request succeeds or fails
+         */
+        always: function (fn) {
+            if (this._fulfilled || this._erred) {
+                fn(this._responseArgs.resp);
+            } else {
+                this._completeHandlers.push(fn);
+            }
+            return this;
+        },
+
+        /**
+         * `fail` will execute when the request fails
+         */
+        fail: function (fn) {
+            if (this._erred) {
+                fn(this._responseArgs.resp, this._responseArgs.msg, this._responseArgs.t);
+            } else {
+                this._errorHandlers.push(fn);
+            }
+            return this;
+        },
+
+        'catch': function (fn) {
+            return this.fail(fn);
+        }
+    };
+
+    function reqwest(o, fn) {
+        return new Reqwest(o, fn);
+    }
+
+    // normalize newline variants according to spec -> CRLF
+    function normalize(s) {
+        return s ? s.replace(/\r?\n/g, '\r\n') : '';
+    }
+
+    function serial(el, cb) {
+        var n = el.name,
+            t = el.tagName.toLowerCase(),
+            optCb = function (o) {
+                // IE gives value="" even where there is no value attribute
+                // 'specified' ref: http://www.w3.org/TR/DOM-Level-3-Core/core.html#ID-862529273
+                if (o && !o.disabled) {
+                    cb(n, normalize(o.attributes.value && o.attributes.value.specified ? o.value : o.text));
+                }
+            },
+            ch, ra, val, i;
+
+        // don't serialize elements that are disabled or without a name
+        if (el.disabled || !n) {
+            return;
+        }
+
+        switch (t) {
+        case 'input':
+            if (!/reset|button|image|file/i.test(el.type)) {
+                ch = /checkbox/i.test(el.type);
+                ra = /radio/i.test(el.type);
+                val = el.value;
+                (!(ch || ra) || el.checked) && cb(n, normalize(ch && val === '' ? 'on' : val));
+            }
+            break;
+        case 'textarea':
+            cb(n, normalize(el.value));
+            break;
+        case 'select':
+            if (el.type.toLowerCase() === 'select-one') {
+                optCb(el.selectedIndex >= 0 ? el.options[el.selectedIndex] : null);
+            } else {
+                for (i = 0; el.length && i < el.length; i += 1) {
+                    el.options[i].selected && optCb(el.options[i]);
+                }
+            }
+            break;
+        }
+    }
+
+    // collect up all form elements found from the passed argument elements all
+    // the way down to child elements; pass a '<form>' or form fields.
+    // called with 'this'=callback to use for serial() on each element
+    function eachFormElement() {
+        var cb = this,
+            e, i, serializeSubtags = function (e, tags) {
+                var i, j, fa;
+                for (i = 0; i < tags.length; i += 1) {
+                    fa = e[byTag](tags[i]);
+                    for (j = 0; j < fa.length; j += 1) {
+                        serial(fa[j], cb);
+                    }
+                }
+            };
+
+        for (i = 0; i < arguments.length; i += 1) {
+            e = arguments[i];
+            if (/input|select|textarea/i.test(e.tagName)) {
+                serial(e, cb);
+            }
+            serializeSubtags(e, ['input', 'select', 'textarea']);
+        }
+    }
+
+    // standard query string style serialization
+    function serializeQueryString() {
+        return reqwest.toQueryString(reqwest.serializeArray.apply(null, arguments));
+    }
+
+    // { 'name': 'value', ... } style serialization
+    function serializeHash() {
+        var hash = {};
+        eachFormElement.apply(function (name, value) {
+            if (name in hash) {
+                hash[name] && !isArray(hash[name]) && (hash[name] = [hash[name]]);
+                hash[name].push(value);
+            } else {
+                hash[name] = value;
+            }
+        }, arguments);
+        return hash;
+    }
+
+    // [ { name: 'name', value: 'value' }, ... ] style serialization
+    reqwest.serializeArray = function () {
+        var arr = [];
+        eachFormElement.apply(function (name, value) {
+            arr.push({
+                name: name,
+                value: value
+            });
+        }, arguments);
+        return arr;
+    };
+
+    reqwest.serialize = function () {
+        if (arguments.length === 0) {
+            return '';
+        }
+        var opt, fn, args = Array.prototype.slice.call(arguments, 0);
+
+        opt = args.pop();
+        opt && opt.nodeType && args.push(opt) && (opt = null);
+        opt && (opt = opt.type);
+
+        if (opt == 'map') {
+            fn = serializeHash;
+        } else if (opt == 'array') {
+            fn = reqwest.serializeArray;
+        } else {
+            fn = serializeQueryString;
+        }
+
+        return fn.apply(null, args);
+    };
+
+    reqwest.toQueryString = function (o, trad) {
+        var prefix, i, traditional = trad || false,
+            s = [],
+            enc = encodeURIComponent,
+            add = function (key, value) {
+                // If value is a function, invoke it and return its value
+                value = ('function' === typeof value) ? value() : (value == null ? '' : value);
+                s[s.length] = enc(key) + '=' + enc(value);
+            };
+            // If an array was passed in, assume that it is an array of form elements.
+        if (isArray(o)) {
+            for (i = 0; o && i < o.length; i += 1) {
+                add(o[i].name, o[i].value);
+            }
+        } else {
+            // If traditional, encode the "old" way (the way 1.3.2 or older
+            // did it), otherwise encode params recursively.
+            for (prefix in o) {
+                if (o.hasOwnProperty(prefix)) {
+                    buildParams(prefix, o[prefix], traditional, add);
+                }
+            }
+        }
+
+        // spaces should be + according to spec
+        return s.join('&').replace(/%20/g, '+');
+    };
+
+    function buildParams(prefix, obj, traditional, add) {
+        var name, i, v, rbracket = /\[\]$/;
+
+        if (isArray(obj)) {
+            // Serialize array item.
+            for (i = 0; obj && i < obj.length; i += 1) {
+                v = obj[i];
+                if (traditional || rbracket.test(prefix)) {
+                    // Treat each array item as a scalar.
+                    add(prefix, v);
+                } else {
+                    buildParams(prefix + '[' + (typeof v === 'object' ? i : '') + ']', v, traditional, add);
+                }
+            }
+        } else if (obj && obj.toString() === '[object Object]') {
+            // Serialize object item.
+            for (name in obj) {
+                buildParams(prefix + '[' + name + ']', obj[name], traditional, add);
+            }
+
+        } else {
+            // Serialize scalar item.
+            add(prefix, obj);
+        }
+    }
+
+    reqwest.getcallbackPrefix = function () {
+        return callbackPrefix;
+    };
+
+    // jQuery and Zepto compatibility, differences can be remapped here so you can call
+    // .ajax.compat(options, callback)
+    reqwest.compat = function (o, fn) {
+        if (o) {
+            o.type && (o.method = o.type) && delete o.type;
+            o.dataType && (o.type = o.dataType);
+            o.jsonpCallback && (o.jsonpCallbackName = o.jsonpCallback) && delete o.jsonpCallback;
+            o.jsonp && (o.jsonpCallback = o.jsonp);
+        }
+        return new Reqwest(o, fn);
+    };
+
+    reqwest.ajaxSetup = function (options) {
+        options = options || {};
+        for (var k in options) {
+            globalSetupOptions[k] = options[k];
+        }
+    };
+
+    return reqwest;
 });
 
-/* global Q */
+
+/* jshint +W030 */
+/* jshint +W041 */
+
+
+
+
+/* globals Q */
 
 /***
 * 
@@ -6203,9 +6547,10 @@ var isRunningOnAndroid = function() {
 var isRunningOnIos = function() {
     return runningDevice.platform == "iOS";
 };
-var isRunningOnCordova = function () {
-    return (typeof window.cordova !== "undefined");
-};
+// - not used, enable if needed -
+//var isRunningOnCordova = function () {
+//    return (typeof window.cordova !== "undefined");
+//};
 var initDevice = function() {
     if (typeof window.device === 'undefined') {
         return err("Missing cordova device plugin");
@@ -6220,17 +6565,11 @@ var initDevice = function() {
 
 
 
-// global variable used by old stargate client
-// @deprecated since v2
-window.pubKey = '';
-// @deprecated since v2
-window.forge = '';
-
 var getManifest = function() {
 
     var deferred = Q.defer();
 
-    hostedwebapp.getManifest(
+    window.hostedwebapp.getManifest(
         function(manifest){
             deferred.resolve(manifest);
         },
@@ -6274,7 +6613,7 @@ var baseUrl;
 
 var updateStatusBar = function() {
 
-    if (typeof StatusBar === "undefined") {
+    if (typeof window.StatusBar === "undefined") {
         // missing cordova plugin
         return err("[StatusBar] missing cordova plugin");
     }
@@ -6298,10 +6637,10 @@ var updateStatusBar = function() {
         }
 
         if (hide) {
-            StatusBar.hide();
+            window.StatusBar.hide();
         }
         else {
-            StatusBar.show();
+            window.StatusBar.show();
         }
     }
 };
@@ -6316,8 +6655,6 @@ var onPluginReady = function () {
 
     
     if (hasFeature('mfp')) {
-        // FIXME FIXME FIXME FIXME FIXME 
-        // do this only on first launch, as the session is removed from MFP when got
         MFP.check();
     }
 
@@ -6328,7 +6665,6 @@ var onPluginReady = function () {
             stargateConf.deltadna.collectApi,
             stargateConf.deltadna.engageApi,
 
-            // FIXME
             onDeltaDNAStartedSuccess,
             onDeltaDNAStartedError,
 
@@ -6336,10 +6672,6 @@ var onPluginReady = function () {
         );
     }
 
-    // FIXME: stargate.ad is public ?
-    //if(AdStargate){
-    //    stargatePublic.ad = new AdStargate();
-    //}
 
     navigator.splashscreen.hide();
     setBusy(false);
@@ -6387,6 +6719,47 @@ var onDeviceReady = function () {
         err("onDeviceReady() error: "+error);
     });
 };
+
+
+
+var stargateBusy = false;
+
+// - not used, enable if needed -
+//var isBusy = function() { return stargateBusy; };
+
+var setBusy = function(value) {
+    if (value) {
+        stargateBusy = true;
+        startLoading();
+    }
+    else {
+        stargateBusy = false;
+        stopLoading();
+    }
+};
+
+var stargateConf = {};
+
+var hasFeature = function(feature) {
+    return (typeof stargateConf.features[feature] !== 'undefined' && stargateConf.features[feature]);
+};
+
+
+
+
+
+
+
+
+
+
+
+// global variable used by old stargate client
+// @deprecated since v2
+window.pubKey = '';
+// @deprecated since v2
+window.forge = '';
+
 
 
 stargatePublic.initialize = function(configurations, pubKey, forge, callback) {
@@ -6437,12 +6810,19 @@ stargatePublic.isOpen = function() {
 
 stargatePublic.openUrl = function(url) {
 
+	if (!isStargateInitialized) {
+		return err("Stargate not initialized, call Stargate.initialize first!");
+    }
     // FIXME: check that inappbrowser plugin is installed otherwise retunr error
 
     window.open(url, "_system");
 };
 
 stargatePublic.googleLogin = function(callbackSuccess, callbackError) {
+
+	if (!isStargateInitialized) {
+		return callbackError("Stargate not initialized, call Stargate.initialize first!");
+    }
 
     // FIXME: implement it; get code from old stargate
 
@@ -6451,6 +6831,10 @@ stargatePublic.googleLogin = function(callbackSuccess, callbackError) {
 };
 stargatePublic.checkConnection = function(callbackSuccess, callbackError) {
 
+	if (!isStargateInitialized) {
+		return callbackError("Stargate not initialized, call Stargate.initialize first!");
+    }
+
     // FIXME: check that network plugin is installed
 
     var networkState = navigator.connection.type;
@@ -6458,119 +6842,27 @@ stargatePublic.checkConnection = function(callbackSuccess, callbackError) {
 };
 stargatePublic.getDeviceID = function(callbackSuccess, callbackError) {
 
+	if (!isStargateInitialized) {
+		return callbackError("Stargate not initialized, call Stargate.initialize first!");
+    }
+
     // FIXME: check that device plugin is installed
     // FIXME: integrate with other stargate device handling method
 
-    var deviceID = device.uuid;
+    var deviceID = runningDevice.uuid;
     callbackSuccess({'deviceID': deviceID});
-                
-
 };
 
+/**  
+ *
+ *  stargatePublic.inApp* -> iap.js
+ *
+ */
 
-
-/*
-var Stargate = {
-    
-
-    
-
-    inAppPurchaseSubscription: function(callbackSuccess, callbackError, subscriptionUrl, returnUrl){
-        var msgId = Stargate.createMessageId(); 
-        Stargate.messages[msgId] = new Message();
-        Stargate.messages[msgId].msgId = msgId;
-        Stargate.messages[msgId].exec = 'stargate.purchase.subscription';
-        if (typeof subscriptionUrl !== 'undefined'){
-            Stargate.messages[msgId].subscriptionUrl =  subscriptionUrl;
-        }
-        if (typeof returnUrl !== 'undefined'){
-            Stargate.messages[msgId].returnUrl =  returnUrl;
-        }
-        Stargate.messages[msgId].callbackSuccess = callbackSuccess;
-        Stargate.messages[msgId].callbackError = callbackError;
-        Stargate.messages[msgId].send();
-    },
-
-    inAppRestore: function(callbackSuccess, callbackError, subscriptionUrl, returnUrl){
-        var msgId = this.createMessageId(); 
-        Stargate.messages[msgId] = new Message();
-        Stargate.messages[msgId].msgId = msgId;
-        Stargate.messages[msgId].exec = 'stargate.restore';
-        if (typeof subscriptionUrl !== 'undefined'){
-            Stargate.messages[msgId].subscriptionUrl =  subscriptionUrl;
-        }
-        if (typeof returnUrl !== 'undefined'){
-            Stargate.messages[msgId].returnUrl =  returnUrl;
-        }
-        Stargate.messages[msgId].callbackSuccess = callbackSuccess;
-        Stargate.messages[msgId].callbackError = callbackError;
-        Stargate.messages[msgId].send();        
-    },
-    
-    
-    
-    googleLogin: function(callbackSuccess, callbackError){
-        var msgId = Stargate.createMessageId();
-        Stargate.messages[msgId] = new Message();
-        Stargate.messages[msgId].msgId = msgId;
-        Stargate.messages[msgId].exec = 'stargate.googleLogin';
-        Stargate.messages[msgId].callbackSuccess = callbackSuccess;
-        Stargate.messages[msgId].callbackError = callbackError;
-        Stargate.messages[msgId].send();
-    },  
-
-    
-}
-*/
-
-var stargateBusy = false;
-var isBusy = function() { return stargateBusy; };
-
-var setBusy = function(value) {
-    if (value) {
-        stargateBusy = true;
-        startLoading();
-    }
-    else {
-        stargateBusy = false;
-        stopLoading();
-    }
-};
-
-var stargateConf = {};
-
-var hasFeature = function(feature) {
-    return (typeof stargateConf.features[feature] !== 'undefined' && stargateConf.features[feature]);
-};
+stargatePublic.ad = new AdStargate();
 
 
 
-
-
-
-
-
-
-
-
-
-var ua = {
-    Android: function() {
-        return /Android/i.test(navigator.userAgent);
-    },
-    BlackBerry: function() {
-        return /BlackBerry/i.test(navigator.userAgent);
-    },
-    iOS: function() {
-        return /iPhone|iPad|iPod/i.test(navigator.userAgent);
-    },
-    Windows: function() {
-        return /IEMobile/i.test(navigator.userAgent);
-    },
-    any: function() {
-        return (isMobile.Android() || isMobile.BlackBerry() || isMobile.iOS() || isMobile.Windows());
-    }
-};
 
 // FIXME
 //function reboot(){
@@ -6578,79 +6870,34 @@ var ua = {
 //}
 
 
-var utils = {
-    elementHasClass: function (element, selector) {
-        var className = " " + selector + " ",
-            rclass = "/[\n\t\r]/g",
-            i = 0;
-        if ( (" " + element.className + " ").replace(rclass, " ").indexOf(className) >= 0 ) {
-            return true;
-        }
-        return false;
-    },
-
-    // a   url (naming it a, beacause it will be reused to store callbacks)
-	// xhr placeholder to avoid using var, not to be used
-	pegasus: function(a, xhr) {
-	  xhr = new XMLHttpRequest();
-
-	  // Open url
-	  xhr.open('GET', a);
-
-	  // Reuse a to store callbacks
-	  a = [];
-
-	  // onSuccess handler
-	  // onError   handler
-	  // cb        placeholder to avoid using var, should not be used
-	  xhr.onreadystatechange = xhr.then = function(onSuccess, onError, cb) {
-
-	    // Test if onSuccess is a function or a load event
-	    if (onSuccess.call) a = [,onSuccess, onError];
-
-	    // Test if request is complete
-	    if (xhr.readyState == 4) {
-
-	      // index will be:
-	      // 0 if undefined
-	      // 1 if status is between 200 and 399
-	      // 2 if status is over
-	      cb = a[0|xhr.status / 200];
-
-	      // Safari doesn't support xhr.responseType = 'json'
-	      // so the response is parsed
-	      if (cb) {
-	        try {
-	          cb(JSON.parse(xhr.responseText), xhr);
-	        } catch (e) {
-	          cb(null, xhr);
-	        }
-	      }
-	    }
-	  };
-
-	  // Send
-	  xhr.send();
-
-	  // Return request
-	  return xhr;
-	}
-};
+// - not used, enable if needed -
+//var utils = {
+//    elementHasClass: function (element, selector) {
+//        var className = " " + selector + " ",
+//            rclass = "/[\n\t\r]/g",
+//            i = 0;
+//        if ( (" " + element.className + " ").replace(rclass, " ").indexOf(className) >= 0 ) {
+//            return true;
+//        }
+//        return false;
+//    }
+//};
 
 
+// - not used, enable if needed -
+//function ab2str(buf) {
+//    return String.fromCharCode.apply(null, new Uint16Array(buf));
+//}
 
-function ab2str(buf) {
-    return String.fromCharCode.apply(null, new Uint16Array(buf));
-}
-
-function str2ab(str) {
-    var buf = new ArrayBuffer(str.length * 2); // 2 bytes for each char
-    var bufView = new Uint16Array(buf);
-    for (var i=0; i < str.length; i++) {
-        bufView[i] = str.charCodeAt(i);
-    }
-    return buf;
-}
+// - not used, enable if needed -
+//function str2ab(str) {
+//    var buf = new ArrayBuffer(str.length * 2); // 2 bytes for each char
+//    var bufView = new Uint16Array(buf);
+//    for (var i=0; i < str.length; i++) {
+//        bufView[i] = str.charCodeAt(i);
+//    }
+//    return buf;
+//}
 
 
     // Just return a value to define the module export
