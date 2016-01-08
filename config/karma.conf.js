@@ -6,7 +6,7 @@ module.exports = {
     ],
 
     frameworks: ['jasmine'],
-    reporters: ['progress', 'coverage'],
+    reporters: ['mocha'],
 
     //preprocessors: {
     //  'src/plugins/*.js': ['coverage']
