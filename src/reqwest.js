@@ -1,17 +1,16 @@
+
+
+/* jshint -W030 */
+/* jshint -W041 */
+
+
+
 /*!
  * Reqwest! A general purpose XHR connection manager
  * license MIT (c) Dustin Diaz 2015
  * https://github.com/ded/reqwest
  */
-! function (name, context, definition) {
-    if (typeof module != 'undefined' && module.exports) {
-        module.exports = definition();
-    } else if (typeof define == 'function' && define.amd) {
-        define(definition);
-    } else {
-        context[name] = definition();
-    }
-}('reqwest', this, function () {
+var reqwest = (function () {
 
     var context = this;
 
@@ -20,12 +19,7 @@
             byTag = 'getElementsByTagName',
             head = doc[byTag]('head')[0];
     } else {
-        var XHR2;
-        try {
-            XHR2 = require('xhr2');
-        } catch (ex) {
-            throw new Error('Peer dependency `xhr2` required! Please npm install xhr2');
-        }
+        throw new Error('Running outside a browser window is not supported!');
     }
 
 
@@ -43,7 +37,7 @@
         noop = function () {},
 
     isArray = typeof Array.isArray == 'function' ? Array.isArray : function (a) {
-        return a instanceof Array
+        return a instanceof Array;
     },
 
     defaultHeaders = {
@@ -72,12 +66,16 @@
             }
         } else if (context[xmlHttpRequest]) {
             return new XMLHttpRequest();
-        } else if (XHR2) {
-            return new XHR2();
+        // node not supported
+        //} else if (XHR2) {
+        //    return new XHR2();
         } else {
+            /* globals ActiveXObject */
             return new ActiveXObject('Microsoft.XMLHTTP');
+            /* globals -ActiveXObject */
         }
-    }, globalSetupOptions = {
+    },
+    globalSetupOptions = {
         dataFilter: function (data) {
             return data;
         }
@@ -107,7 +105,7 @@
                     error(r.request);
                 }
             }
-        }
+        };
     }
 
     function setHeaders(http, o) {
@@ -162,11 +160,11 @@
             url = urlappend(url, cbkey + '=' + cbval); // no callback details, add 'em
         }
 
-        context[cbval] = generalCallback
+        context[cbval] = generalCallback;
 
-        script.type = 'text/javascript'
-        script.src = url
-        script.async = true
+        script.type = 'text/javascript';
+        script.src = url;
+        script.async = true;
         if (typeof script.onreadystatechange !== 'undefined' && !isIE10) {
             // need this for IE due to out-of-order onreadystatechange(), binding script
             // execution to an event listener gives us control over when the script
@@ -199,7 +197,7 @@
                 head.removeChild(script);
                 loaded = 1;
             }
-        }
+        };
     }
 
     function getRequest(fn, err) {
@@ -306,37 +304,37 @@
         if (o.success) {
             this._successHandler = function () {
                 o.success.apply(o, arguments);
-            }
+            };
         }
 
         if (o.error) {
             this._errorHandlers.push(function () {
                 o.error.apply(o, arguments);
-            })
+            });
         }
 
         if (o.complete) {
             this._completeHandlers.push(function () {
-                o.complete.apply(o, arguments)
-            })
+                o.complete.apply(o, arguments);
+            });
         }
 
         function complete(resp) {
-            o.timeout && clearTimeout(self.timeout)
-            self.timeout = null
+            o.timeout && clearTimeout(self.timeout);
+            self.timeout = null;
             while (self._completeHandlers.length > 0) {
-                self._completeHandlers.shift()(resp)
+                self._completeHandlers.shift()(resp);
             }
         }
 
         function success(resp) {
-            var type = o.type || resp && setType(resp.getResponseHeader('Content-Type')) // resp can be undefined in IE
-            resp = (type !== 'jsonp') ? self.request : resp
+            var type = o.type || resp && setType(resp.getResponseHeader('Content-Type')); // resp can be undefined in IE
+            resp = (type !== 'jsonp') ? self.request : resp;
                 // use global data filter on response text
             var filteredResponse = globalSetupOptions.dataFilter(resp.responseText, type),
-                r = filteredResponse
+                r = filteredResponse;
             try {
-                resp.responseText = r
+                resp.responseText = r;
             } catch (e) {
                 // can't assign this in IE<=8, just ignore
             }
@@ -344,65 +342,66 @@
                 switch (type) {
                 case 'json':
                     try {
-                        resp = context.JSON ? context.JSON.parse(r) : eval('(' + r + ')')
+                        //resp = context.JSON ? context.JSON.parse(r) : eval('(' + r + ')');
+                        resp = context.JSON.parse(r);
                     } catch (err) {
-                        return error(resp, 'Could not parse JSON in response', err)
+                        return error(resp, 'Could not parse JSON in response', err);
                     }
                     break;
-                case 'js':
-                    resp = eval(r)
-                    break;
+                // disabled for security pourposes
+                //case 'js':
+                //    resp = eval(r);
+                //    break;
                 case 'html':
-                    resp = r
+                    resp = r;
                     break;
                 case 'xml':
-                    resp = resp.responseXML && resp.responseXML.parseError // IE trololo
-                        && resp.responseXML.parseError.errorCode && resp.responseXML.parseError.reason ? null : resp.responseXML
-                    break
+                    resp = resp.responseXML && resp.responseXML.parseError && // IE trololo
+                        resp.responseXML.parseError.errorCode && resp.responseXML.parseError.reason ? null : resp.responseXML;
+                    break;
                 }
             }
 
-            self._responseArgs.resp = resp
-            self._fulfilled = true
-            fn(resp)
-            self._successHandler(resp)
+            self._responseArgs.resp = resp;
+            self._fulfilled = true;
+            fn(resp);
+            self._successHandler(resp);
             while (self._fulfillmentHandlers.length > 0) {
-                resp = self._fulfillmentHandlers.shift()(resp)
+                resp = self._fulfillmentHandlers.shift()(resp);
             }
 
-            complete(resp)
+            complete(resp);
         }
 
         function timedOut() {
-            self._timedOut = true
-            self.request.abort()
+            self._timedOut = true;
+            self.request.abort();
         }
 
         function error(resp, msg, t) {
-            resp = self.request
-            self._responseArgs.resp = resp
-            self._responseArgs.msg = msg
-            self._responseArgs.t = t
-            self._erred = true
+            resp = self.request;
+            self._responseArgs.resp = resp;
+            self._responseArgs.msg = msg;
+            self._responseArgs.t = t;
+            self._erred = true;
             while (self._errorHandlers.length > 0) {
-                self._errorHandlers.shift()(resp, msg, t)
+                self._errorHandlers.shift()(resp, msg, t);
             }
-            complete(resp)
+            complete(resp);
         }
 
-        this.request = getRequest.call(this, success, error)
+        this.request = getRequest.call(this, success, error);
     }
 
     Reqwest.prototype = {
         abort: function () {
-            this._aborted = true
-            this.request.abort()
-        }
+            this._aborted = true;
+            this.request.abort();
+        },
 
-        ,
         retry: function () {
-            init.call(this, this.o, this.fn)
-        }
+            init.call(this, this.o, this.fn);
+        },
 
         /**
          * Small deviation from the Promises A CommonJs specification
@@ -412,58 +411,56 @@
         /**
          * `then` will execute upon successful requests
          */
-        ,
         then: function (success, fail) {
-            success = success || function () {}
-            fail = fail || function () {}
+            success = success || function () {};
+            fail = fail || function () {};
             if (this._fulfilled) {
-                this._responseArgs.resp = success(this._responseArgs.resp)
+                this._responseArgs.resp = success(this._responseArgs.resp);
             } else if (this._erred) {
-                fail(this._responseArgs.resp, this._responseArgs.msg, this._responseArgs.t)
+                fail(this._responseArgs.resp, this._responseArgs.msg, this._responseArgs.t);
             } else {
-                this._fulfillmentHandlers.push(success)
-                this._errorHandlers.push(fail)
+                this._fulfillmentHandlers.push(success);
+                this._errorHandlers.push(fail);
             }
-            return this
-        }
+            return this;
+        },
 
         /**
          * `always` will execute whether the request succeeds or fails
          */
-        ,
         always: function (fn) {
             if (this._fulfilled || this._erred) {
-                fn(this._responseArgs.resp)
+                fn(this._responseArgs.resp);
             } else {
-                this._completeHandlers.push(fn)
+                this._completeHandlers.push(fn);
             }
-            return this
-        }
+            return this;
+        },
 
         /**
          * `fail` will execute when the request fails
          */
-        ,
         fail: function (fn) {
             if (this._erred) {
-                fn(this._responseArgs.resp, this._responseArgs.msg, this._responseArgs.t)
+                fn(this._responseArgs.resp, this._responseArgs.msg, this._responseArgs.t);
             } else {
-                this._errorHandlers.push(fn)
+                this._errorHandlers.push(fn);
             }
-            return this
+            return this;
         },
+
         'catch': function (fn) {
-            return this.fail(fn)
+            return this.fail(fn);
         }
-    }
+    };
 
     function reqwest(o, fn) {
-        return new Reqwest(o, fn)
+        return new Reqwest(o, fn);
     }
 
     // normalize newline variants according to spec -> CRLF
     function normalize(s) {
-        return s ? s.replace(/\r?\n/g, '\r\n') : ''
+        return s ? s.replace(/\r?\n/g, '\r\n') : '';
     }
 
     function serial(el, cb) {
@@ -476,7 +473,7 @@
                     cb(n, normalize(o.attributes.value && o.attributes.value.specified ? o.value : o.text));
                 }
             },
-            ch, ra, val, i
+            ch, ra, val, i;
 
         // don't serialize elements that are disabled or without a name
         if (el.disabled || !n) {
@@ -491,19 +488,19 @@
                 val = el.value;
                 (!(ch || ra) || el.checked) && cb(n, normalize(ch && val === '' ? 'on' : val));
             }
-            break
+            break;
         case 'textarea':
-            cb(n, normalize(el.value))
-            break
+            cb(n, normalize(el.value));
+            break;
         case 'select':
             if (el.type.toLowerCase() === 'select-one') {
-                optCb(el.selectedIndex >= 0 ? el.options[el.selectedIndex] : null)
+                optCb(el.selectedIndex >= 0 ? el.options[el.selectedIndex] : null);
             } else {
                 for (i = 0; el.length && i < el.length; i += 1) {
-                    el.options[i].selected && optCb(el.options[i])
+                    el.options[i].selected && optCb(el.options[i]);
                 }
             }
-            break
+            break;
         }
     }
 
@@ -513,64 +510,64 @@
     function eachFormElement() {
         var cb = this,
             e, i, serializeSubtags = function (e, tags) {
-                var i, j, fa
+                var i, j, fa;
                 for (i = 0; i < tags.length; i += 1) {
-                    fa = e[byTag](tags[i])
+                    fa = e[byTag](tags[i]);
                     for (j = 0; j < fa.length; j += 1) {
                         serial(fa[j], cb);
                     }
                 }
-            }
+            };
 
         for (i = 0; i < arguments.length; i += 1) {
-            e = arguments[i]
+            e = arguments[i];
             if (/input|select|textarea/i.test(e.tagName)) {
                 serial(e, cb);
             }
-            serializeSubtags(e, ['input', 'select', 'textarea'])
+            serializeSubtags(e, ['input', 'select', 'textarea']);
         }
     }
 
     // standard query string style serialization
     function serializeQueryString() {
-        return reqwest.toQueryString(reqwest.serializeArray.apply(null, arguments))
+        return reqwest.toQueryString(reqwest.serializeArray.apply(null, arguments));
     }
 
     // { 'name': 'value', ... } style serialization
     function serializeHash() {
-        var hash = {}
+        var hash = {};
         eachFormElement.apply(function (name, value) {
             if (name in hash) {
-                hash[name] && !isArray(hash[name]) && (hash[name] = [hash[name]])
-                hash[name].push(value)
+                hash[name] && !isArray(hash[name]) && (hash[name] = [hash[name]]);
+                hash[name].push(value);
             } else {
                 hash[name] = value;
             }
-        }, arguments)
-        return hash
+        }, arguments);
+        return hash;
     }
 
     // [ { name: 'name', value: 'value' }, ... ] style serialization
     reqwest.serializeArray = function () {
-        var arr = []
+        var arr = [];
         eachFormElement.apply(function (name, value) {
             arr.push({
                 name: name,
                 value: value
-            })
-        }, arguments)
-        return arr
-    }
+            });
+        }, arguments);
+        return arr;
+    };
 
     reqwest.serialize = function () {
         if (arguments.length === 0) {
             return '';
         }
-        var opt, fn, args = Array.prototype.slice.call(arguments, 0)
+        var opt, fn, args = Array.prototype.slice.call(arguments, 0);
 
-        opt = args.pop()
-        opt && opt.nodeType && args.push(opt) && (opt = null)
-        opt && (opt = opt.type)
+        opt = args.pop();
+        opt && opt.nodeType && args.push(opt) && (opt = null);
+        opt && (opt = opt.type);
 
         if (opt == 'map') {
             fn = serializeHash;
@@ -580,8 +577,8 @@
             fn = serializeQueryString;
         }
 
-        return fn.apply(null, args)
-    }
+        return fn.apply(null, args);
+    };
 
     reqwest.toQueryString = function (o, trad) {
         var prefix, i, traditional = trad || false,
@@ -589,9 +586,9 @@
             enc = encodeURIComponent,
             add = function (key, value) {
                 // If value is a function, invoke it and return its value
-                value = ('function' === typeof value) ? value() : (value == null ? '' : value)
-                s[s.length] = enc(key) + '=' + enc(value)
-            }
+                value = ('function' === typeof value) ? value() : (value == null ? '' : value);
+                s[s.length] = enc(key) + '=' + enc(value);
+            };
             // If an array was passed in, assume that it is an array of form elements.
         if (isArray(o)) {
             for (i = 0; o && i < o.length; i += 1) {
@@ -608,38 +605,38 @@
         }
 
         // spaces should be + according to spec
-        return s.join('&').replace(/%20/g, '+')
-    }
+        return s.join('&').replace(/%20/g, '+');
+    };
 
     function buildParams(prefix, obj, traditional, add) {
-        var name, i, v, rbracket = /\[\]$/
+        var name, i, v, rbracket = /\[\]$/;
 
         if (isArray(obj)) {
             // Serialize array item.
             for (i = 0; obj && i < obj.length; i += 1) {
-                v = obj[i]
+                v = obj[i];
                 if (traditional || rbracket.test(prefix)) {
                     // Treat each array item as a scalar.
-                    add(prefix, v)
+                    add(prefix, v);
                 } else {
-                    buildParams(prefix + '[' + (typeof v === 'object' ? i : '') + ']', v, traditional, add)
+                    buildParams(prefix + '[' + (typeof v === 'object' ? i : '') + ']', v, traditional, add);
                 }
             }
         } else if (obj && obj.toString() === '[object Object]') {
             // Serialize object item.
             for (name in obj) {
-                buildParams(prefix + '[' + name + ']', obj[name], traditional, add)
+                buildParams(prefix + '[' + name + ']', obj[name], traditional, add);
             }
 
         } else {
             // Serialize scalar item.
-            add(prefix, obj)
+            add(prefix, obj);
         }
     }
 
     reqwest.getcallbackPrefix = function () {
-        return callbackPrefix
-    }
+        return callbackPrefix;
+    };
 
     // jQuery and Zepto compatibility, differences can be remapped here so you can call
     // .ajax.compat(options, callback)
@@ -651,14 +648,20 @@
             o.jsonp && (o.jsonpCallback = o.jsonp);
         }
         return new Reqwest(o, fn);
-    }
+    };
 
     reqwest.ajaxSetup = function (options) {
         options = options || {};
         for (var k in options) {
             globalSetupOptions[k] = options[k];
         }
-    }
+    };
 
     return reqwest;
 });
+
+
+/* jshint +W030 */
+/* jshint +W041 */
+
+
