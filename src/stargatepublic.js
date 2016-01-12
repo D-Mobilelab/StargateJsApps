@@ -99,6 +99,27 @@ stargatePublic.getDeviceID = function(callbackSuccess, callbackError) {
     callbackSuccess({'deviceID': deviceID});
 };
 
+stargatePublic.setStatusbarVisibility = function(visibility, callbackSuccess, callbackError) {
+
+    if (!isStargateInitialized) {
+        return callbackError("Stargate not initialized, call Stargate.initialize first!");
+    }
+
+    if (typeof window.StatusBar === "undefined") {
+        // missing cordova plugin
+        err("[StatusBar] missing cordova plugin");
+        return callbackError("missing cordova plugin");
+    }
+
+    if (visibility) {
+        window.StatusBar.show();
+        return callbackSuccess("statusbar shown");
+    }
+
+    window.StatusBar.hide();
+    return callbackSuccess("statusbar hided");
+};
+
 /**  
  *
  *  stargatePublic.inApp* -> iap.js
