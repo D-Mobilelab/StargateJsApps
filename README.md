@@ -3,3 +3,10 @@
 # StargateJsApps
 
 StargateJS hybridization library for HTML5 apps
+
+# Contribute
+
+* git clone
+* npm install
+* bower install
+* gulp build
