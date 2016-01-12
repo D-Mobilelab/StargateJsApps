@@ -116,7 +116,7 @@ gulp.task('demo:run', ['build:src'], function(cb) {
 gulp.task('karma', ['build'], function (done) {
 	
 	// default to don't do single run
-	karmaConf.singleRun = true;
+	argv.singlerun && (karmaConf.singleRun = true);
 	argv.browsers && (karmaConf.browsers = argv.browsers.trim().split(','));
 	argv.reporters && (karmaConf.reporters = argv.reporters.trim().split(','));
 

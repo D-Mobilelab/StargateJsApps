@@ -50,6 +50,8 @@ module.exports = {
 		'bower_components/q/q.js'
 	],
 
+	testHeader: 'config/test.header.js',
+
 	distFile: 'stargate.js',
     interfaceName: interfaceName
 };

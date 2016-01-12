@@ -1,19 +1,22 @@
+var buildConfig = require('./build.config.js');
 
 module.exports = {
     files: [
-        'dist/stargate.js',
         'spec/*.js'
-    ],
+    ]
+    .concat(buildConfig.bowerFileList)
+    .concat(buildConfig.testHeader)
+    .concat('src/**/*.js'),
 
     frameworks: ['jasmine'],
-    reporters: ['mocha'],
+    reporters: ['mocha','coverage','coveralls'],
 
-    //preprocessors: {
-    //  'src/plugins/*.js': ['coverage']
-    //},
+    preprocessors: {
+      'src/**/*.js': ['coverage']
+    },
 
     coverageReporter: {
-        type : 'html',
+        type : 'lcov',
         dir : 'coverage/'
     },
 
