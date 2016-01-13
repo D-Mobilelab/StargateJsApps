@@ -185,42 +185,51 @@ var IAP = {
 		
         var url = IAP.subscribeMethod;		
 		
-
-
-		reqwest({
-            method: "post",
-            url: url,
-
-            data: {
+        aja()
+            .method('POST')
+            .url(url)
+            .cache(false)
+            .timeout(40 * 1000) // milliseconds
+            .body({
                 'paymethod': IAP.paymethod,
                 'user_account': window.localStorage.getItem('user_account'),
                 'purchase_token': purchaseToken,
                 'return_url': IAP.returnUrl,
                 'inapp_pwd': IAP.getPassword(purchaseToken),
                 'hybrid': 1
-            },
-
-            type: 'jsonp',
-
-            success: function(user)
-            {
+            })
+            .on('success', function(user){
+                
                 log('[IAP] createUser success ', user);
-                user.device_id = runningDevice.uuid;
-                if(window.localStorage.getItem('transaction_id')){
-                    user.transaction_id = window.localStorage.getItem('transaction_id');
-                }
-                setBusy(false);
-                IAP.callbackSuccess(user);
-            },
 
-            error: function(error)
-            {
+                try {
+                    user.device_id = runningDevice.uuid;
+                    if(window.localStorage.getItem('transaction_id')){
+                        user.transaction_id = window.localStorage.getItem('transaction_id');
+                    }
+                    setBusy(false);
+                    IAP.callbackSuccess(user);
+                }
+                catch (error) {
+                    err("[IAP] Call failed, please try again...", error);
+                    var stargateResponseError = {"iap_error" : "1", "return_url" : IAP.returnUrl};
+                    setBusy(false);
+                    IAP.callbackError(stargateResponseError);
+                }
+            })
+            .on('error', function(error){
                 err("[IAP] Call failed, please try again...", error);
                 var stargateResponseError = {"iap_error" : "1", "return_url" : IAP.returnUrl};
                 setBusy(false);
                 IAP.callbackError(stargateResponseError);
-            }
-		});
+            })
+            .on('timeout', function(){
+                err("[IAP] Call timeout, server may be busy!");
+                var stargateResponseError = {"iap_error" : "1", "return_url" : IAP.returnUrl, "timeout": 1};
+                setBusy(false);
+                IAP.callbackError(stargateResponseError);
+            })
+            .go();
 	}
 };
 

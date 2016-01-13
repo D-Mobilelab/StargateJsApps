@@ -82,36 +82,33 @@ var MFP = {
 	  			"expire": expire
 	  	});
 
+        aja()
+            .url(mfpUrl)
+            .type('jsonp')
+            .on('success', function(response){
+                
+                log("MFP.get() response: ", response);
 
-	  	reqwest({
-		    url: mfpUrl,
-		  	type: 'jsonp',
-			method: 'get',
-			error: function (error) {
+                var ponyUrl = '';
 
-				err("MFP.get() error: "+ error);
-			},
-			success: function (resp) {
-
-				log("MFP.get() resp: ", resp);
-
-				var ponyUrl = '';
-
-				if (resp.content.inappInfo){
-					var jsonStruct = JSON.parse(resp.content.inappInfo);
-	                if ((jsonStruct.extData) && (jsonStruct.extData.ponyUrl)){
-						ponyUrl = jsonStruct.extData.ponyUrl;
-					}
-	                if ((jsonStruct.extData) && (jsonStruct.extData.return_url)){
-	                	window.localStorage.setItem('appUrl', jsonStruct.extData.return_url);
-	                }
-	                
-	                MFP.set(ponyUrl);                
-				}else{
-					log("MFP.get(): Empty session");
-				}
-			}
-		});
+                if (response.content.inappInfo){
+                    var jsonStruct = JSON.parse(response.content.inappInfo);
+                    if ((jsonStruct.extData) && (jsonStruct.extData.ponyUrl)){
+                        ponyUrl = jsonStruct.extData.ponyUrl;
+                    }
+                    if ((jsonStruct.extData) && (jsonStruct.extData.return_url)){
+                        window.localStorage.setItem('appUrl', jsonStruct.extData.return_url);
+                    }
+                    
+                    MFP.set(ponyUrl);                
+                }else{
+                    log("MFP.get(): Empty session");
+                }
+            })
+            .on('error', function(error){
+                err("MFP.get() error: ", error);
+            })
+            .go();
 		
 	}
 
