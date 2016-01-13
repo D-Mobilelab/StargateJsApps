@@ -2,7 +2,7 @@
 
 describe("Stargate public interface", function() {
 	it("Stargate exists", function() {
-		expect(window.Stargate).toBeDefined();
+		expect(stargatePublic).toBeDefined();
 	});
 
 	it("pubKey exists", function() {
@@ -18,17 +18,17 @@ describe("Stargate public interface", function() {
 
 describe("Stargate initialization required", function() {
 	it("isInitialized is false", function() {
-		expect(window.Stargate.isInitialized()).toBeFalsy();
+		expect(stargatePublic.isInitialized()).toBeFalsy();
 	});
 
 	it("isOpen is false", function() {
-		expect(window.Stargate.isOpen()).toBeFalsy();
+		expect(stargatePublic.isOpen()).toBeFalsy();
 	});
 
 	it("openUrl require initialization", function() {
 		spyOn(console, 'error');
 
-		expect(window.Stargate.openUrl()).toBeFalsy();
+		expect(stargatePublic.openUrl()).toBeFalsy();
 		expect(console.error).toHaveBeenCalled();
 	});
 
@@ -36,7 +36,7 @@ describe("Stargate initialization required", function() {
 		var cbSuccess = jasmine.createSpy('cbSuccess');
 		var cbError = jasmine.createSpy('cbError');
 
-		window.Stargate.googleLogin(cbSuccess, cbError);
+		stargatePublic.googleLogin(cbSuccess, cbError);
 
 		expect(cbError).toHaveBeenCalled();
 		expect(cbError.calls.mostRecent().args[0]).toMatch(/not initialized/);
@@ -47,7 +47,7 @@ describe("Stargate initialization required", function() {
 		var cbSuccess = jasmine.createSpy('cbSuccess');
 		var cbError = jasmine.createSpy('cbError');
 
-		window.Stargate.checkConnection(cbSuccess, cbError);
+		stargatePublic.checkConnection(cbSuccess, cbError);
 
 		expect(cbError).toHaveBeenCalled();
 		expect(cbError.calls.mostRecent().args[0]).toMatch(/not initialized/);
@@ -57,7 +57,17 @@ describe("Stargate initialization required", function() {
 		var cbSuccess = jasmine.createSpy('cbSuccess');
 		var cbError = jasmine.createSpy('cbError');
 
-		window.Stargate.getDeviceID(cbSuccess, cbError);
+		stargatePublic.getDeviceID(cbSuccess, cbError);
+
+		expect(cbError).toHaveBeenCalled();
+		expect(cbError.calls.mostRecent().args[0]).toMatch(/not initialized/);
+	});
+
+	it("setStatusbarVisibility require initialization", function() {
+		var cbSuccess = jasmine.createSpy('cbSuccess');
+		var cbError = jasmine.createSpy('cbError');
+
+		stargatePublic.setStatusbarVisibility(true, cbSuccess, cbError);
 
 		expect(cbError).toHaveBeenCalled();
 		expect(cbError.calls.mostRecent().args[0]).toMatch(/not initialized/);
@@ -68,44 +78,45 @@ describe("Stargate initialization required", function() {
     
 
 describe("Stargate public ad interface", function() {
+
 	it("Stargate ad exists", function() {
-		expect(window.Stargate.ad).toBeDefined();
+		expect(stargatePublic.ad).toBeDefined();
 	});
 
 	it("Stargate ad initialize exists", function() {
-		expect(window.Stargate.ad.initialize).toBeDefined();
+		expect(stargatePublic.ad.initialize).toBeDefined();
 	});
 
 	it("Stargate ad createBanner exists", function() {
-		expect(window.Stargate.ad.createBanner).toBeDefined();
+		expect(stargatePublic.ad.createBanner).toBeDefined();
 	});
 
 	it("Stargate ad hideBanner exists", function() {
-		expect(window.Stargate.ad.hideBanner).toBeDefined();
+		expect(stargatePublic.ad.hideBanner).toBeDefined();
 	});
 
 	it("Stargate ad removeBanner exists", function() {
-		expect(window.Stargate.ad.removeBanner).toBeDefined();
+		expect(stargatePublic.ad.removeBanner).toBeDefined();
 	});
 
 	it("Stargate ad showBannerAtSelectedPosition exists", function() {
-		expect(window.Stargate.ad.showBannerAtSelectedPosition).toBeDefined();
+		expect(stargatePublic.ad.showBannerAtSelectedPosition).toBeDefined();
 	});
 
 	it("Stargate ad showBannerAtGivenXY exists", function() {
-		expect(window.Stargate.ad.showBannerAtGivenXY).toBeDefined();
+		expect(stargatePublic.ad.showBannerAtGivenXY).toBeDefined();
 	});
 
 	it("Stargate ad registerAdEvents exists", function() {
-		expect(window.Stargate.ad.registerAdEvents).toBeDefined();
+		expect(stargatePublic.ad.registerAdEvents).toBeDefined();
 	});
 
 	it("Stargate ad prepareInterstitial exists", function() {
-		expect(window.Stargate.ad.prepareInterstitial).toBeDefined();
+		expect(stargatePublic.ad.prepareInterstitial).toBeDefined();
 	});
 
 	it("Stargate ad showInterstitial exists", function() {
-		expect(window.Stargate.ad.showInterstitial).toBeDefined();
+		expect(stargatePublic.ad.showInterstitial).toBeDefined();
 	});
 
 });

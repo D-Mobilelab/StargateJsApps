@@ -1,0 +1,11 @@
+
+11/01/2016
+Migrate from reqwest to axios:
+ https://github.com/mzabriskie/axios
+ it's a bower module
+
+11/01/2016
+Test from source instead of build
+ Test stargatePublic instead of windows.Stargate
+ Do not test bower components/npm dependencies modules
+
