@@ -268,15 +268,9 @@ stargatePublic.inAppRestore = function(callbackSuccess, callbackError, subscript
     
     IAP.callbackSuccess = callbackSuccess;
     IAP.callbackError = callbackError;
-    
-    // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
-    // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
-    // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME 
 
-    err("[IAP] unimplemented restore, FIXME!");
-    var stargateResponseError = {"iap_error" : "1", "return_url" : IAP.returnUrl};
-    setBusy(false);
-    IAP.callbackError(stargateResponseError);
+    window.store.refresh();
+    storekit.restore();
 };
 
 
