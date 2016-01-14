@@ -1,4 +1,4 @@
-/* global ProgressIndicator */
+/*  */
 
 
 var startLoading = function() {
