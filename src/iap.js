@@ -40,7 +40,7 @@ var IAP = {
         }
 
         // Available values: DEBUG, INFO, WARNING, ERROR, QUIET
-        IAP.verbosity = 'DEBUG';
+        IAP.verbosity = 'INFO';
 
         IAP.paymethod = isRunningOnAndroid() ? 'gwallet' : 'itunes';
 
@@ -146,9 +146,10 @@ var IAP = {
         } else {
         
             storekit.loadReceipts(function (receipts) {
-                log('[IAP] appStoreReceipt: ' + receipts.appStoreReceipt);
-                                  
+                
                 if(!window.localStorage.getItem('user_account')){
+                    log('[IAP] appStoreReceipt: ' + receipts.appStoreReceipt);
+
                     IAP.createUser(p, receipts.appStoreReceipt);
                 }
             });
@@ -174,6 +175,8 @@ var IAP = {
 		err('[IAP] error: '+error);	
 	},
 	
+
+
 	createUser: function(product, purchaseToken){
 	
 		window.localStorage.setItem('user_account', 
@@ -185,19 +188,20 @@ var IAP = {
 		
         var url = IAP.subscribeMethod;		
 		
+        var formData = new FormData();
+        formData.append("paymethod", IAP.paymethod);
+        formData.append("user_account", window.localStorage.getItem('user_account'));
+        formData.append("purchase_token", purchaseToken);
+        formData.append("return_url", IAP.returnUrl);
+        formData.append("inapp_pwd", IAP.getPassword(purchaseToken));
+        formData.append("hybrid", 1);
+
         aja()
             .method('POST')
             .url(url)
             .cache(false)
-            .timeout(40 * 1000) // milliseconds
-            .body({
-                'paymethod': IAP.paymethod,
-                'user_account': window.localStorage.getItem('user_account'),
-                'purchase_token': purchaseToken,
-                'return_url': IAP.returnUrl,
-                'inapp_pwd': IAP.getPassword(purchaseToken),
-                'hybrid': 1
-            })
+            .timeout(30 * 1000) // milliseconds
+            .body(formData)
             .on('success', function(user){
                 
                 log('[IAP] createUser success ', user);
@@ -223,11 +227,27 @@ var IAP = {
                 setBusy(false);
                 IAP.callbackError(stargateResponseError);
             })
+            .on('4**', function(error){
+                err("[IAP] Call failed, please try again...", error);
+                var stargateResponseError = {"iap_error" : "1", "return_url" : IAP.returnUrl};
+                setBusy(false);
+                IAP.callbackError(stargateResponseError);
+            })
+            .on('5**', function(error){
+                err("[IAP] Call failed, please try again...", error);
+                var stargateResponseError = {"iap_error" : "1", "return_url" : IAP.returnUrl};
+                setBusy(false);
+                IAP.callbackError(stargateResponseError);
+            })
             .on('timeout', function(){
                 err("[IAP] Call timeout, server may be busy!");
                 var stargateResponseError = {"iap_error" : "1", "return_url" : IAP.returnUrl, "timeout": 1};
                 setBusy(false);
                 IAP.callbackError(stargateResponseError);
+            })
+            .on('end', function(){
+                log("[IAP] createUser end");
+                setBusy(false);
             })
             .go();
 	}
