@@ -2,10 +2,10 @@
 
 
 var startLoading = function() {
-    ProgressIndicator.showSimple(true);
+    //ProgressIndicator.showSimple(true);
 };
 var stopLoading = function() {
-    ProgressIndicator.hide();
+    //ProgressIndicator.hide();
 };
 
 // - not used, enable if needed -
