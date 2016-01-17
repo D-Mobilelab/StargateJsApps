@@ -519,7 +519,11 @@ var aja = (function(){
                         }
                         self.trigger('success', response);
                     }
-
+                    else {
+                    	log("[aja] got status: "+this.status);
+                    	self.trigger('nosuccess', response);
+                    }
+                    
                     self.trigger(this.status, response);
 
                     self.trigger('end', response);
