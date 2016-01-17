@@ -12,7 +12,7 @@ stargatePublic.initialize = function(configurations, pubKey, forge, callback) {
 
 
     if (isStargateInitialized) {
-        Q.defer().reject(new Error("Stargate.initialize() already called!"));
+        return err("Stargate.initialize() already called!");
     }
     
     isStargateInitialized = true;
