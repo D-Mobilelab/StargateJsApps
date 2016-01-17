@@ -510,6 +510,8 @@ var aja = (function(){
                 request.onload = function onRequestLoad(){
                     var response = request.responseText;
 
+                    log("[aja] "+method+" to "+url+" response["+this.status+"]: "+response);
+                    
                     if (timeoutId) {
                         clearTimeout(timeoutId);
                     }
@@ -529,11 +531,12 @@ var aja = (function(){
                     self.trigger('end', response);
                 };
 
-                request.onerror = function onRequestError (err){
+                request.onerror = function onRequestError (error){
                     if (timeoutId) {
                         clearTimeout(timeoutId);
                     }
-                    self.trigger('error', err, arguments);
+                    err("[aja] "+method+" to "+url+" error: "+error);
+                    self.trigger('error', error, arguments);
                 };
 
                 //sets the timeout
@@ -544,11 +547,13 @@ var aja = (function(){
                             expiredAfter: timeout
                         }, request, arguments);
                         request.abort();
+                        err("[aja] timeout, aborting request"+method+" to: "+url);
                     }, timeout);
                 }
 
                 //send the request
                 request.send(body);
+                log("[aja] sending "+method+" to: "+url+"\n body:\n"+body);
             },
 
             /**
