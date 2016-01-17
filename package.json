@@ -4,7 +4,7 @@
   "description": "StargateJS for HTML5 apps",
   "main": "dist/stargate.js",
   "scripts": {
-    "test": "gulp lint && gulp karma:singlerun --browsers=PhantomJS --reporters=progress"
+    "test": "gulp lint && gulp karma:singlerun --browsers=PhantomJS --reporters=mocha,coverage,coveralls"
   },
   "repository": {
     "type": "git",
