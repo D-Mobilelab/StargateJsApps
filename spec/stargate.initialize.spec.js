@@ -210,7 +210,9 @@ describe("Stargate initialize", function() {
 		var res = stargatePublic.initialize(spec_configurations, pubKey, forge, cbFinish);
 		
 		// dispatch deviceready event
-		var deviceReadyEvent = new CustomEvent("deviceready", {});
+		var deviceReadyEvent = document.createEvent('CustomEvent');  // MUST be 'CustomEvent'
+		deviceReadyEvent.initCustomEvent('deviceready', false, false, null);
+
 		document.dispatchEvent(deviceReadyEvent);
 
 		expect(isStargateInitialized).toBe(true);
