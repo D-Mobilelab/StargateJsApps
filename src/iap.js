@@ -11,6 +11,11 @@ var IAP = {
     returnUrl: '',
     callbackSuccess: function(){log("[IAP] Undefined callbackSuccess");},
     callbackError: function(){log("[IAP] Undefined callbackError");},
+    refreshDone: false,
+    lastCreateuserUrl: '',
+    lastCreateuserData: '',
+    createUserAttempt: 0,
+    maxCreateUserAttempt: 6,
 	
 	initialize: function () {
         if (!window.store) {
@@ -67,6 +72,15 @@ var IAP = {
 		window.store.when(IAP.alias).error(function(errorPar){IAP.error(JSON.stringify(errorPar));});
         window.store.ready(function(){ IAP.onStoreReady();});
         window.store.when("order "+IAP.id).approved(function(order){IAP.onOrderApproved(order);});
+
+        
+    },
+
+    doRefresh: function() {
+        if (!IAP.refreshDone) {
+            window.store.refresh();
+            IAP.refreshDone = true;
+        }
     },
 
     getPassword: function (transactionId){
@@ -148,9 +162,13 @@ var IAP = {
             storekit.loadReceipts(function (receipts) {
                 
                 if(!window.localStorage.getItem('user_account')){
-                    log('[IAP] appStoreReceipt: ' + receipts.appStoreReceipt);
-
-                    IAP.createUser(p, receipts.appStoreReceipt);
+                    if (!!!receipts.appStoreReceipt) {
+                        log('[IAP] appStoreReceipt empty, ignoring request');
+                    }
+                    else {
+                        log('[IAP] appStoreReceipt: ' + receipts.appStoreReceipt);
+                        IAP.createUser(p, receipts.appStoreReceipt);
+                    }
                 }
             });
         }
@@ -178,7 +196,8 @@ var IAP = {
 
 
 	createUser: function(product, purchaseToken){
-	
+        log('[IAP] createUser start ');
+	   
 		window.localStorage.setItem('user_account', 
             isRunningOnAndroid() ? 
                 (window.localStorage.getItem('googleAccount') ? 
@@ -188,68 +207,101 @@ var IAP = {
 		
         var url = IAP.subscribeMethod;		
 		
-        var formData = new FormData();
-        formData.append("paymethod", IAP.paymethod);
-        formData.append("user_account", window.localStorage.getItem('user_account'));
-        formData.append("purchase_token", purchaseToken);
-        formData.append("return_url", IAP.returnUrl);
-        formData.append("inapp_pwd", IAP.getPassword(purchaseToken));
-        formData.append("hybrid", 1);
+        var formData = {
+            "paymethod": IAP.paymethod,
+            "user_account": window.localStorage.getItem('user_account'),
+            "purchase_token": purchaseToken,
+            "return_url": IAP.returnUrl,
+            "inapp_pwd": IAP.getPassword(purchaseToken),
+            "hybrid": 1
+        };
 
-        aja()
-            .method('POST')
-            .url(url)
-            .cache(false)
-            .timeout(30 * 1000) // milliseconds
-            .body(formData)
-            .on('success', function(user){
-                
-                log('[IAP] createUser success ', user);
+        IAP.lastCreateuserUrl = url;
+        IAP.lastCreateuserData = formData;
 
-                try {
-                    user.device_id = runningDevice.uuid;
-                    if(window.localStorage.getItem('transaction_id')){
-                        user.transaction_id = window.localStorage.getItem('transaction_id');
-                    }
-                    setBusy(false);
-                    IAP.callbackSuccess(user);
+        var onCreateError = function(error) {
+            if (IAP.createUserAttempt <= IAP.maxCreateUserAttempt) {
+                err("[IAP] createUser failed "+IAP.createUserAttempt+
+                    " times, trying again... last error: "+JSON.stringify(error)
+                );
+
+                // trying again
+                createUserAjaxCall();
+            }
+            else {
+                // no more try, fail to webapp callbackerror
+
+                log('[IAP] createUser onCreateError: removing user_account');
+                window.localStorage.removeItem('user_account');
+
+                var stargateResponseError = {"iap_error" : "1", "return_url" : IAP.returnUrl};
+                setBusy(false);
+                IAP.callbackError(stargateResponseError);
+            }
+        };
+
+        var onCreateSuccess = function(user) {
+            log('[IAP] createUser success ', user);
+            try {
+                user.device_id = runningDevice.uuid;
+                if(window.localStorage.getItem('transaction_id')){
+                    user.transaction_id = window.localStorage.getItem('transaction_id');
                 }
-                catch (error) {
-                    err("[IAP] Call failed, please try again...", error);
-                    var stargateResponseError = {"iap_error" : "1", "return_url" : IAP.returnUrl};
-                    setBusy(false);
-                    IAP.callbackError(stargateResponseError);
-                }
-            })
-            .on('error', function(error){
-                err("[IAP] Call failed, please try again...", error);
-                var stargateResponseError = {"iap_error" : "1", "return_url" : IAP.returnUrl};
                 setBusy(false);
-                IAP.callbackError(stargateResponseError);
-            })
-            .on('4**', function(error){
-                err("[IAP] Call failed, please try again...", error);
-                var stargateResponseError = {"iap_error" : "1", "return_url" : IAP.returnUrl};
-                setBusy(false);
-                IAP.callbackError(stargateResponseError);
-            })
-            .on('5**', function(error){
-                err("[IAP] Call failed, please try again...", error);
-                var stargateResponseError = {"iap_error" : "1", "return_url" : IAP.returnUrl};
-                setBusy(false);
-                IAP.callbackError(stargateResponseError);
-            })
-            .on('timeout', function(){
-                err("[IAP] Call timeout, server may be busy!");
-                var stargateResponseError = {"iap_error" : "1", "return_url" : IAP.returnUrl, "timeout": 1};
-                setBusy(false);
-                IAP.callbackError(stargateResponseError);
-            })
-            .on('end', function(){
-                log("[IAP] createUser end");
-                setBusy(false);
-            })
-            .go();
+                IAP.callbackSuccess(user);
+            }
+            catch (error) {
+                onCreateError(error);
+            }
+        };
+
+        // first attempt always fail, so wait few time
+        var startTimeoutSeconds = 1;
+
+        var createUserAjaxCall = function() {
+            setTimeout(function() {
+                    IAP.createUserAttempt = IAP.createUserAttempt + 1;
+
+                    log('[IAP] createUser attempt: '+IAP.createUserAttempt+
+                        ' with timeout: '+startTimeoutSeconds+'sec.');
+
+                    aja()
+                        .method('POST')
+                        .url(IAP.lastCreateuserUrl)
+                        .cache(false)
+                        .timeout(startTimeoutSeconds * 1000) // milliseconds
+                        .data(IAP.lastCreateuserData)
+                        .on('success', function(user){
+                            onCreateSuccess(user);
+                        })
+                        .on('error', function(error){
+                            onCreateError(error);
+                        })
+                        .on('nosuccess', function(error){
+                            onCreateError(error);
+                        })
+                        .on('timeout', function(){
+                            onCreateError("timeout");
+                        })
+                        .on('end', function(){
+                            log("[IAP] createUser end");
+                            setBusy(false);
+                        })
+                        .go();
+
+                    // more timeout
+                    startTimeoutSeconds = startTimeoutSeconds + 8;
+
+                },
+                10 // millisecond after it's executed (when the thread that called setTimeout() has terminated)
+            );
+        };
+
+        IAP.createUserAttempt = 0;
+
+        // start first attempt
+        createUserAjaxCall();
+        
 	}
 };
 
@@ -257,6 +309,10 @@ var IAP = {
 
 stargatePublic.inAppPurchaseSubscription = function(callbackSuccess, callbackError, subscriptionUrl, returnUrl) {
 
+    if (!isStargateInitialized) {
+        return callbackError("Stargate not initialized, call Stargate.initialize first!");
+    }
+    
     setBusy(true);
 
     if (typeof returnUrl !==  'undefined'){
@@ -269,14 +325,17 @@ stargatePublic.inAppPurchaseSubscription = function(callbackSuccess, callbackErr
     IAP.callbackSuccess = callbackSuccess;
     IAP.callbackError = callbackError;
 
+    IAP.doRefresh();
     window.store.order(IAP.id);
-    window.store.refresh();
-    
 };
 
 
 stargatePublic.inAppRestore = function(callbackSuccess, callbackError, subscriptionUrl, returnUrl) {
 
+    if (!isStargateInitialized) {
+        return callbackError("Stargate not initialized, call Stargate.initialize first!");
+    }
+
     setBusy(true);
 
     if (typeof subscriptionUrl !==  'undefined'){
@@ -289,7 +348,7 @@ stargatePublic.inAppRestore = function(callbackSuccess, callbackError, subscript
     IAP.callbackSuccess = callbackSuccess;
     IAP.callbackError = callbackError;
 
-    window.store.refresh();
+    IAP.doRefresh();
     storekit.restore();
 };
 
