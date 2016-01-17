@@ -115,18 +115,18 @@ var updateStatusBar = function() {
         // missing cordova plugin
         return err("[StatusBar] missing cordova plugin");
     }
-    if (typeof stargateConf.stausbar === "undefined") {
+    if (typeof stargateConf.statusbar === "undefined") {
         return;
     }
-    if (typeof stargateConf.stausbar.hideOnUrlPattern !== "undefined" && 
-        stargateConf.stausbar.hideOnUrlPattern.constructor === Array) {
+    if (typeof stargateConf.statusbar.hideOnUrlPattern !== "undefined" && 
+        stargateConf.statusbar.hideOnUrlPattern.constructor === Array) {
 
         var currentLocation = document.location.href;
         var hide = false;
 
-        for (var i=0; i<stargateConf.stausbar.hideOnUrlPattern.length; i++) {
+        for (var i=0; i<stargateConf.statusbar.hideOnUrlPattern.length; i++) {
 
-            var re = new RegExp(stargateConf.stausbar.hideOnUrlPattern[i]);
+            var re = new RegExp(stargateConf.statusbar.hideOnUrlPattern[i]);
             
             if (re.test(currentLocation)) {
                 hide = true;
