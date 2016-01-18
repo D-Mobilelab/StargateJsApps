@@ -255,8 +255,7 @@ var IAP = {
             }
         };
 
-        // first attempt always fail, so wait few time
-        var startTimeoutSeconds = 1;
+        var startTimeoutSeconds = 10;
 
         var createUserAjaxCall = function() {
             setTimeout(function() {
@@ -290,7 +289,7 @@ var IAP = {
                         .go();
 
                     // more timeout
-                    startTimeoutSeconds = startTimeoutSeconds + 8;
+                    startTimeoutSeconds = startTimeoutSeconds + 5;
 
                 },
                 10 // millisecond after it's executed (when the thread that called setTimeout() has terminated)
