@@ -148,6 +148,12 @@ var onPluginReady = function () {
     // FIXME: this is needed ??
     document.title = stargateConf.title;
     
+    // set back cordova bridge mode to IFRAME_NAV overriding manifold settings
+    if (isRunningOnIos() && (typeof window.cordova !== 'undefined') && cordova.require) {
+        var exec = cordova.require('cordova/exec');
+        exec.setJsToNativeBridgeMode(exec.jsToNativeModes.IFRAME_NAV);
+    }
+    
 
     updateStatusBar();
 
@@ -155,7 +161,6 @@ var onPluginReady = function () {
     if (hasFeature('mfp')) {
         MFP.check();
     }
-
     
     if (hasFeature('deltadna')) {
         window.deltadna.startSDK(
