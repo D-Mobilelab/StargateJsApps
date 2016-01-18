@@ -12,7 +12,8 @@ stargatePublic.initialize = function(configurations, pubKey, forge, callback) {
 
 
     if (isStargateInitialized) {
-        return err("Stargate.initialize() already called!");
+        err("Stargate.initialize() already called!");
+        return callback();
     }
     
     isStargateInitialized = true;

@@ -185,16 +185,18 @@ describe("Stargate initialize", function() {
 		expect(res.then).toBeDefined();
 	});
 
-	it("initialize cannot be called again", function() {
-		
-		stargatePublic.initialize(spec_configurations, pubKey, forge, function(){});
-		
+	it("initialize called again show error and call back", function() {
+
+		stargatePublic.initialize(spec_configurations, pubKey, forge, function(){});		
 		expect(isStargateInitialized).toBe(true);
 
 		spyOn(console, 'error');
 
-		expect(stargatePublic.initialize(spec_configurations, pubKey, forge, function(){})).toBeFalsy();
+		var cbFinish = jasmine.createSpy('cbFinish');
+
+		stargatePublic.initialize(spec_configurations, pubKey, forge, cbFinish);
 		expect(console.error).toHaveBeenCalled();
+		expect(cbFinish).toHaveBeenCalled();
 	});
 
 	it("initialize promise fulfilled", function(done) {
