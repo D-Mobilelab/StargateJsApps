@@ -47,7 +47,8 @@ module.exports = {
 	bowerFileList: [
 		'bower_components/urijs/src/URI.js',
 		'bower_components/urijs/src/URITemplate.js',
-		'bower_components/q/q.js'
+		'bower_components/q/q.js',
+		'bower_components/aja/src/aja.js'
 	],
 
 	testHeader: 'config/test.header.js',
