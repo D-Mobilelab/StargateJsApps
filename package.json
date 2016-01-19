@@ -24,8 +24,10 @@
   "homepage": "https://github.com/BuongiornoMIP/StargateJsApps#readme",
   "devDependencies": {
     "bower": "^1.6.5",
+    "colors": "^1.1.2",
     "del": "^2.1.0",
     "gulp": "^3.9.0",
+    "gulp-bower": "0.0.11",
     "gulp-concat": "^2.6.0",
     "gulp-footer": "^1.0.5",
     "gulp-header": "^1.7.1",

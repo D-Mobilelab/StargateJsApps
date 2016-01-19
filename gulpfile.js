@@ -14,13 +14,18 @@ var gulp = require('gulp'),
     del = require('del'),
     webserver = require('gulp-webserver'),
     watch = require('gulp-watch'),
+    bower = require('gulp-bower'),
     argv = require('minimist')(process.argv.slice(2)),
     karma = require('karma'),
     buildConfig = require('./config/build.config'),
   	karmaConf = require('./config/karma.conf.js');
 
 
-gulp.task('build:bower', function() {
+gulp.task('bower:install', function() {
+	return bower();
+});
+
+gulp.task('build:bower', ['bower:install'], function() {
 	// take all bower includes and concatenate them,
 	// in a file to be included before others
 	return gulp.src(buildConfig.bowerFileList)
