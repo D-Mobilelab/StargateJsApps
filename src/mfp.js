@@ -82,7 +82,7 @@ var MFP = {
 	  			"expire": expire
 	  	});
 
-        aja()
+        window.aja()
             .url(mfpUrl)
             .type('jsonp')
             .on('success', function(response){
