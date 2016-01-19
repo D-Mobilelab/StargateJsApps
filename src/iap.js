@@ -1,4 +1,3 @@
-/* globals store, storekit */
 
 var IAP = {
 
@@ -61,7 +60,7 @@ var IAP = {
         window.store.register({
             id:    IAP.id,
             alias: IAP.alias,
-            type:  store[IAP.type]
+            type:  window.store[IAP.type]
         });
         
         window.store.when(IAP.alias).approved(function(p){IAP.onPurchaseApproved(p);});
@@ -159,7 +158,7 @@ var IAP = {
             
         } else {
         
-            storekit.loadReceipts(function (receipts) {
+            window.storekit.loadReceipts(function (receipts) {
                 
                 if(!window.localStorage.getItem('user_account')){
                     if (!!!receipts.appStoreReceipt) {
@@ -264,7 +263,7 @@ var IAP = {
                     log('[IAP] createUser attempt: '+IAP.createUserAttempt+
                         ' with timeout: '+startTimeoutSeconds+'sec.');
 
-                    aja()
+                    window.aja()
                         .method('POST')
                         .url(IAP.lastCreateuserUrl)
                         .cache(false)
@@ -348,7 +347,7 @@ stargatePublic.inAppRestore = function(callbackSuccess, callbackError, subscript
     IAP.callbackError = callbackError;
 
     IAP.doRefresh();
-    storekit.restore();
+    window.storekit.restore();
 };
 
 
