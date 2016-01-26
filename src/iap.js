@@ -72,11 +72,12 @@ var IAP = {
         window.store.ready(function(){ IAP.onStoreReady();});
         window.store.when("order "+IAP.id).approved(function(order){IAP.onOrderApproved(order);});
 
+
         
     },
 
-    doRefresh: function() {
-        if (!IAP.refreshDone) {
+    doRefresh: function(force) {
+        if (!IAP.refreshDone || force) {
             window.store.refresh();
             IAP.refreshDone = true;
         }
@@ -346,8 +347,10 @@ stargatePublic.inAppRestore = function(callbackSuccess, callbackError, subscript
     IAP.callbackSuccess = callbackSuccess;
     IAP.callbackError = callbackError;
 
-    IAP.doRefresh();
-    window.storekit.restore();
+    IAP.doRefresh(true);
+
+    // the call to refresh() should be enught
+    // ---- window.storekit.restore();
 };
 
 
