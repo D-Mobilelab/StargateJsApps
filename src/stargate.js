@@ -191,10 +191,14 @@ var onPluginReady = function () {
         window.localStorage.setItem('stargateVersion', stargateVersion);
     }
 
+    // apply webapp fixes
+    webappsFixes.init();
+
     // initialize finished
     isStargateOpen = true;
 
     //execute callback
+    // FIXME: check callback type is function
     initializeCallback();
 
     initializeDeferred.resolve("Stargate.initialize() done");
