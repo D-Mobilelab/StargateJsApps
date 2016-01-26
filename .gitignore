@@ -8,3 +8,9 @@ coverage/
 
 demo/plugins/
 demo/platforms/
+demo/resources/android/
+demo/resources/ios/
+demo/www/js/stargate.js
+
+
+.DS_Store
