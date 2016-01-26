@@ -122,4 +122,13 @@ describe("Stargate public ad interface", function() {
 });
 
 
+describe("Stargate version", function() {
+
+	it("getVersion return correct string", function() {
+
+		expect(stargatePublic.getVersion()).toBe("0.0.0-test");
+	});
+
+});
+
 
