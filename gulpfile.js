@@ -13,6 +13,7 @@ var gulp = require('gulp'),
  	header = require('gulp-header'),
     del = require('del'),
     webserver = require('gulp-webserver'),
+    batch = require('gulp-batch'),
     watch = require('gulp-watch'),
     bower = require('gulp-bower'),
     argv = require('minimist')(process.argv.slice(2)),
@@ -47,6 +48,9 @@ gulp.task('build:src:nonotify', ['build:bower'], function() {
 
 	    // save non minified version to dist folder
 	    .pipe(gulp.dest(buildConfig.dist))
+
+	    // save also to demo folder
+	    .pipe(gulp.dest('demo/www/js/'))
 		
 		// save minified version	    
 	    .pipe(rename({suffix: '.min'}))
@@ -57,6 +61,12 @@ gulp.task('build:src:nonotify', ['build:bower'], function() {
 
 gulp.task('build:src', ['build:src:nonotify'], function() {
 	notifier.notify({ title: "Build Success", message: 'Build StargateJS completed' });
+});
+
+gulp.task('watch', function () {
+    watch('src/**/*.js', batch(function (events, done) {
+        gulp.start('build', done);
+    }));
 });
 
 /*
