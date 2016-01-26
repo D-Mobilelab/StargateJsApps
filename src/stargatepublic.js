@@ -121,6 +121,11 @@ stargatePublic.setStatusbarVisibility = function(visibility, callbackSuccess, ca
     return callbackSuccess("statusbar hided");
 };
 
+
+stargatePublic.getVersion = function() {
+    return stargatePackageVersion;
+};
+
 /**  
  *
  *  stargatePublic.inApp* -> iap.js

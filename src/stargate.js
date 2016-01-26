@@ -197,6 +197,8 @@ var onPluginReady = function () {
     // initialize finished
     isStargateOpen = true;
 
+    log("version "+stargatePackageVersion+" ready");
+
     //execute callback
     // FIXME: check callback type is function
     initializeCallback();
@@ -249,7 +251,9 @@ var setBusy = function(value) {
     }
 };
 
-var stargateConf = {};
+var stargateConf = {
+    features: {}
+};
 
 var hasFeature = function(feature) {
     return (typeof stargateConf.features[feature] !== 'undefined' && stargateConf.features[feature]);
