@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no, width=device-width">
+    <title>StargateJS Games Test</title>
+
+    <meta http-equiv="Content-Security-Policy" content="default-src *; style-src 'self' 'unsafe-inline'; script-src * 'unsafe-inline' 'unsafe-eval'"/>
+
+    <link rel="stylesheet" type="text/css" href="css/index.css">
+
+    <!-- cordova script (this will be a 404 during development) -->
+    <script src="cordova.js"></script>
+
+    <script src="js/stargate.js"></script>
+    <script src="js/test.js"></script>
+  </head>
+  <body>
+
+    <div class="app">
+        <h1>StargateJS</h1>
+        <div id="deviceready" class="blink">
+            <p class="event listening">Choose init type</p>
+            <p class="event received">Init Done</p>
+        </div>
+
+        <button id="initDelta">Init DeltaDNA</button>
+        <button id="initIap">Init IAP</button>
+        <button id="initAndroidBack">Init Android Back Button</button>
+
+    </div>
+
+
+  </body>
+</html>
