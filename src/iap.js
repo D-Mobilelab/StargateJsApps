@@ -335,7 +335,8 @@ stargatePublic.inAppRestore = function(callbackSuccess, callbackError, subscript
         return callbackError("Stargate not initialized, call Stargate.initialize first!");
     }
 
-    setBusy(true);
+    // no set busy needed for restore as it's usually fast and 
+    //  we cannot intercet error result, so the loader remain visible
 
     if (typeof subscriptionUrl !==  'undefined'){
         IAP.subscribeMethod = subscriptionUrl;
@@ -348,9 +349,6 @@ stargatePublic.inAppRestore = function(callbackSuccess, callbackError, subscript
     IAP.callbackError = callbackError;
 
     IAP.doRefresh(true);
-
-    // the call to refresh() should be enught
-    // ---- window.storekit.restore();
 };
 
 
