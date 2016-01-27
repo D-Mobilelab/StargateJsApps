@@ -336,7 +336,7 @@ stargatePublic.inAppRestore = function(callbackSuccess, callbackError, subscript
     }
 
     // no set busy needed for restore as it's usually fast and 
-    //  we cannot intercet error result, so the loader remain visible
+    //  we cannot intercept error result, so the loader remain visible
 
     if (typeof subscriptionUrl !==  'undefined'){
         IAP.subscribeMethod = subscriptionUrl;
