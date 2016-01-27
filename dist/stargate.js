@@ -5455,6 +5455,7 @@ return Q;
     }
 }(this, function () {
     // Public interface
+    var stargatePackageVersion = "0.1.3";
     var stargatePublic = {};
     /* global cordova */
 
@@ -6089,7 +6090,7 @@ var IAP = {
         window.store.ready(function(){ IAP.onStoreReady();});
         window.store.when("order "+IAP.id).approved(function(order){IAP.onOrderApproved(order);});
 
-        
+
         
     },
 
@@ -6352,7 +6353,8 @@ stargatePublic.inAppRestore = function(callbackSuccess, callbackError, subscript
         return callbackError("Stargate not initialized, call Stargate.initialize first!");
     }
 
-    setBusy(true);
+    // no set busy needed for restore as it's usually fast and 
+    //  we cannot intercept error result, so the loader remain visible
 
     if (typeof subscriptionUrl !==  'undefined'){
         IAP.subscribeMethod = subscriptionUrl;
@@ -6364,8 +6366,7 @@ stargatePublic.inAppRestore = function(callbackSuccess, callbackError, subscript
     IAP.callbackSuccess = callbackSuccess;
     IAP.callbackError = callbackError;
 
-    IAP.doRefresh();
-    //window.storekit.restore();
+    IAP.doRefresh(true);
 };
 
 
@@ -7684,6 +7685,8 @@ var onPluginReady = function () {
     // initialize finished
     isStargateOpen = true;
 
+    log("version "+stargatePackageVersion+" ready");
+
     //execute callback
     // FIXME: check callback type is function
     initializeCallback();
@@ -7736,7 +7739,9 @@ var setBusy = function(value) {
     }
 };
 
-var stargateConf = {};
+var stargateConf = {
+    features: {}
+};
 
 var hasFeature = function(feature) {
     return (typeof stargateConf.features[feature] !== 'undefined' && stargateConf.features[feature]);
@@ -7871,6 +7876,11 @@ stargatePublic.setStatusbarVisibility = function(visibility, callbackSuccess, ca
 
     window.StatusBar.hide();
     return callbackSuccess("statusbar hided");
+};
+
+
+stargatePublic.getVersion = function() {
+    return stargatePackageVersion;
 };
 
 /**  
