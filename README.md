@@ -24,7 +24,7 @@ use stargate.js or stargate.min.js in dist/ folder
 
 ### bower
 
-    $ bower install https://github.com/BuongiornoMIP/StargateJsApps.git#~v0.1.3
+    $ bower install https://github.com/BuongiornoMIP/StargateJsApps.git#~v0.1.4
 
 ==FIXME: in current builded package we have to remove bower dependencies that are included inside the main file.==
 
@@ -161,11 +161,12 @@ Inside manifest there is an object that holds all configuration options of Starg
 
 ## release process
 
-1. change version in package.json
-2. gulp build
-3. git commit -m "New revision x.x.x" dist/
-2. git tag -a vx.x.x -m "Added xxxx. Changed xxxx. Fixed: xxxx"
-3. git push --tags
+1. npm test
+2. change version in package.json
+3. gulp build
+4. git commit -m "New revision x.x.x" dist/
+5. git tag -a vx.x.x -m "Added xxxx. Changed xxxx. Fixed: xxxx"
+6. git push --tags
 
 ==to automate==
 

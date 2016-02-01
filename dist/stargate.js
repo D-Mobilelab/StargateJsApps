@@ -5455,7 +5455,7 @@ return Q;
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.1.3";
+    var stargatePackageVersion = "0.1.4";
     var stargatePublic = {};
     /* global cordova */
 
