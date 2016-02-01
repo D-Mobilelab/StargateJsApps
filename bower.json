@@ -2,10 +2,13 @@
   "name": "StargateJsApps",
   "homepage": "https://github.com/BuongiornoMIP/StargateJsApps",
   "authors": [
-    "Mirco Cipriani <mirco.cipriani@buongiorno.com>"
+    "Mirco Cipriani <mirco.cipriani@buongiorno.com>",
+    "Pasquale Mangialavori <pasqualemangialavori@buongiorno.com>",
+    "Gionatan Quintini <g.quintini@aimconsulting.it>",
+    "Giada Fatarella <Giada.Fatarella@buongiorno.com>"
   ],
   "description": "StargateJS hybridization library for HTML5 apps",
-  "main": "dist/stargate.js",
+  "main": "dist/bower/stargate.js",
   "moduleType": [],
   "keywords": [
     "cordova",

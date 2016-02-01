@@ -42,6 +42,7 @@ module.exports = {
 	version: pkg.version,
 
 	dist: 'dist/',
+	distBower: 'dist/bower/',
 	build: 'build/',
 	
 	bowerAllIncludes: 'includes.bower.js',

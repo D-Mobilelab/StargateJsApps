@@ -59,7 +59,29 @@ gulp.task('build:src:nonotify', ['build:bower'], function() {
 	    .pipe(gulp.dest(buildConfig.dist));
 });
 
-gulp.task('build:src', ['build:src:nonotify'], function() {
+
+gulp.task('build:bowerpackage', function() {
+	return gulp.src('src/**/*.js')
+		.pipe(concat(buildConfig.distFile))
+		.pipe(header(buildConfig.closureStart))
+		.pipe(footer(buildConfig.closureEnd))
+	    .pipe(jshint('.jshintrc'))
+	    .pipe(jshint.reporter('jshint-stylish'))
+
+	    // save non minified version to dist folder
+	    .pipe(gulp.dest(buildConfig.distBower))
+
+		// save minified version	    
+	    .pipe(rename({suffix: '.min'}))
+	    .pipe(uglify().on('error', gulpUtil.log))
+	    .pipe(header(buildConfig.banner))
+	    .pipe(gulp.dest(buildConfig.distBower));
+});
+
+
+
+
+gulp.task('build:src', ['build:src:nonotify', 'build:bowerpackage'], function() {
 	notifier.notify({ title: "Build Success", message: 'Build StargateJS completed' });
 });
 
