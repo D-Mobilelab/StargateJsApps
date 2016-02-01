@@ -26,7 +26,6 @@ use stargate.js or stargate.min.js in dist/ folder
 
     $ bower install https://github.com/BuongiornoMIP/StargateJsApps.git#~v0.1.4
 
-==FIXME: in current builded package we have to remove bower dependencies that are included inside the main file.==
 
 # Public interface
 
