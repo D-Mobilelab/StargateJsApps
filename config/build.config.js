@@ -38,18 +38,19 @@ module.exports = {
         '}));\n\n\n',
 
 
-	
+
 	version: pkg.version,
 
 	dist: 'dist/',
 	build: 'build/',
-	
+
 	bowerAllIncludes: 'includes.bower.js',
 	bowerFileList: [
 		'bower_components/urijs/src/URI.js',
 		'bower_components/urijs/src/URITemplate.js',
 		'bower_components/q/q.js',
-		'bower_components/aja/src/aja.js'
+		'bower_components/aja/src/aja.js',
+		'bower_components/promise-polyfill/Promise.js'
 	],
 
 	testHeader: 'config/test.header.js',

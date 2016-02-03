@@ -1,0 +1,11 @@
+cordova-plugin-battery-status
+cordova-plugin-contacts
+cordova-plugin-device
+cordova-plugin-dialogs
+cordova-plugin-file
+cordova-plugin-file-transfer
+cordova-plugin-globalization
+cordova-plugin-network-information
+cordova-plugin-transport-security
+cordova-plugin-whitelist
+cordova-plugin-zip

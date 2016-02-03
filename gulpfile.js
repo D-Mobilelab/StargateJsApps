@@ -51,8 +51,8 @@ gulp.task('build:src:nonotify', ['build:bower'], function() {
 
 	    // save also to demo folder
 	    .pipe(gulp.dest('demo/www/js/'))
-		
-		// save minified version	    
+
+		// save minified version
 	    .pipe(rename({suffix: '.min'}))
 	    .pipe(uglify().on('error', gulpUtil.log))
 	    .pipe(header(buildConfig.banner))
@@ -110,9 +110,32 @@ gulp.task('lint:jshint', function() {
 	    .pipe(jshint.reporter('fail'));
 });
 
+gulp.task('watchSpec', function(){
+    watch("spec/offline/*.js", batch(function (events, done) {
+        gulp.start("copySpec", done);
+    }));
+});
+
+gulp.task('copySpec', function(){
+    return gulp.src("spec/offline/**/*.js")
+        .pipe(gulp.dest("./cordova/www/jasmine/spec"));
+});
+
+gulp.task('watchSrc', function(){
+    watch("src/offline/**/*.js", batch(function (events, done) {
+        gulp.start("copySrc", done);
+    }));
+});
+
+gulp.task("copySrc", function(){
+    return gulp.src("src/offline/**/*.js")
+        .pipe(gulp.dest("./cordova/www/jasmine/src/"));
+});
+
+gulp.task('testondevice', ['watchSpec', 'watchSrc']);
+
 gulp.task('default', ['build:src'] );
 gulp.task('build', ['build:src'] );
-
 
 
 gulp.task('lint', ['lint:jshint'] );
@@ -129,7 +152,7 @@ gulp.task('demo:run', ['build:src'], function(cb) {
 */
 
 gulp.task('karma', ['build'], function (done) {
-	
+
 	// default to don't do single run
 	argv.singlerun && (karmaConf.singleRun = true);
 	argv.browsers && (karmaConf.browsers = argv.browsers.trim().split(','));
@@ -139,7 +162,7 @@ gulp.task('karma', ['build'], function (done) {
 });
 
 gulp.task('karma:singlerun', ['build'], function (done) {
-	
+
 	karmaConf.singleRun = true;
 	argv.browsers && (karmaConf.browsers = argv.browsers.trim().split(','));
 	argv.reporters && (karmaConf.reporters = argv.reporters.trim().split(','));

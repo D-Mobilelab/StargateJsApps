@@ -8,9 +8,12 @@ coverage/
 
 demo/plugins/
 demo/platforms/
+cordova/plugins/
+cordova/platforms/
 demo/resources/android/
 demo/resources/ios/
 demo/www/js/stargate.js
 
 
 .DS_Store
+.idea
