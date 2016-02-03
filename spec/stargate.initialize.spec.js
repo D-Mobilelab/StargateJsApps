@@ -9,11 +9,8 @@ var spec_hybrid_conf_expected = {
 var spec_hybrid_conf_uriencoded = "%7B%22IAP%22%3A%20%7B%22id%22%3A%20%22stargate.test.spec.subscription%22%2C%22alias%22%3A%20%22Stargate%20Test%20Subscription%22%2C%22type%22%3A%20%22PAID_SUBSCRIPTION%22%2C%22verbosity%22%3A%20%22DEBUG%22%7D%7D";
 
 var spec_configurations = {
-	api_selector: "myapi_selector",
 	country: "xx",
-	hybrid_conf: spec_hybrid_conf_uriencoded,
-	selector: "iphone",
-	app_prefix: "myapp_prefix"
+	hybrid_conf: spec_hybrid_conf_uriencoded
 };
 
 var spec_device_mock = {
@@ -102,44 +99,21 @@ var navigator_splashscreen_mock = {
 	hide: function() {}
 };
 
-var store_mock = {
-	verbosity: '',
-	
-	DEBUG: '',
-	INFO: '',
-	WARNING: '',
-	ERROR: '',
-	QUIET: '',
-	
-	_mock_cb_par: {
-		finish: function() {},
-		transaction: {
-			id: ''
-		}
-	},
 
-	when: function(id) {
-		return {
-			approved: function(cb) {cb(store_mock._mock_cb_par)},
-			verified: function(cb) {cb(store_mock._mock_cb_par)},
-			updated: function(cb) {cb(store_mock._mock_cb_par)},
-			owned: function(cb) {cb(store_mock._mock_cb_par)},
-			cancelled: function(cb) {cb(store_mock._mock_cb_par)},
-			error: function(cb) {cb(store_mock._mock_cb_par)}
-		};
-	},
-	ready: function(cb) {cb()},
-	register: function(productData) {this._mockProductData = productData}
+
+var cookie_mock = {
+	_val: {},
+	get: function(name) { return cookie_mock._val[name] },
+	set: function(name, value) { return cookie_mock._val[name] = value; }
 };
+
+
 
 describe("Stargate initialize", function() {
 
 	beforeEach(function() {
 		hybrid_conf = null;
 		country = null;
-		selector = null;
-		api_selector = null;
-		app_prefix = null;
 		isStargateInitialized = false;
 
 		specTestMock = {
@@ -148,24 +122,31 @@ describe("Stargate initialize", function() {
 			}
 		};
 
+		cookie_mock._val.hybrid = 1;
+		window.Cookies = cookie_mock;
+
 		window.device = spec_device_mock;
 		window.hostedwebapp = hostedwebapp_mock;
 		window.cordova = cordova_mock;
 		window.StatusBar = statusbar_mock;
 		navigator.splashscreen = navigator_splashscreen_mock;
 		window.store = store_mock;
+		window.storekit = storekit_mock;
+
+		jasmine.Ajax.install();
 
 	});
-	afterEach(function() {});
+	afterEach(function() {
+		cookie_mock._val = {};
+		window.localStorage.clear();
+		jasmine.Ajax.uninstall();
+	});
 
 	it("initialize with hybrid_conf as string", function() {
 		stargatePublic.initialize(spec_configurations, pubKey, forge, function(){});
 
 		expect(hybrid_conf).toEqual(spec_hybrid_conf_expected);
 		expect(country).toEqual(spec_configurations.country);
-		expect(selector).toEqual(spec_configurations.selector);
-		expect(api_selector).toEqual(spec_configurations.api_selector);
-		expect(app_prefix).toEqual(spec_configurations.app_prefix);
 	});
 
 	it("initialize with hybrid_conf as object", function() {
@@ -174,9 +155,6 @@ describe("Stargate initialize", function() {
 
 		expect(hybrid_conf).toEqual(spec_hybrid_conf_expected);
 		expect(country).toEqual(spec_configurations.country);
-		expect(selector).toEqual(spec_configurations.selector);
-		expect(api_selector).toEqual(spec_configurations.api_selector);
-		expect(app_prefix).toEqual(spec_configurations.app_prefix);
 	});
 
 	it("initialize return promise", function() {
@@ -199,7 +177,7 @@ describe("Stargate initialize", function() {
 		expect(cbFinish).toHaveBeenCalled();
 	});
 
-	it("initialize promise fulfilled", function(done) {
+	it("initialize promise fulfilled/callback called", function(done) {
 		spyOn(document, 'addEventListener').and.callThrough();
 		spyOn(specTestMock, 'onDeviceReady').and.callThrough();
 
@@ -218,8 +196,83 @@ describe("Stargate initialize", function() {
 		document.dispatchEvent(deviceReadyEvent);
 
 		expect(isStargateInitialized).toBe(true);
+		expect(isStargateRunningInsideHybrid).toBe(true);
+
 		expect(document.addEventListener).toHaveBeenCalled();
 		expect(document.addEventListener).toHaveBeenCalledWith('deviceready', onDeviceReady, false);
+
+		expect(res.then).toBeDefined();
+
+		res.then(function() {
+			expect(cbFinish).toHaveBeenCalled();
+			done();
+		});
+		
+	});
+
+	it("initialize new version promise fulfilled/callback called", function(done) {
+		spyOn(document, 'addEventListener').and.callThrough();
+		spyOn(specTestMock, 'onDeviceReady').and.callThrough();
+
+		// suppress console messages
+		spyOn(console, 'error');
+		spyOn(console, 'log');
+
+		var cbFinish = jasmine.createSpy('cbFinish');
+
+		var res = stargatePublic.initialize(spec_configurations, cbFinish);
+		
+		// dispatch deviceready event
+		var deviceReadyEvent = document.createEvent('CustomEvent');  // MUST be 'CustomEvent'
+		deviceReadyEvent.initCustomEvent('deviceready', false, false, null);
+
+		document.dispatchEvent(deviceReadyEvent);
+
+		expect(isStargateInitialized).toBe(true);
+		expect(isStargateRunningInsideHybrid).toBe(true);
+		expect(document.addEventListener).toHaveBeenCalled();
+		expect(document.addEventListener).toHaveBeenCalledWith('deviceready', onDeviceReady, false);
+
+		expect(res.then).toBeDefined();
+
+		res.then(function(result) {
+			expect(window.Cookies.get('hybrid')).toBeTruthy();
+			expect(window.Cookies.get('stargateVersion')).toBe(stargateVersion);
+			expect(window.localStorage.getItem('hybrid')).toBeTruthy();
+			expect(window.localStorage.getItem('stargateVersion')).toBe(stargateVersion);
+
+			expect(result).toBe(true);
+
+			//request = jasmine.Ajax.requests.mostRecent();
+			//request.respondWith(TestResponses.iap.success);
+			//console.log("jasmine.Ajax.requests.mostRecent(): ",request);
+
+			expect(cbFinish).toHaveBeenCalled();
+			expect(cbFinish).toHaveBeenCalledWith(true);
+			done();
+		});
+		
+	});
+	
+	it("initialize outside hybrid fulfilled/callback called", function(done) {
+		spyOn(document, 'addEventListener').and.callThrough();
+		spyOn(specTestMock, 'onDeviceReady').and.callThrough();
+
+		// set outside hybrid
+		delete cookie_mock._val.hybrid;
+		//spyOn(window.Cookies, 'get').and.callThrough();
+
+		
+		// suppress console messages
+		spyOn(console, 'error');
+		spyOn(console, 'log');
+
+		var cbFinish = jasmine.createSpy('cbFinish');
+
+		var res = stargatePublic.initialize(spec_configurations, cbFinish);
+
+		expect(isStargateInitialized).toBe(true);
+		expect(isStargateRunningInsideHybrid).toBeFalsy();
 
 		expect(res.then).toBeDefined();
 
