@@ -7,6 +7,10 @@ stargatePublic.facebookLogin = function(scope, callbackSuccess, callbackError) {
     // FIXME: check that facebook plugin is installed
     // FIXME: check parameters
 
+    if (!isStargateInitialized) {
+        return callbackError("Stargate not initialized, call Stargate.initialize first!");
+    }
+    
     facebookConnectPlugin.login(
         scope.split(","),
 
@@ -37,6 +41,9 @@ stargatePublic.facebookShare = function(url, callbackSuccess, callbackError) {
     // FIXME: check that facebook plugin is installed
     // FIXME: check parameters
 
+    if (!isStargateInitialized) {
+        return callbackError("Stargate not initialized, call Stargate.initialize first!");
+    }
 
     var options = {
         method: "share",

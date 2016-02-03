@@ -1,6 +1,6 @@
 {
   "name": "stargatejs-apps",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "StargateJS for HTML5 apps",
   "main": "dist/stargate.js",
   "scripts": {
@@ -41,6 +41,7 @@
     "gulp-watch": "^4.3.5",
     "gulp-webserver": "^0.9.1",
     "istanbul": "^0.4.1",
+    "jasmine-ajax": "^3.2.0",
     "jasmine-core": "^2.3.4",
     "jasmine-reporters": "^2.0.7",
     "jshint": "~2.8.0",

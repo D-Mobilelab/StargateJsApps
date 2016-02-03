@@ -18,15 +18,14 @@
   ],
   "license": "MIT",
   "ignore": [
-    "**/.*",
-    "node_modules",
-    "bower_components",
-    "test",
-    "tests"
+    "**/*",
+    "!dist/bower/*",
+    "!bower.json"
   ],
   "dependencies": {
     "q": "1.0.1",
     "urijs": "uri.js#~1.17.0",
-    "aja": "https://github.com/krampstudio/aja.js.git#~0.4.1"
+    "aja": "https://github.com/krampstudio/aja.js.git#~0.4.1",
+    "cookies-js": "~1.2.2"
   }
 }
