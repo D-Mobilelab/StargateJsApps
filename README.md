@@ -59,7 +59,8 @@ Option|Description|Default
 --- | --- | ---
 *IAP* | IAP configuration object | `undefined`
 
-**IAP configuration**
+#### hybrid_conf IAP configuration configuration object
+
 Option|Description|Example
 --- | --- | ---
 *id* | Product id as registred on store | `"stargate.test.spec.subscription"`
