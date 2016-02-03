@@ -1,5 +1,6 @@
 /* global Promise */
-var file = (function(){
+var file = (function(parent){
+
     var ERROR_MAP = {
         1:"NOT_FOUND_ERR",
         2:"SECURITY_ERR",
@@ -17,38 +18,56 @@ var file = (function(){
 
 	/**
     * appendToFile
-    * @param {FileEntry} fileEntry - the file entry to write
-    * @data {String}
-    * @returns Promise<FileEntry|FileError>
+    * @param {String} filePath - the filepath file:// url like
+    * @param {String} data - the string to write into the file
+    * @returns Promise<String|FileError> where string is a filepath
     */
-    function appendToFile(fileEntry, data){
-        return new Promise(function(resolve, reject){
-            fileEntry.createWriter(function(fileWriter) {
+    function appendToFile(filePath, data){
+       return resolveFS(filePath)
+            .then(function(fileEntry){
 
-                fileWriter.seek(fileWriter.length);
+                return new Promise(function(resolve, reject){
+                    fileEntry.createWriter(function(fileWriter) {
+                        fileWriter.seek(fileWriter.length);
+                        var blob = new Blob([data], {type:'text/plain'});
+                        fileWriter.write(blob);
+                        fileWriter.onwriteend = function(){
+                            resolve(fileEntry);
+                        };
+                    }, reject);
+                });
 
-                var blob = new Blob([data], {type:'text/plain'});
-                fileWriter.write(blob);
-                fileWriter.onwriteend = function(){
-                    resolve(fileEntry);
-                };
-            }, reject);
-        });
+            });
     }
 
     /**
-    * readHTMLFile
+    * readFileAsHTML
     * @param {String} indexPath - the path to the file to read
     * @returns Promise<DOM|FileError>
     */
-    function readHTMLFile(indexPath){
-        return resolveFS(indexPath)
-        .then(readFile)
+    function readFileAsHTML(indexPath){
+
+       return readFile(indexPath)
         .then(function(documentAsString){
            var dom = new window.DOMParser().parseFromString(documentAsString, "text/html");
            return dom;
         });
+    }
 
+    /**
+     * readFileAsJSON
+     * @param {String} indexPath - the path to the file to read
+     * @returns Promise<Objec|FileError>
+     */
+    function readFileAsJSON(indexPath){
+        return readFile(indexPath)
+            .then(function(documentAsString){
+                try{
+                    return Promise.resolve(window.JSON.parse(documentAsString));
+                }catch(e){
+                    return Promise.reject(e);
+                }
+            });
     }
 
      /**
@@ -88,7 +107,7 @@ var file = (function(){
      *  @param {String} zipPath - the file to unpack
      *  @param {String} outFolder - the folder where to unpack
      *  @param {Function} _onProgress - the callback called with the percentage of unzip progress
-     *  @returns Promise<Boolean>
+     *  @returns Promise<boolean>
      * */
     function _promiseZip(zipPath, outFolder, _onProgress){
         return new Promise(function(resolve,reject){
@@ -140,7 +159,7 @@ var file = (function(){
     *  fileExists
     *
     *  @param {String} url - the toURL path to check
-    *  @returns Promise<Boolean|void>
+    *  @returns Promise<boolean|void>
     * */
     function fileExists(url){
         return new Promise(function(resolve, reject){
@@ -221,6 +240,7 @@ var file = (function(){
     * @returns Promise<String|FileError>
     */
     function readFile(filePath) {
+
         return resolveFS(filePath)
             .then(function(fileEntry){
                 return new Promise(function(resolve, reject){
@@ -228,9 +248,13 @@ var file = (function(){
                         var reader = new FileReader();
 
                         reader.onloadend = function(e) {
-                            resolve(this.result);
+                            var textToParse = this.result;
+                            resolve(textToParse);
                         };
                         reader.readAsText(file);
+                        //readAsDataURL
+                        //readAsBinaryString
+                        //readAsArrayBuffer
                     });
                 });
             });
@@ -258,7 +282,7 @@ var file = (function(){
      * __transform utils function
      * @private
      * @param {Array} entries - an array of Entry type object
-     * @returns {Array} - an array of object
+     * @returns {Array.<Object>} - an array of Object
      * */
     function __transform(entries){
         return entries.map(function(entry){
@@ -274,6 +298,8 @@ var file = (function(){
         createFile:createFile,
     	appendToFile:appendToFile,
     	readFile:readFile,
+        readFileAsHTML:readFileAsHTML,
+        readFileAsJSON:readFileAsJSON,
     	removeFile:removeFile,
     	readDir:readDir,
     	createDir:createDir,

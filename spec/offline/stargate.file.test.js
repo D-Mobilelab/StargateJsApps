@@ -228,6 +228,70 @@ describe("File modules tests", function() {
           done();
         });
   });
+
+  it("file.appendToFile should append text in the file", function(done) {
+
+        var firstContent = "the content";
+        var secondContent = "\nthe second content";
+        var createConditionForTest = createFileWithContent("filename.txt", firstContent);
+
+        createConditionForTest
+            .then(function(fileEntry){
+                return fileEntry.toURL();
+            })
+            .then(function(filepath){
+                //append to File some new text
+                return file.appendToFile(filepath, secondContent);
+            })
+            .then(function(fileEntry){
+                fileEntry.file(function(file) {
+                    var reader = new FileReader();
+                    reader.readAsText(file);
+                    reader.onloadend = function(e) {
+                        var result = this.result;
+                        expect(result).toBeDefined();
+                        expect(result).toEqual(firstContent + secondContent);
+                        done();
+                    };
+                });
+
+            })
+            .catch(function(err){
+                console.log(err);
+            });
+  });
+
+  it("file.readFileHTML should return dom element", function(done) {
+      var html = "<!doctype html><html><head><title></title></head><body>A text in the body</body></html>";
+      var createConditionForTest = createFileWithContent("index.html", html).then(function(fileEntry){return fileEntry.toURL();});
+
+      createConditionForTest.then(function(path){
+          console.log("path", path);
+          return file.readFileAsHTML(path);
+          })
+          .then(function(result){
+              expect(result).toBeDefined();
+              expect(result.body.innerHTML).toEqual("A text in the body");
+              done();
+          }).catch(function(err){console.log(err);});
+  });
+
+  it("file.readFileAsJSON should return a JSON Object", function(done) {
+      var content = window.JSON.stringify({a:"b",n:3,nested:{}});
+      var createConditionForTest = createFileWithContent("file.txt", content).then(function(fileEntry){return fileEntry.toURL();});
+
+      createConditionForTest.then(function(path){
+          console.log("path", path);
+          return file.readFileAsJSON(path);
+      })
+      .then(function(result){
+          expect(result).toBeDefined();
+          expect(result.a).toEqual("b");
+          expect(result.n).toEqual(3);
+          expect(result.nested).toEqual({});
+          done();
+      }).catch(function(err){console.log(err);});
+  });
 });
 
 /*
@@ -239,8 +303,9 @@ file.readDir(dirpath); OK
 file.createFile(dirpath, filename); OK
 file.removeFile(filepath); OK
 file.readFile(filepath); OK
-
-file.appendToFile(filepath, data);
+file.readFileAsHTML(filepath); OK
+file.readFileAsJSON(filepath); OK
+file.appendToFile(filepath, data); OK
 
 */
 

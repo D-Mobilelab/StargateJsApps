@@ -1,5 +1,5 @@
 /* global Promise */
-(function(parent){
+var file = (function(){
 
     var ERROR_MAP = {
         1:"NOT_FOUND_ERR",
@@ -18,38 +18,55 @@
 
 	/**
     * appendToFile
-    * @param {FileEntry} fileEntry - the file entry to write
-    * @data {String}
-    * @returns Promise<FileEntry|FileError>
+    * @param {String} filePath - the filepath file:// url like
+    * @param {String} data - the string to write into the file
+    * @returns Promise<String|FileError> where string is a filepath
     */
-    function appendToFile(fileEntry, data){
-        return new Promise(function(resolve, reject){
-            fileEntry.createWriter(function(fileWriter) {
+    function appendToFile(filePath, data){
+       return resolveFS(filePath)
+            .then(function(fileEntry){
 
-                fileWriter.seek(fileWriter.length);
+                return new Promise(function(resolve, reject){
+                    fileEntry.createWriter(function(fileWriter) {
+                        fileWriter.seek(fileWriter.length);
+                        var blob = new Blob([data], {type:'text/plain'});
+                        fileWriter.write(blob);
+                        fileWriter.onwriteend = function(){
+                            resolve(fileEntry);
+                        };
+                    }, reject);
+                });
 
-                var blob = new Blob([data], {type:'text/plain'});
-                fileWriter.write(blob);
-                fileWriter.onwriteend = function(){
-                    resolve(fileEntry);
-                };
-            }, reject);
+            });
+    }
+
+    /**
+    * readFileAsHTML
+    * @param {String} indexPath - the path to the file to read
+    * @returns Promise<DOM|FileError>
+    */
+    function readFileAsHTML(indexPath){
+
+       return readFile(indexPath)
+        .then(function(documentAsString){
+           return new window.DOMParser().parseFromString(documentAsString, "text/html");
         });
     }
 
     /**
-    * readHTMLFile
-    * @param {String} indexPath - the path to the file to read
-    * @returns Promise<DOM|FileError>
-    */
-    function readHTMLFile(indexPath){
-        return resolveFS(indexPath)
-        .then(readFile)
-        .then(function(documentAsString){
-           var dom = new window.DOMParser().parseFromString(documentAsString, "text/html");
-           return dom;
-        });
-
+     * readFileAsJSON
+     * @param {String} indexPath - the path to the file to read
+     * @returns Promise<Objec|FileError>
+     */
+    function readFileAsJSON(indexPath){
+        return readFile(indexPath)
+            .then(function(documentAsString){
+                try{
+                    return Promise.resolve(window.JSON.parse(documentAsString));
+                }catch(e){
+                    return Promise.reject(e);
+                }
+            });
     }
 
      /**
@@ -222,16 +239,23 @@
     * @returns Promise<String|FileError>
     */
     function readFile(filePath) {
+
         return resolveFS(filePath)
             .then(function(fileEntry){
                 return new Promise(function(resolve, reject){
                     fileEntry.file(function(file) {
                         var reader = new FileReader();
+                        reader.onerror = reject;
+                        reader.onabort = reject;
 
                         reader.onloadend = function(e) {
-                            resolve(this.result);
+                            var textToParse = this.result;
+                            resolve(textToParse);
                         };
                         reader.readAsText(file);
+                        //readAsDataURL
+                        //readAsBinaryString
+                        //readAsArrayBuffer
                     });
                 });
             });
@@ -275,6 +299,8 @@
         createFile:createFile,
     	appendToFile:appendToFile,
     	readFile:readFile,
+        readFileAsHTML:readFileAsHTML,
+        readFileAsJSON:readFileAsJSON,
     	removeFile:removeFile,
     	readDir:readDir,
     	createDir:createDir,
