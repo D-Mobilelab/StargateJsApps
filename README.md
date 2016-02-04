@@ -40,9 +40,9 @@ Return a promise fulfilled when initialization has been finished.
 
 If initialize has already been called then it will log a warning and will just execute the callback and return a promise that will be immediately fullfilled.
 
-If initialize is called when we are outside hybrid environment (see [Stargate.isHybrid][#stargateishybrid]) then it will just execute the callback and return a promise that will be immediately fullfilled.
+If initialize is called when we are outside hybrid environment (see [Stargate.isHybrid](#stargateishybrid)) then it will just execute the callback and return a promise that will be immediately fullfilled.
 
-The callback is called with a boolean result indicating if we are inside hybrid environment or not (see [Stargate.isHybrid][#stargateishybrid]). Also the promise is fullfilled with the same boolean result.
+The callback is called with a boolean result indicating if we are inside hybrid environment or not (see [Stargate.isHybrid](#stargateishybrid)). Also the promise is fullfilled with the same boolean result.
 
 ### Configurations parameter
 
