@@ -1,6 +1,6 @@
 /* global Promise */
-var file = (function(){
 
+(function(parent){
     var ERROR_MAP = {
         1:"NOT_FOUND_ERR",
         2:"SECURITY_ERR",
@@ -18,6 +18,7 @@ var file = (function(){
 
 	/**
     * appendToFile
+    *
     * @param {String} filePath - the filepath file:// url like
     * @param {String} data - the string to write into the file
     * @returns Promise<String|FileError> where string is a filepath
@@ -124,15 +125,15 @@ var file = (function(){
      * download
      *
      * @param {String} url - the URL of the resource to download
-     * @param {DirectoryEntry} dirEntry - a directory entry type object where to save the file
+     * @param {String} filepath - a directory entry type object where to save the file
      * @param {String} saveAsName - the name with the resource will be saved
      * @param {Function} _onProgress - a progress callback function filled with the percentage from 0 to 90
      * */
-    function download(url, dirEntry, saveAsName, _onProgress){
+    function download(url, filepath, saveAsName, _onProgress){
         var ft = new window.FileTransfer();
         ft.onprogress = _onProgress;
         return new Promise(function(resolve, reject){
-           ft.download(window.encodeURI(url), dirEntry.toInternalURL() + saveAsName, resolve, reject);
+           ft.download(window.encodeURI(url), filepath + saveAsName, resolve, reject);
         });
     }
 
@@ -266,7 +267,7 @@ var file = (function(){
      *
      * @param {String} directory - filepath file:// like string
      * @param {String} filename - the filename including the .txt
-     * @returns Promise<FileEntry|FileError>
+     * @returns Promise.<FileEntry|FileError>
      * */
     function createFile(directory, filename){
         return resolveFS(directory)
@@ -289,13 +290,15 @@ var file = (function(){
         return entries.map(function(entry){
             return {
                 path:entry.toURL(),
+                internalURL:entry.toInternalURL(),
                 isFile:entry.isFile,
                 isDirectory:entry.isDirectory
             }
         });
     }
 
-    return {
+    /** definition **/
+    parent.File = {
         createFile:createFile,
     	appendToFile:appendToFile,
     	readFile:readFile,
@@ -305,10 +308,10 @@ var file = (function(){
     	readDir:readDir,
     	createDir:createDir,
     	removeDir:removeDir,
-    	resolveFS:resolveFS,
     	fileExists:fileExists,
         dirExists:dirExists,
-    	download:download
+    	download:download,
+        ERROR_MAP:ERROR_MAP
     }
 
-})();
+})(Stargate);

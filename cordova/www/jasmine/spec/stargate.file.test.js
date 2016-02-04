@@ -1,9 +1,10 @@
-describe("File modules tests", function() {
+describe("Stargate.File modules tests", function() {
 
   function logFail(){
     console.log(arguments);
   }
-
+  /** from Stargate import File as file*/
+  var file = Stargate.File;
   var TEST_FOLDER_DIR,
       STORAGE_DIR,
       TEST_FOLDER_NAME = "Test";
@@ -77,7 +78,8 @@ describe("File modules tests", function() {
 
   beforeAll(function(done) {
     document.addEventListener("deviceready", function(){
-      STORAGE_DIR = cordova.file.applicationStorageDirectory;
+      var childPath = (window.device.platform.toLowerCase() == "ios") ? "Documents" : "";
+      STORAGE_DIR = cordova.file.applicationStorageDirectory + childPath;
       TEST_FOLDER_DIR = [cordova.file.applicationStorageDirectory, TEST_FOLDER_NAME].join("");
       createTestFolder(done);
     });

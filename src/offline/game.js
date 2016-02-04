@@ -1,16 +1,25 @@
-var game = (function(){
+/**
+ * My namespace.
+ * @namespace {Object} Game
+ */
+(function(parent, fileModule){
 	var baseDir,
         gamesDir,
+        cacheDir,
+        tempDirectory,
         platform,
         publicInterface;
 
     /**
-     * Initialize must be called after the 'deviceready' event
-     * @returns Promise<Array>
+     * Init must be called after the 'deviceready' event
+     * @throws Require file module expception
+     * @returns Promise<Array<boolean>>
      * */
-    function initialize(){
-
+    function init(){
+        if(!fileModule) throw new Error("File module required");
         baseDir = window.cordova.file.applicationStorageDirectory;
+        cacheDir = window.cordova.file.cacheDirectory;
+        tempDirectory = cordova.file.tempDirectory;
 
         /**
         * Putting games under Documents r/w. ApplicationStorage is read only
@@ -84,8 +93,8 @@ var game = (function(){
     /**
      * downloadGame
      *
-     * @param {String} url - The url the html5game's zip
-     * @param {Object} [callbacks={}] - an object with start-end-progress callbacks
+     * @param {string} url - The url the html5game's zip
+     * @param {object} [callbacks={}] - an object with start-end-progress callbacks
      * @param [callbacks.onProgress=function(){}] - a progress function filled with the percentage
      * @param [callbacks.onStart=function(){}] - called on on start
      * @param [callbacks.onEnd=function(){}] - called when unzipped is done
@@ -166,10 +175,6 @@ var game = (function(){
             });
     }
 
-
-
-
-
     function manipulateIndex(dom){
         var scripts = dom.querySelectorAll("script");
         var scriptSDK;
@@ -197,9 +202,8 @@ var game = (function(){
         });
     */
 
-
-    function removeGame(gameName){
-        return resolveLocalFileSystemUrl(gamesDir + gameName)
+    function removeGame(gameID){
+        return resolveLocalFileSystemUrl(gamesDir + gameID)
                 .then(file.removeDir);
     }
 
@@ -209,12 +213,10 @@ var game = (function(){
         downloadGame:downloadGame,
         playGame:playGame,
         removeGame:removeGame,
-        initialize:initialize
+        init:init
     };
 
-    /**
-    * exporting globals for now
-    * **/
-    return publicInterface;
+    /** definition **/
+    parent.Game = publicInterface;
 
-})();
+})(Stargate, Stargate.File);

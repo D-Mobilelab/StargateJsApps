@@ -8,7 +8,8 @@ function isRunningOnIos(){
 function isRunningOnAndroid(){
     return window.device.platform.toLowerCase() == "android";
 }
-describe("Game module tests", function() {
+describe("Stargate.Game module tests", function() {
+    var game = Stargate.Game;
     beforeEach(function() {
 
 
