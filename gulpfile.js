@@ -118,7 +118,7 @@ gulp.task('watchSpec', function(){
 
 gulp.task('copySpec', function(){
     return gulp.src("spec/offline/**/*.js")
-        .pipe(gulp.dest("./cordova/www/jasmine/spec"));
+        .pipe(gulp.dest("./hello/www/jasmine/spec"));
 });
 
 gulp.task('watchSrc', function(){
@@ -129,7 +129,7 @@ gulp.task('watchSrc', function(){
 
 gulp.task("copySrc", function(){
     return gulp.src("src/offline/**/*.js")
-        .pipe(gulp.dest("./cordova/www/jasmine/src/"));
+        .pipe(gulp.dest("./hello/www/jasmine/src/"));
 });
 
 gulp.task('testondevice', ['watchSpec', 'watchSrc']);

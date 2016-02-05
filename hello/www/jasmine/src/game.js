@@ -40,15 +40,15 @@
         // var gmenuURL = "http://www.giochissimo.it/gmenu/menu.html";
         // var gmenuCSS = "http://www.giochissimo.it/gmenu/frame.css";
 
-        var gamesDirTaskExists = fileModule.dirOrFileExists(gamesDir);
-        var gfsdkExists = fileModule.dirOrFileExists(baseDir + "gfsdk/gfsdk.min.js");
-        var gmenuDirExists = fileModule.dirOrFileExists(baseDir + "gmenu");
+        var gamesDirTaskExists = file.dirOrFileExists(gamesDir);
+        var gfsdkExists = file.dirOrFileExists(baseDir + "gfsdk/gfsdk.min.js");
+        var gmenuDirExists = file.dirOrFileExists(baseDir + "gmenu");
 
         //If not exists the games folder create it
         gamesDirTaskExists
             .then(function(exists){
                 if(!exists){
-                    return fileModule.createDir(baseDir, "games");
+                    return file.createDir(baseDir, "games");
                 }
                 return exists;
             });
@@ -57,14 +57,14 @@
         gfsdkExists
             .then(function(exists){
                 if(!exists){
-                    return fileModule.createDir(baseDir, "gfsdk");
+                    return file.createDir(baseDir, "gfsdk");
                 }
                 return exists;
             })
             .then(function(dirEntry){
 
                 if(dirEntry.isDirectory){
-                    return fileModule.download(sdkURL, dirEntry, "gfsdk.min.js");
+                    return file.download(sdkURL, dirEntry, "gfsdk.min.js");
                 }
                 return dirEntry; // if it's not a directory it's a boolean: return it
             });
@@ -122,7 +122,7 @@
         return resolveLocalFileSystemUrl(gamesDir)
             .then(function(dirEntry){
                 _onStart({type:"download"});
-                return fileModule.download(url, dirEntry, saveAsName, wrapProgress("download"));
+                return file.download(url, dirEntry, saveAsName, wrapProgress("download"));
             })
             .then(function(fileEntry){
 
@@ -137,7 +137,7 @@
                 return result;
             })
             .then(function(){
-                return fileModule.removeFile(fileEntryZip);
+                return file.removeFile(fileEntryZip);
             });
     }
 
@@ -154,7 +154,7 @@
         * attach this to orientationchange in the game index.html
         * if(cr._sizeCanvas) window.cr_sizeCanvas(window.innerWidth, window.innerHeight)
         */
-        return fileModule.readDir(gamesDir + gameName)
+        return file.readDir(gamesDir + gameName)
             .then(function(entries){
                 //Search for an index.html$
                 return entries.files.filter(function(entry){
@@ -203,7 +203,7 @@
 
     function removeGame(gameID){
         return resolveLocalFileSystemUrl(gamesDir + gameID)
-                .then(fileModule.removeDir);
+                .then(file.removeDir);
     }
 
     publicInterface = {
