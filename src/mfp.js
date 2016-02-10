@@ -136,7 +136,7 @@ var MFP = (function(){
                     analytics.track({
                     	page: 'hybrid_initialize',
                     	action: 'MFP_get',
-                    	value: [session_id]
+                    	value: session_id
                     });
                     
                     MobileFingerPrint.setSession(ponyUrl);                
