@@ -1,6 +1,7 @@
 
 /**
  * @namespace
+ * @protected
  *
  * @description
  * Analytics is a module to track events sending it to a webapp callback.
@@ -21,14 +22,19 @@ var analytics = (function(){
      *
      * @param {object} event
      */
-	ana.track = function(event) {
+	ana.track = function(trackedEvent) {
 
 		if (typeof cb !== 'function') {
 			return log("[analytics] callback not set!");
 		}
 
 		// send it
-		cb(event);
+		try {
+			cb(trackedEvent);
+		}
+		catch (error) {
+			err("[analytics] callback error: "+error, error);
+		}
 	};
 
 	/**
