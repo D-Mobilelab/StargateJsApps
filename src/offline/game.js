@@ -4,11 +4,9 @@
  */
 (function(parent, name, fileModule){
 	var baseDir,
-        gamesDir,
         cacheDir,
         tempDirectory,
-        publicInterface,
-        isDownloading = false;
+        publicInterface;
 
     /**
      * Init must be called after the 'deviceready' event
