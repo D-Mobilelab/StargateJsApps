@@ -2,7 +2,8 @@ var buildConfig = require('./build.config.js');
 
 module.exports = {
     files: [
-        'spec/*.js'
+        'spec/*.js',
+        'node_modules/jasmine-ajax/lib/mock-ajax.js'
     ]
     .concat(buildConfig.bowerFileList)
     .concat(buildConfig.testHeader)

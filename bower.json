@@ -2,10 +2,13 @@
   "name": "StargateJsApps",
   "homepage": "https://github.com/BuongiornoMIP/StargateJsApps",
   "authors": [
-    "Mirco Cipriani <mirco.cipriani@buongiorno.com>"
+    "Mirco Cipriani <mirco.cipriani@buongiorno.com>",
+    "Pasquale Mangialavori <pasqualemangialavori@buongiorno.com>",
+    "Gionatan Quintini <g.quintini@aimconsulting.it>",
+    "Giada Fatarella <Giada.Fatarella@buongiorno.com>"
   ],
   "description": "StargateJS hybridization library for HTML5 apps",
-  "main": "dist/stargate.js",
+  "main": "dist/bower/stargate.js",
   "moduleType": [],
   "keywords": [
     "cordova",
@@ -15,16 +18,15 @@
   ],
   "license": "MIT",
   "ignore": [
-    "**/.*",
-    "node_modules",
-    "bower_components",
-    "test",
-    "tests"
+    "**/*",
+    "!dist/bower/*",
+    "!bower.json"
   ],
   "dependencies": {
     "q": "1.0.1",
     "urijs": "uri.js#~1.17.0",
     "aja": "https://github.com/krampstudio/aja.js.git#~0.4.1",
-    "promise-polyfill": "^3.1.0"
+    "promise-polyfill": "^3.1.0",
+    "cookies-js": "~1.2.2"
   }
 }

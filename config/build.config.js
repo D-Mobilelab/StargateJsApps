@@ -43,6 +43,7 @@ module.exports = {
 	version: pkg.version,
 
 	dist: 'dist/',
+	distBower: 'dist/bower/',
 	build: 'build/',
 
 	bowerAllIncludes: 'includes.bower.js',
@@ -51,7 +52,8 @@ module.exports = {
 		'bower_components/urijs/src/URITemplate.js',
 		'bower_components/q/q.js',
 		'bower_components/aja/src/aja.js',
-		'bower_components/promise-polyfill/Promise.js'
+		'bower_components/promise-polyfill/Promise.js',
+		'bower_components/cookies-js/dist/cookies.js'
 	],
 
 	testHeader: 'config/test.header.js',

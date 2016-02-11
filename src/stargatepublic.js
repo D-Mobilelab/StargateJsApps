@@ -1,39 +1,71 @@
 
 
 // global variable used by old stargate client
-// @deprecated since v2
+// @deprecated since v0.2
 window.pubKey = '';
-// @deprecated since v2
+// @deprecated since v0.2
 window.forge = '';
 
 
+/**
+*
+* initialize(configurations, callback)
+*
+* 
+* @deprecated initialize(configurations, pubKey, forge, callback)
+*
+*/
+stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callback) {
 
-stargatePublic.initialize = function(configurations, pubKey, forge, callback) {
-
-
-    if (isStargateInitialized) {
-        err("Stargate.initialize() already called!");
-        return callback();
+    // parameters checking to support both interfaces:
+    //    initialize(configurations, callback)
+    //    initialize(configurations, pubKey, forge, callback)
+    if (typeof pubKeyPar === 'function' &&
+        typeof forgePar === 'undefined' &&
+        typeof callback === 'undefined') {
+        // second parameter is the callback
+        callback = pubKeyPar;
     }
-    
-    isStargateInitialized = true;
 
-    initializeCallback = callback;
-    initializeDeferred = Q.defer();
+    // check callback type is function
+    // if not return a failing promise 
+    if (typeof callback !== 'function') {
+        err("Stargate.initialize() callback is not a function!");
+
+        var errDefer = Q.defer();
+        setTimeout(function(){
+            // fail the promise
+            errDefer.reject(new Error("Stargate.initialize() callback is not a function!"));
+        }, 1);
+        return errDefer.promise;
+    }
+
+    isStargateRunningInsideHybrid = isHybridEnvironment();
+
+    // if i'm already initialized just:
+    //  * execute the callback
+    //  * return a resolving promise
+    if (isStargateInitialized) {
+        err("Stargate.initialize() already called, executing callback.");
+        
+        callback(isStargateRunningInsideHybrid);
+
+        var alreadyRunningDefer = Q.defer();
+        setTimeout(function(){
+            // resolve the promise
+            alreadyRunningDefer.resolve(isStargateRunningInsideHybrid);
+        }, 1);
+        return alreadyRunningDefer.promise;
+    }
+
+
+    isStargateInitialized = true;
 
 
     if(configurations.country){
         country = configurations.country;
     }
-    if(configurations.selector){
-        selector = configurations.selector;
-    }
-    if(configurations.api_selector){
-        api_selector = configurations.api_selector;
-    }
-    if(configurations.app_prefix){
-        app_prefix = configurations.app_prefix;
-    }
+    
     if(configurations.hybrid_conf){
         if (typeof configurations.hybrid_conf === 'object') {
             hybrid_conf = configurations.hybrid_conf;
@@ -41,6 +73,26 @@ stargatePublic.initialize = function(configurations, pubKey, forge, callback) {
             hybrid_conf = JSON.parse(decodeURIComponent(configurations.hybrid_conf));
         }
     }
+
+    // if not running inside hybrid save the configuration then:
+    //  * call the callback and return a resolving promise
+    if (!isStargateRunningInsideHybrid) {
+
+        log("version "+stargatePackageVersion+" running outside hybrid; "+
+            "loaded from server version: v"+stargateVersion);
+
+        callback(isStargateRunningInsideHybrid);
+
+        var notHybridDefer = Q.defer();
+        setTimeout(function(){
+            // resolve the promise
+            notHybridDefer.resolve(isStargateRunningInsideHybrid);
+        }, 1);
+        return notHybridDefer.promise;
+    }
+
+    initializeCallback = callback;
+    initializeDeferred = Q.defer();
 
     // finish the initialization of cordova plugin when deviceReady is received
     document.addEventListener('deviceready', onDeviceReady, false);
@@ -51,8 +103,13 @@ stargatePublic.initialize = function(configurations, pubKey, forge, callback) {
 stargatePublic.isInitialized = function() {
     return isStargateInitialized;
 };
+
 stargatePublic.isOpen = function() {
     return isStargateOpen;
+};
+
+stargatePublic.isHybrid = function() {
+    return isHybridEnvironment();
 };
 
 stargatePublic.openUrl = function(url) {

@@ -8,7 +8,7 @@
 */
 
 // current stargateVersion 
-var stargateVersion = 2;
+var stargateVersion = "2";
 
 // logger function
 var log = function(msg, obj) {
@@ -84,6 +84,8 @@ var launchUrl = function (url) {
     document.location.href = url;
 };
 
+
+var isStargateRunningInsideHybrid = false;
 var isStargateInitialized = false;
 var isStargateOpen = false;
 var initializeCallback = null;
@@ -97,9 +99,6 @@ var appVersion = '';
  * 
  */
 var country = '',
-    selector = '',
-    api_selector = '',
-    app_prefix = '',
     hybrid_conf = {};
 
 /**
@@ -181,13 +180,13 @@ var onPluginReady = function () {
 
     IAP.initialize();
 
-    document.cookie="hybrid=1; path=/";
-    document.cookie="stargateVersion="+stargateVersion+"; path=/";
+    window.Cookies.set("hybrid", "1");
+    window.Cookies.set("stargateVersion", stargateVersion);
 
-    if (window.localStorage.getItem('hybrid') !== null) {
+    if (!window.localStorage.getItem('hybrid')) {
         window.localStorage.setItem('hybrid', 1);
     }
-    if (window.localStorage.getItem('stargateVersion') !== null) {
+    if (!window.localStorage.getItem('stargateVersion')) {
         window.localStorage.setItem('stargateVersion', stargateVersion);
     }
 
@@ -200,13 +199,16 @@ var onPluginReady = function () {
     // initialize finished
     isStargateOpen = true;
 
-    log("version "+stargatePackageVersion+" ready");
+    log("version "+stargatePackageVersion+" ready; "+
+        "loaded from server version: v"+stargateVersion+
+        " running in package version: "+appVersion);
 
     //execute callback
     // FIXME: check callback type is function
-    initializeCallback();
+    initializeCallback(true);
 
-    initializeDeferred.resolve("Stargate.initialize() done");
+    log("Stargate.initialize() done");
+    initializeDeferred.resolve(true);
 };
 
 var onDeviceReady = function () {
@@ -236,7 +238,26 @@ var onDeviceReady = function () {
     });
 };
 
+/**
+* Check if we are running inside hybrid environment,  
+* checking current url or cookies or localStorage
+*/
+var isHybridEnvironment = function() {
 
+    // check url for hybrid query param
+    var uri = window.URI(document.location.href);
+    if (uri.hasQuery('hybrid')) {
+        return true;
+    }
+
+    if (window.Cookies.get('hybrid')) {
+        return true;
+    }
+
+    if (window.localStorage.getItem('hybrid')) {
+        return true;
+    }
+};
 
 var stargateBusy = false;
 

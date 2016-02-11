@@ -1,45 +1,62 @@
-/*
-
-stargatePublic.inAppPurchaseSubscription = function(callbackSuccess, callbackError, subscriptionUrl, returnUrl) {
-
-    setBusy(true);
-
-    if (typeof returnUrl !==  'undefined'){
-        IAP.returnUrl = returnUrl;
-    }
-    if (typeof subscriptionUrl !==  'undefined'){
-        IAP.subscribeMethod = subscriptionUrl;
-    }
+var store_mock = {
+    verbosity: '',
     
-    IAP.callbackSuccess = callbackSuccess;
-    IAP.callbackError = callbackError;
+    DEBUG: '',
+    INFO: '',
+    WARNING: '',
+    ERROR: '',
+    QUIET: '',
+    
+    _mock_cb_par: {
+        finish: function() {},
+        transaction: {
+            id: 'xxxxxxxxxxxxxxxxxx'
+        }
+    },
 
-    IAP.doRefresh();
-    window.store.order(IAP.id);
+    when: function(id) {
+        return {
+            approved: function(cb) {
+                //cb(store_mock._mock_cb_par)
+            },
+            verified: function(cb) {
+                //cb(store_mock._mock_cb_par)
+            },
+            updated: function(cb) {
+                //cb(store_mock._mock_cb_par)
+            },
+            owned: function(cb) {
+                //cb(store_mock._mock_cb_par)
+            },
+            cancelled: function(cb) {
+                //cb(store_mock._mock_cb_par)
+            },
+            error: function(cb) {
+                //cb(store_mock._mock_cb_par)
+            }
+        };
+    },
+    ready: function(cb) {
+        //cb()
+    },
+    register: function(productData) {this._mockProductData = productData}
 };
 
-stargatePublic.inAppRestore = function(callbackSuccess, callbackError, subscriptionUrl, returnUrl) {
-
-    if (!isStargateInitialized) {
-        return callbackError("Stargate not initialized, call Stargate.initialize first!");
+var storekit_mock = {
+    loadReceipts: function(cb) {
+        cb({
+            appStoreReceipt: "xxxxxxxxxyyyyyyyy...recipt.ios..xxxxxxx"
+        })
     }
-
-    setBusy(true);
-
-    if (typeof subscriptionUrl !==  'undefined'){
-        IAP.subscribeMethod = subscriptionUrl;
-    }
-    if (typeof returnUrl !==  'undefined'){
-        IAP.returnUrl = returnUrl;
-    }
-    
-    IAP.callbackSuccess = callbackSuccess;
-    IAP.callbackError = callbackError;
-
-    IAP.doRefresh();
-    storekit.restore();
 };
-*/
+
+var IapTestResponses = {
+    success: {
+        status: 200,
+        responseText: '{"user":"1928734198273498172439018723498@itunes.com","password":"8217364871263481726349876","fb_id":null,"newuser":false,"status":"200","return_url":"http://mywebapp.com/my-content-page"}'
+    }
+};
+
 
 describe("Stargate IAP", function() {
 
