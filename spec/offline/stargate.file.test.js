@@ -104,8 +104,9 @@ describe("Stargate.File modules tests", function() {
       expect(STORAGE_DIR).not.toBeNull();
       file.createDir(STORAGE_DIR, TEST_FOLDER_NAME)
          .then(function(result){
-            expect(result).toContain("Test");
-            expect(typeof result).toBe("string");
+            expect(result[0][0].path).toContain("Test");
+            expect(typeof result[0][0].path).toEqual("string");
+            expect(result[0][0].isDirectory).toEqual(true);
             done();
 
          }).catch(function(err){

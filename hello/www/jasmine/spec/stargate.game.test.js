@@ -71,7 +71,7 @@ function promRejectWith(obj){
     return Promise.reject(obj);
 }
 
-fdescribe("Game module tests", function() {
+describe("Game module tests", function() {
     var GamifiveInfo = {"label":"it_igames",
         "contentId":"4de756a55ac71f45c5b7b4211b71219e",
         "userId":"aac3121ebf5111e5a728005056b60712",
