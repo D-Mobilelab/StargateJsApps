@@ -7,7 +7,8 @@
         gamesDir,
         cacheDir,
         tempDirectory,
-        publicInterface;
+        publicInterface,
+        isDownloading = false;
 
     /**
      * Init must be called after the 'deviceready' event
@@ -55,21 +56,24 @@
                 return exists;
             }
         });
-
         return Promise.all([dirGames,getSDK]);
     }
 
     /**
-     * download
+     * download the game and unzip it
      *
      * @param {object} gameObject - The gameObject with the url of the html5game's zip
      * @param {object} [callbacks={}] - an object with start-end-progress callbacks
      * @param [callbacks.onProgress=function(){}] - a progress function filled with the percentage
      * @param [callbacks.onStart=function(){}] - called on on start
      * @param [callbacks.onEnd=function(){}] - called when unzipped is done
-     * @returns {Promise<boolean>} - true if all has gone good
+     * @returns {Promise<boolean|>} - true if all has gone good
      * */
     function download(gameObject, callbacks){
+        if(fileModule.currentFileTransfer !== null){ return Promise.reject(["Already downloading", fileModule.currentFileTransfer]);}
+        var alreadyExists = fileModule.dirExists(publicInterface.GAMES_DIR + gameObject.gameID);
+
+        // Defaults
         callbacks = callbacks ? callbacks : {};
         var _onProgress = callbacks.onProgress ? callbacks.onProgress : function(){};
         var _onStart = callbacks.onStart ? callbacks.onStart : function(){};
@@ -86,21 +90,43 @@
         }
 
         var saveAsName = gameObject.gameID;
-        _onStart({type:"download"});
+            function start(){
+                _onStart({type:"download"});
+                return fileModule.download(gameObject.url_api_dld, publicInterface.TEMP_DIR, saveAsName + ".zip", wrapProgress("download"))
+                    .then(function(entriesTransformed){
 
-        return fileModule.download(gameObject.url_dld, publicInterface.GAMES_DIR, saveAsName + ".zip", wrapProgress("download"))
-            .then(function(entriesTransformed){
-                //Unpack
-                _onStart({type:"unzip"});
-                return fileModule._promiseZip(entriesTransformed[0].path, publicInterface.GAMES_DIR + saveAsName, wrapProgress("unzip"));
-            })
-            .then(function(result){
-                _onEnd(result);
-                return result;
-            })
-            .then(function(){
-                return fileModule.removeFile(publicInterface.GAMES_DIR + saveAsName + ".zip");
+                        //Unpack
+                        _onStart({type:"unzip"});
+                        return fileModule._promiseZip(entriesTransformed[0].path, publicInterface.GAMES_DIR + saveAsName, wrapProgress("unzip"));
+                    })
+                    .then(function(result){
+
+                        //Notify on end unzip
+                        _onEnd({type:"unzip"});
+                        return result;
+                    })
+                    .then(function(){
+
+                        //Remove the zip in the temp directory
+                        return fileModule.removeFile(publicInterface.TEMP_DIR + saveAsName + ".zip");
+
+                    }).then(function(result){
+
+                    //Notify onEnd download
+                    _onEnd({type:"download"});
+                    return result;
+                });
+            }
+
+
+            return alreadyExists.then(function(exists){
+                if(!exists){
+                    return start();
+                }else{
+                    return Promise.reject({12:"AlreadyExists"});
+                }
             });
+
     }
 
     /**
@@ -116,17 +142,19 @@
         * attach this to orientationchange in the game index.html
         * if(cr._sizeCanvas) window.cr_sizeCanvas(window.innerWidth, window.innerHeight)
         */
-        return fileModule.readDir(gamesDir + gameID)
+        var gamedir = publicInterface.GAMES_DIR + gameID;
+        return fileModule.readDir(gamedir)
             .then(function(entries){
+                console.log(entries);
                 //Search for an index.html$
-                return entries.files.filter(function(entry){
+                return entries.filter(function(entry){
                     var isIndex = new RegExp(/index\.html$/i);
-                    return isIndex.test(entry.fullPath);
+                    return isIndex.test(entry.path);
                 });
             })
             .then(function(entry){
-                var address = entry[0].toInternalURL();
-
+                console.log(entry);
+                var address = entry[0].internalURL;
                 if(isRunningOnIos()){
                     window.location.href = address;
                 }else{
@@ -162,9 +190,26 @@
         });
     */
 
-    function removeGame(gameID){
-        return resolveLocalFileSystemUrl(gamesDir + gameID)
-                .then(fileModule.removeDir);
+    /**
+     * remove
+     * @param {string} gameID - the game id to delete on filesystem
+     * @returns {Promise<boolean|FileError>}
+     * */
+    function remove(gameID){
+        return fileModule.removeDir(publicInterface.GAMES_DIR + gameID);
+    }
+
+    /**
+     * abortLastDownload
+     * @returns {boolean}
+     * */
+    function abortLastDownload(){
+        if(fileModule.currentFileTransfer !== null){
+            fileModule.currentFileTransfer.abort();
+            return true;
+        }
+        console.warn("there's not a download operation to abort");
+        return false;
     }
 
     publicInterface = {
@@ -172,15 +217,15 @@
         BASE_DIR:"",
         download:download,
         play:play,
-        removeGame:removeGame,
+        remove:remove,
+        abortLastDownload:abortLastDownload,
         initialize:initialize
     };
 
     /** definition **/
     parent[name] = publicInterface;
 
-})(stargateProtected, "game",stargateProtected.file);
-
+})(stargateProtected, "game", stargateProtected.file);
 /*
 * game.saveGamesMeta();
 * game.getGamesMeta(GAMEID);

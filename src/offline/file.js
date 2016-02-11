@@ -63,6 +63,8 @@ stargateProtected = stargateProtected || {};
                         fileWriter.seek(fileWriter.length);
                         var blob = new Blob([data], {type:'text/plain'});
                         fileWriter.write(blob);
+                        fileWriter.onerror = reject;
+                        fileWriter.onabort = reject;
                         fileWriter.onwriteend = function(){
                             resolve(fileEntry);
                         };
@@ -168,12 +170,23 @@ stargateProtected = stargateProtected || {};
      * @returns {Promise}
      * */
     File.download = function(url, filepath, saveAsName, _onProgress){
+        // one download at time for now
         var ft = new window.FileTransfer();
         ft.onprogress = _onProgress;
+        File.currentFileTransfer = ft;
+
         return new Promise(function(resolve, reject){
-           ft.download(window.encodeURI(url), filepath + saveAsName, function(entry){
-               resolve(__transform([entry]));
-           }, reject);
+           ft.download(window.encodeURI(url), filepath + saveAsName,
+               function(entry){
+                   File.currentFileTransfer = null;
+                   resolve(__transform([entry]));
+               },
+               function(reason){
+                   File.currentFileTransfer = null;
+                   reject(reason);
+               },
+               true
+           );
         });
     };
 
@@ -189,7 +202,7 @@ stargateProtected = stargateProtected || {};
             .then(function(dirEntry){
                 return new Promise(function(resolve, reject){
                     dirEntry.getDirectory(subFolderName, {create:true}, function(entry){
-                        resolve(entry.toURL());
+                        resolve(__transform([entry]));
                     }, reject);
                 });
             });

@@ -9,6 +9,48 @@ function isRunningOnAndroid(){
     return window.device.platform.toLowerCase() == "android";
 }
 
+var gameObject = {
+    gameID:"94904060fe5d50dd6c22b927c6a7c71d",
+    url_api_dld:"http://www2.giochissimo.it/pask/zip/FruitSlicer.zip",
+    images: {
+        screenshot: [
+            "http://s2.motime.com/p/bcontents/absimageappscreenshot1_5/h[HSIZE]/w[WSIZE]/xx_gameasy/mnt/alfresco_content_prod/contentstore/2014/2/25/10/51/51a21222-f6be-40b3-8267-fd3228ab0275/prohibition-1930.bin?v=1450266963",
+            "http://s2.motime.com/p/bcontents/absimageappscreenshot1_5/h[HSIZE]/w[WSIZE]/xx_gameasy/mnt/alfresco_content_prod/contentstore/2014/2/25/10/52/86e1c95a-cbba-4875-b528-0ecf029bf96d/prohibition-1930.bin?v=1450266963",
+            "http://s2.motime.com/p/bcontents/absimageappscreenshot1_5/h[HSIZE]/w[WSIZE]/xx_gameasy/mnt/alfresco_content_prod/contentstore/2014/2/25/10/49/2d642371-2960-435f-ac7c-b4e4923d81a1/prohibition-1930.bin?v=1450266963"
+        ],
+        cover: {
+            ratio_1_4:"http://s2.motime.com/p/bcontents/absimageapp1_4/h[HSIZE]/w[WSIZE]/xx_gameasy/mnt/alfresco_content_prod/contentstore/2014/2/25/10/50/42624bdc-c47f-437d-bcbb-e1a7b3d48d3f/prohibition-1930.bin?v=1450266963",
+            ratio_0_7:"http://s2.motime.com/p/bcontents/absimageapp0_7/h[HSIZE]/w[WSIZE]/xx_gameasy/mnt/alfresco_content_prod/contentstore/2014/2/25/10/51/148348cd-05e3-4378-bae8-b7648ffa9f1f/prohibition-1930.bin?v=1450266963",
+            ratio_1: "http://s2.motime.com/p/bcontents/absimageapp1/h[HSIZE]/w[WSIZE]/xx_gameasy/mnt/alfresco_content_prod/contentstore/2014/2/25/10/51/d2179a25-f07d-422c-adbc-7cb1bb001b62/prohibition-1930.bin?v=1450266963",
+            ratio_2: "http://s2.motime.com/p/bcontents/absimageapp2/h[HSIZE]/w[WSIZE]/xx_gameasy/mnt/alfresco_content_prod/contentstore/2014/2/25/10/50/080d3dce-c136-4584-8c6f-85bc8ade1539/prohibition-1930.bin?v=1450266963",
+            ratio_1_5:"http://s2.motime.com/p/bcontents/absimageapp1_5/h[HSIZE]/w[WSIZE]/xx_gameasy/mnt/alfresco_content_prod/contentstore/2014/2/25/10/52/1651accd-dc66-4177-b57c-3f65765068b2/prohibition-1930.bin?v=1450266963"
+        },
+        icon: "http://s2.motime.com/p/bcontents/absimageappicon/h[HSIZE]/w[WSIZE]/xx_gameasy/mnt/alfresco_content_prod/contentstore/2014/2/25/10/52/44293609-5caa-4106-b0c9-a43da15b48e1/prohibition-1930.bin?v=1450266963"
+    },
+    access_type: {
+        guest: false,
+        free: false,
+        premium: true
+    }
+};
+
+function createFolder(where, name){
+    return new Promise(function(resolve,reject){
+        window.resolveLocalFileSystemURL(where,
+            function(dirEntry){
+                dirEntry.getDirectory(name, {create:true},
+                    function(entry){
+                        resolve(entry);
+                    }, function(err){
+                        reject(err);
+                    }
+                );
+            },
+            function(err){
+                reject(err);
+            });
+    });
+}
 
 function mock_file_download_success(url, filepath, saveAsName, _onProgress){
     console.log("DOWNLOAD MOCK", url, filepath, saveAsName, _onProgress);
@@ -60,8 +102,7 @@ fdescribe("Game module tests", function() {
     };
 
     var game = stargateProtected.game;
-    var initSettled,
-        TEST_FOLDER_DIR,
+    var TEST_FOLDER_DIR,
         STORAGE_DIR,
         TEST_FOLDER_NAME = "Test";
 
@@ -98,20 +139,23 @@ fdescribe("Game module tests", function() {
     });
 
     afterEach(function(done){
-        //removeFolders(["games", "gfsdk"], done);
+        removeFolders(["gfsdk","games"], done);
     });
 
-    it("game should exists", function(done) {
+    it("Game should exists", function(done) {
         expect(game).toBeDefined();
         done();
     });
 
-    it("game folders should exists after initialize", function(done) {
-        var firstInit = game.initialize(GamifiveInfo.user)
+    it("Game folders should exists after initialize", function(done) {
+        game.initialize(GamifiveInfo.user)
             .then(function(results){
                 console.log("game init results:", results);
-                expect(results[0]).toEqual(game.GAMES_DIR);
-                expect(results[1][0].path).toEqual(game.SDK_DIR+"gfsdk.min.js");
+                var secondResult = results[1][0];
+                var firstResult = results[0][0];
+                expect(firstResult.path).toEqual(game.GAMES_DIR);
+                expect(secondResult.path).toEqual(game.SDK_DIR + "gfsdk.min.js");
+                expect(secondResult.isFile).toEqual(true);
                 done();
             })
             .catch(function(err){
@@ -119,7 +163,6 @@ fdescribe("Game module tests", function() {
                 done();
             });
     });
-
 
     it("SDK should not be downloaded if already there", function(done) {
         var SDK_URL = "http://s.motime.com/js/wl/webstore_html5game/gfsdk/dist/gfsdk.min.js";
@@ -134,7 +177,8 @@ fdescribe("Game module tests", function() {
 
         var firstInit = game.initialize(GamifiveInfo.user)
             .then(function(results){
-                expect(results[0]).toEqual(game.GAMES_DIR);
+                console.log(results);
+                expect(results[0][0].path).toEqual(game.GAMES_DIR);
                 expect(results[1][0].path).toEqual(game.SDK_DIR + "gfsdk.min.js");
             }).then(function(){
 
@@ -165,22 +209,69 @@ fdescribe("Game module tests", function() {
             });
     });
 
-    it("Test game download", function(done){
-        var gameObject = {
-            gameID:"98r3nv9r8n3r98nv",
-            url_dld:"http://www2.giochissimo.it/pask/zip/FruitSlicer.zip"
-        };
-
+    it("Test simple game download", function(done){
         function log(){
             console.log(arguments);
         }
+        var cbks = {
+            onEnd:function(e){console.log("END", e);
+                if(e.type == "download"){
+                    done();
+                }
+            },
+            onStart:function(e){console.log("START", e);}
+        };
 
         game.initialize(GamifiveInfo.user)
-            .then(game.download(gameObject, {onEnd:log,onStart:log,onProgress:log}))
+            .then(function(){
+                return game.download(gameObject, cbks);
+            })
             .then(function(results){
-
-                done();
+                expect(results).toEqual(true);
             }).catch(function(err){ console.error(err); done();});
 
+    });
+
+    it("Test abortDownload", function(done){
+
+        game.initialize(GamifiveInfo.user)
+            .then(function(){
+                game.download(gameObject);
+
+                setTimeout(function pippo(){
+                    var res = game.abortLastDownload();
+                    expect(res).toBe(true);
+                    done();
+                }, 500);
+            });
+    });
+
+    it("Test abortDownload should not to abort if is not downloading", function(done){
+
+        game.initialize(GamifiveInfo.user)
+            .then(function(){
+                setTimeout(function pippo(){
+                    var res = game.abortLastDownload();
+                    expect(res).toBe(false);
+                    done();
+                }, 500);
+            });
+    });
+
+
+    it("Test download game already exists", function(done){
+
+        game.initialize(GamifiveInfo.user)
+            .then(function(results){
+               console.log(results);
+               return createFolder(game.GAMES_DIR, gameObject.gameID);
+            })
+            .then(function(result){
+                return game.download(gameObject);
+            })
+            .catch(function(reason){
+                expect(reason).toEqual({12:"AlreadyExists"});
+                done();
+            });
     });
 });

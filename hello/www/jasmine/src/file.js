@@ -10,7 +10,17 @@
 stargateProtected = stargateProtected || {};
 
 (function(parent, name){
-    var ERROR_MAP = {
+    /**
+     * @namespace
+     * @alias stargateProtected.file
+     */
+    var File = {};
+
+    /**
+     * ERROR_MAP
+     * stargateProtected.file.ERROR_MAP
+     * */
+    File.ERROR_MAP = {
         1:"NOT_FOUND_ERR",
         2:"SECURITY_ERR",
         3:"ABORT_ERR",
@@ -24,12 +34,6 @@ stargateProtected = stargateProtected || {};
         11:"TYPE_MISMATCH_ERR",
         12:"PATH_EXISTS_ERR"
     };
-
-    /**
-     * @namespace
-     * @alias stargatePublic.file
-     */
-    var File = {};
 
     /**
      * stargateProtected.file.resolveFS
@@ -59,6 +63,8 @@ stargateProtected = stargateProtected || {};
                         fileWriter.seek(fileWriter.length);
                         var blob = new Blob([data], {type:'text/plain'});
                         fileWriter.write(blob);
+                        fileWriter.onerror = reject;
+                        fileWriter.onabort = reject;
                         fileWriter.onwriteend = function(){
                             resolve(fileEntry);
                         };
@@ -164,12 +170,23 @@ stargateProtected = stargateProtected || {};
      * @returns {Promise}
      * */
     File.download = function(url, filepath, saveAsName, _onProgress){
+        // one download at time for now
         var ft = new window.FileTransfer();
         ft.onprogress = _onProgress;
+        File.currentFileTransfer = ft;
+
         return new Promise(function(resolve, reject){
-           ft.download(window.encodeURI(url), filepath + saveAsName, function(entry){
-               resolve(__transform([entry]));
-           }, reject);
+           ft.download(window.encodeURI(url), filepath + saveAsName,
+               function(entry){
+                   File.currentFileTransfer = null;
+                   resolve(__transform([entry]));
+               },
+               function(reason){
+                   File.currentFileTransfer = null;
+                   reject(reason);
+               },
+               true
+           );
         });
     };
 
@@ -185,7 +202,7 @@ stargateProtected = stargateProtected || {};
             .then(function(dirEntry){
                 return new Promise(function(resolve, reject){
                     dirEntry.getDirectory(subFolderName, {create:true}, function(entry){
-                        resolve(entry.toURL());
+                        resolve(__transform([entry]));
                     }, reject);
                 });
             });
@@ -216,7 +233,7 @@ stargateProtected = stargateProtected || {};
      *  @returns {Promise<boolean|void>}
      * */
     File.dirExists = function(url){
-        return new Promise(function(resolve, reject){
+        return new Promise(function(resolve){
             window.resolveLocalFileSystemURL(url, function(entry){
 
                 resolve(entry.isDirectory);
@@ -275,6 +292,7 @@ stargateProtected = stargateProtected || {};
                         reader.onabort = reject;
 
                         reader.onloadend = function(e) {
+                            console.log(e);
                             var textToParse = this.result;
                             resolve(textToParse);
                         };
@@ -318,7 +336,7 @@ stargateProtected = stargateProtected || {};
                 internalURL:entry.toInternalURL(),
                 isFile:entry.isFile,
                 isDirectory:entry.isDirectory
-            }
+            };
         });
     }
 
