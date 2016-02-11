@@ -1,6 +1,15 @@
-/* global Promise */
+/*
+* global Promise
+* global stargateProtected
+* */
+/**
+ * file namespace.
+ * @namespace {Object} stargateProtected.file
+ */
+//just for test
+stargateProtected = stargateProtected || {};
 
-(function(parent){
+(function(parent, name){
     var ERROR_MAP = {
         1:"NOT_FOUND_ERR",
         2:"SECURITY_ERR",
@@ -16,15 +25,33 @@
         12:"PATH_EXISTS_ERR"
     };
 
+    /**
+     * @namespace
+     * @alias stargatePublic.file
+     */
+    var File = {};
+
+    /**
+     * stargateProtected.file.resolveFS
+     *
+     * @param {String} url - the path to load see cordova.file.*
+     * @returns {Promise<Entry|FileError>}
+     * */
+    File.resolveFS = function(url){
+        return new Promise(function(resolve, reject){
+            window.resolveLocalFileSystemURL(url, resolve, reject);
+        });
+    };
+
 	/**
-    * appendToFile
+    * stargateProtected.file.appendToFile
     *
     * @param {String} filePath - the filepath file:// url like
     * @param {String} data - the string to write into the file
-    * @returns Promise<String|FileError> where string is a filepath
+    * @returns {Promise<String|FileError>} where string is a filepath
     */
-    function appendToFile(filePath, data){
-       return resolveFS(filePath)
+    File.appendToFile = function(filePath, data){
+       return File.resolveFS(filePath)
             .then(function(fileEntry){
 
                 return new Promise(function(resolve, reject){
@@ -39,28 +66,28 @@
                 });
 
             });
-    }
+    };
 
     /**
-    * readFileAsHTML
+    * stargateProtected.file.readFileAsHTML
     * @param {String} indexPath - the path to the file to read
-    * @returns Promise<DOM|FileError>
+    * @returns {Promise<DOM|FileError>}
     */
-    function readFileAsHTML(indexPath){
+    File.readFileAsHTML = function(indexPath){
 
-       return readFile(indexPath)
+       return File.readFile(indexPath)
         .then(function(documentAsString){
            return new window.DOMParser().parseFromString(documentAsString, "text/html");
         });
-    }
+    };
 
     /**
-     * readFileAsJSON
+     * stargateProtected.file.readFileAsJSON
      * @param {String} indexPath - the path to the file to read
-     * @returns Promise<Objec|FileError>
+     * @returns {Promise<Object|FileError>}
      */
-    function readFileAsJSON(indexPath){
-        return readFile(indexPath)
+    File.readFileAsJSON = function(indexPath){
+        return File.readFile(indexPath)
             .then(function(documentAsString){
                 try{
                     return Promise.resolve(window.JSON.parse(documentAsString));
@@ -68,16 +95,16 @@
                     return Promise.reject(e);
                 }
             });
-    }
+    };
 
      /**
-     *  removeFile
+     *  stargateProtected.file.removeFile
      *
      *  @param {String} filePath -
-     *  @returns Promise<String|FileError>
+     *  @returns {Promise<String|FileError>}
      * */
-    function removeFile(filePath){
-        return resolveFS(filePath)
+     File.removeFile = function(filePath){
+        return File.resolveFS(filePath)
             .then(function(fileEntry){
                 return new Promise(function(resolve,reject){
                     fileEntry.remove(function(result){
@@ -85,17 +112,16 @@
                     }, reject);
                 });
             });
-    }
+    };
 
     /**
-     *  removeDir
+     *  stargateProtected.file.removeDir
      *
      *  @param {String} dirpath - the directory entry to remove recursively
      *  @returns Promise<void|FileError>
      * */
-
-    function removeDir(dirpath){
-        return resolveFS(dirpath)
+    File.removeDir = function(dirpath){
+        return File.resolveFS(dirpath)
             .then(function(dirEntry){
                 return new Promise(function(resolve, reject){
                     dirEntry.removeRecursively(function(result){
@@ -103,10 +129,10 @@
                     }, reject);
                 });
             });
-    }
+    };
     
     /**
-     *  _promiseZip
+     *  stargateProtected.file._promiseZip
      *
      *  @private
      *  @param {String} zipPath - the file to unpack
@@ -114,43 +140,48 @@
      *  @param {Function} _onProgress - the callback called with the percentage of unzip progress
      *  @returns Promise<boolean>
      * */
-    function _promiseZip(zipPath, outFolder, _onProgress){
+    File._promiseZip = function(zipPath, outFolder, _onProgress){
+
+        console.log("PROMISEZIP:", arguments);
         return new Promise(function(resolve,reject){
             window.zip.unzip(zipPath, outFolder, function(result){
-                if(result == 0){
+                if(result === 0){
                     resolve(true);
                 }else{
                     reject(result);
                 }
             }, _onProgress);
         });
-    }
+    };
 
     /**
-     * download
+     * stargateProtected.file.download
      *
      * @param {String} url - the URL of the resource to download
      * @param {String} filepath - a directory entry type object where to save the file
      * @param {String} saveAsName - the name with the resource will be saved
-     * @param {Function} _onProgress - a progress callback function filled with the percentage from 0 to 90
+     * @param {Function} _onProgress - a progress callback function filled with the percentage from 0 to 100
+     * @returns {Promise}
      * */
-    function download(url, filepath, saveAsName, _onProgress){
+    File.download = function(url, filepath, saveAsName, _onProgress){
         var ft = new window.FileTransfer();
         ft.onprogress = _onProgress;
         return new Promise(function(resolve, reject){
-           ft.download(window.encodeURI(url), filepath + saveAsName, resolve, reject);
+           ft.download(window.encodeURI(url), filepath + saveAsName, function(entry){
+               resolve(__transform([entry]));
+           }, reject);
         });
-    }
+    };
 
     /**
-     * createDir
+     * stargateProtected.file.createDir
      *
      * @param {String} dirPath - a file:// like path
      * @param {String} subFolderName
-     * @returns Promise<String|FileError> - return the filepath created
+     * @returns {Promise<String|FileError>} - return the filepath created
      * */
-    function createDir(dirPath, subFolderName){
-        return resolveFS(dirPath)
+    File.createDir = function(dirPath, subFolderName){
+        return File.resolveFS(dirPath)
             .then(function(dirEntry){
                 return new Promise(function(resolve, reject){
                     dirEntry.getDirectory(subFolderName, {create:true}, function(entry){
@@ -158,33 +189,33 @@
                     }, reject);
                 });
             });
-    }
+    };
 
     /**
-    *  fileExists
+    *  stargateProtected.file.fileExists
     *
     *  @param {String} url - the toURL path to check
-    *  @returns Promise<boolean|void>
+    *  @returns {Promise<boolean|void>}
     * */
-    function fileExists(url){
-        return new Promise(function(resolve, reject){
+    File.fileExists = function(url){
+        return new Promise(function(resolve){
             window.resolveLocalFileSystemURL(url, function(entry){
 
                 resolve(entry.isFile);
 
             }, function(fileError){
-                resolve(!(fileError.code == 1));
+                resolve(fileError.code !== 1);
             });
         });
-    }
+    };
 
     /**
-     *  dirExists
+     *  stargateProtected.file.dirExists
      *
      *  @param {String} url - the toURL path to check
-     *  @returns Promise<Boolean|void>
+     *  @returns {Promise<boolean|void>}
      * */
-    function dirExists(url){
+    File.dirExists = function(url){
         return new Promise(function(resolve, reject){
             window.resolveLocalFileSystemURL(url, function(entry){
 
@@ -195,41 +226,29 @@
                 resolve(fileError.code != 1);
             });
         });
-    }
+    };
 
     /**
-     * resolveFS
-     *
-     * @param {String} url - the path to load see cordova.file.*
-     * @returns Promise<Entry|FileError>
-     * */
-    function resolveFS(url) {
-        return new Promise(function(resolve, reject){
-            window.resolveLocalFileSystemURL(url, resolve, reject);
-        });
-    }
-
-    /**
-     * requestFileSystem
+     * stargateProtected.file.requestFileSystem
      *
      * @param {int} TYPE - 0 == window.LocalFileSystem.TEMPORARY or 1 == window.LocalFileSystem.PERSISTENT
      * @param {int} size - The size in bytes for example 5*1024*1024 == 5MB
      * @returns {Promise}
      * */
-    function requestFileSystem(TYPE, size) {
+    File.requestFileSystem = function(TYPE, size) {
         return new Promise(function (resolve, reject) {
             window.requestFileSystem(TYPE, size, resolve, reject);
         });
-    }
+    };
 
     /**
-     * readDir
+     * stargateProtected.file.readDir
      *
      * @param {String} dirPath - a directory path to read
-     * @returns Promise<Array> - returns an array of Object files
+     * @returns {Promise<Array>} - returns an array of Object files
      * */
-    function readDir(dirPath){
-        return resolveFS(dirPath)
+    File.readDir = function(dirPath){
+        return File.resolveFS(dirPath)
             .then(function(dirEntry){
                 return new Promise(function(resolve, reject){
                     var reader = dirEntry.createReader();
@@ -238,16 +257,16 @@
                     }, reject);
                 });
             });
-    }
+    };
 
     /**
-    * readFile
+    * stargateProtected.file.readFile
     * @param {String} filePath - the file entry to readAsText
-    * @returns Promise<String|FileError>
+    * @returns {Promise<String|FileError>}
     */
-    function readFile(filePath) {
+    File.readFile = function(filePath) {
 
-        return resolveFS(filePath)
+        return File.resolveFS(filePath)
             .then(function(fileEntry){
                 return new Promise(function(resolve, reject){
                     fileEntry.file(function(file) {
@@ -266,17 +285,17 @@
                     });
                 });
             });
-    }
+    };
 
     /**
-     * createFile
+     * stargateProtected.file.createFile
      *
      * @param {String} directory - filepath file:// like string
      * @param {String} filename - the filename including the .txt
-     * @returns Promise.<FileEntry|FileError>
+     * @returns {Promise.<FileEntry|FileError>}
      * */
-    function createFile(directory, filename){
-        return resolveFS(directory)
+    File.createFile = function(directory, filename){
+        return File.resolveFS(directory)
             .then(function(dirEntry){
                 return new Promise(function(resolve, reject){
                     dirEntry.getFile(filename, {create:true}, function(entry){
@@ -284,7 +303,7 @@
                     }, reject);
                 });
             });
-    }
+    };
 
     /**
      * __transform utils function
@@ -303,21 +322,8 @@
         });
     }
 
-    /** definition **/
-    parent.File = {
-        createFile:createFile,
-    	appendToFile:appendToFile,
-    	readFile:readFile,
-        readFileAsHTML:readFileAsHTML,
-        readFileAsJSON:readFileAsJSON,
-    	removeFile:removeFile,
-    	readDir:readDir,
-    	createDir:createDir,
-    	removeDir:removeDir,
-    	fileExists:fileExists,
-        dirExists:dirExists,
-    	download:download,
-        ERROR_MAP:ERROR_MAP
-    }
+    parent[name] = File;
 
-})(stargatePublic);
+})(stargateProtected, "file");
+
+// stargatePublic.file = stargateProtected.file;

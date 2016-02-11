@@ -194,6 +194,9 @@ var onPluginReady = function () {
     // apply webapp fixes
     webappsFixes.init();
 
+    //Game Module Init
+    stargateProtected.game.initialize(hybrid_conf);
+
     // initialize finished
     isStargateOpen = true;
 

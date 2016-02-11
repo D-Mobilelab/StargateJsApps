@@ -1,8 +1,8 @@
 /**
  * Game namespace.
- * @namespace {Object} Game
+ * @namespace {Object} stargateProtected.game
  */
-(function(parent, fileModule){
+(function(parent, name, fileModule){
 	var baseDir,
         gamesDir,
         cacheDir,
@@ -10,102 +10,73 @@
         platform,
         publicInterface;
 
-
     /**
      * Init must be called after the 'deviceready' event
-     * @throws Require file module expception
-     * @returns Promise<Array<boolean>>
+     * @returns {Promise<Array<boolean>>}
      * */
-    function init(){
-        if(!fileModule) throw new Error("File module required");
+    function initialize(userinfo){
+        if(!fileModule) return Promise.reject("Missing stargateProtected.file module!");
+
         baseDir = window.cordova.file.applicationStorageDirectory;
         cacheDir = window.cordova.file.cacheDirectory;
-        tempDirectory = cordova.file.tempDirectory;
+        tempDirectory = window.cordova.file.tempDirectory;
 
         /**
         * Putting games under Documents r/w. ApplicationStorage is read only
         * on android ApplicationStorage is r/w
         */
-        if(isRunningOnIos()){
-        	baseDir += "Documents/";
-        }
+        if(isRunningOnIos()){baseDir += "Documents/";}
 
-        gamesDir = baseDir + "games/";
-        publicInterface.GAMES_DIR = gamesDir;
+        publicInterface.SDK_DIR = baseDir + "gfsdk/";
+        publicInterface.GAMES_DIR = baseDir + "games/";
         publicInterface.BASE_DIR = baseDir;
+        publicInterface.CACHE_DIR = cacheDir;
+        publicInterface.TEMP_DIR = tempDirectory;
 
-        //Create gfsdk directory
-        var sdkURL = "http://s.motime.com/js/wl/webstore_html5game/gfsdk/dist/gfsdk.min.js";
-        var gaForGamesURL = "";
-        // var gmenuURL = "http://www.giochissimo.it/gmenu/menu.html";
-        // var gmenuCSS = "http://www.giochissimo.it/gmenu/frame.css";
+        var SDK_URL = "http://s.motime.com/js/wl/webstore_html5game/gfsdk/dist/gfsdk.min.js";
 
-        var gamesDirTaskExists = fileModule.dirOrFileExists(gamesDir);
-        var gfsdkExists = fileModule.dirOrFileExists(baseDir + "gfsdk/gfsdk.min.js");
-        var gmenuDirExists = fileModule.dirOrFileExists(baseDir + "gmenu");
+        var gamesDirTaskExists = fileModule.dirExists(publicInterface.GAMES_DIR);
+        var SDKExists = fileModule.fileExists(publicInterface.SDK_DIR + "gfsdk.min.js");
 
-        //If not exists the games folder create it
-        gamesDirTaskExists
-            .then(function(exists){
-                if(!exists){
-                    return fileModule.createDir(baseDir, "games");
-                }
+        /**
+         * Create directories
+         * */
+        var dirGames = gamesDirTaskExists.then(function(exists){
+            if(!exists){
+                return fileModule.createDir(publicInterface.BASE_DIR, "games");
+            }else{
                 return exists;
-            });
+            }
+        });
 
-        //If not exists, create the directory and download the sdk
-        gfsdkExists
-            .then(function(exists){
-                if(!exists){
-                    return fileModule.createDir(baseDir, "gfsdk");
-                }
+        var getSDK = SDKExists.then(function(exists){
+            if(!exists){
+                return fileModule.download(SDK_URL, publicInterface.SDK_DIR, "gfsdk.min.js");
+            }else{
                 return exists;
-            })
-            .then(function(dirEntry){
+            }
+        });
 
-                if(dirEntry.isDirectory){
-                    return fileModule.download(sdkURL, dirEntry, "gfsdk.min.js");
-                }
-                return dirEntry; // if it's not a directory it's a boolean: return it
-            });
-
-        /*
-            gmenuDirExists
-            .then(function(exists){
-                if(!exists){return createDir(baseDir, "gmenu");}
-                console.log("gmenu already downloaded");
-                return exists;
-            })
-            .then(function(dirEntry){
-                if(dirEntry.isDirectory){
-                    return Promise.all([
-                        download(gmenuURL, dirEntry, "menu.html"),
-                        download(gmenuCSS, dirEntry, "frame.css")
-                    ]);
-                }
-            });
-        */
-
-        return Promise.all([gamesDirTaskExists, gfsdkExists]);
+        return Promise.all([dirGames,getSDK]);
     }
 
     /**
-     * downloadGame
+     * download
      *
-     * @param {string} url - The url the html5game's zip
+     * @param {object} gameObject - The gameObject with the url of the html5game's zip
      * @param {object} [callbacks={}] - an object with start-end-progress callbacks
      * @param [callbacks.onProgress=function(){}] - a progress function filled with the percentage
      * @param [callbacks.onStart=function(){}] - called on on start
      * @param [callbacks.onEnd=function(){}] - called when unzipped is done
-     * @returns Promise<Boolean> - true if all has gone good
+     * @returns {Promise<boolean>} - true if all has gone good
      * */
-    function downloadGame(url, callbacks){
+    function download(gameObject, callbacks){
         callbacks = callbacks ? callbacks : {};
         var _onProgress = callbacks.onProgress ? callbacks.onProgress : function(){};
         var _onStart = callbacks.onStart ? callbacks.onStart : function(){};
         var _onEnd = callbacks.onEnd ? callbacks.onEnd : function(){};
 
-        /*
+        /**
         * Decorate progress function with percentage and type operation
         */
         function wrapProgress(type){
@@ -115,29 +86,21 @@
             }
         }
 
+        var saveAsName = gameObject.gameID;
+        _onStart({type:"download"});
 
-        var len = url.split("/").length;
-        var saveAsName = url.split("/")[len - 1];
-        var fileEntryZip;
-        return resolveLocalFileSystemUrl(gamesDir)
-            .then(function(dirEntry){
-                _onStart({type:"download"});
-                return fileModule.download(url, dirEntry, saveAsName, wrapProgress("download"));
-            })
-            .then(function(fileEntry){
-
+        return fileModule.download(gameObject.url_dld, publicInterface.GAMES_DIR, saveAsName + ".zip", wrapProgress("download"))
+            .then(function(entriesTransformed){
                 //Unpack
                 _onStart({type:"unzip"});
-                fileEntryZip = fileEntry;
-                var zipPath = fileEntry.toURL();
-                return _promiseZip(zipPath, zipPath.split(".zip")[0] + "/", wrapProgress("unzip"));
+                return fileModule._promiseZip(entriesTransformed[0].path, publicInterface.GAMES_DIR + saveAsName, wrapProgress("unzip"));
             })
             .then(function(result){
                 _onEnd(result);
                 return result;
             })
             .then(function(){
-                return fileModule.removeFile(fileEntryZip);
+                return fileModule.removeFile(publicInterface.GAMES_DIR + saveAsName + ".zip");
             });
     }
 
@@ -207,15 +170,28 @@
     }
 
     publicInterface = {
-        GAMES_DIR:gamesDir,
-        BASE_DIR:baseDir,
-        downloadGame:downloadGame,
+        GAMES_DIR:"",
+        BASE_DIR:"",
+        download:download,
         playGame:playGame,
         removeGame:removeGame,
-        init:init
+        initialize:initialize
     };
 
     /** definition **/
-    parent.Game = publicInterface;
+    parent[name] = publicInterface;
 
-})(stargatePublic, stargatePublic.File);
+})(stargateProtected, "game",stargateProtected.file);
+
+/*
+* game.saveGamesMeta();
+* game.getGamesMeta(GAMEID);
+* game.download({url_dld:"", url}, callbacks);
+* game.play(GAMEID)
+* game.remove(GAMEID);
+* game.getList()
+* game.saveUserInfo(USERINFO);
+* game.getUserInfo();
+* game.buildGameOverTemplate({});
+* game.canPlay() check if user can play o replay the game
+*/
