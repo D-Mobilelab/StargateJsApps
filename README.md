@@ -141,7 +141,7 @@ Open external url with InApp Browser
 
 Set the callback to call when an analytic event need to be sent.
 
-Please call this before [Stargate.initialize](#stargateinitialize), so it can track events logged on initialize too, like MFP.
+Please call this before [Stargate.initialize](#stargateinitializeconfigurations-callback), so it can track events logged on initialize too, like MFP.
 
 
 ## Stargate.checkConnection(callbackSuccess, callbackError)

@@ -119,8 +119,6 @@ var MFP = (function(){
                 if (response.content.inappInfo){
                     var jsonStruct = JSON.parse(response.content.inappInfo);
 
-                    var session_id = 'UNKNOWN';
-
                     if (jsonStruct.extData) {
                     	if (jsonStruct.extData.ponyUrl) {
                     		ponyUrl = jsonStruct.extData.ponyUrl;
@@ -128,16 +126,17 @@ var MFP = (function(){
                     	if (jsonStruct.extData.return_url) {
                     		window.localStorage.setItem('appUrl', jsonStruct.extData.return_url);
                     	}
-                    	if (jsonStruct.extData.session_id) {
-                    		session_id = jsonStruct.extData.session_id;
+                    	if (jsonStruct.extData.session_mfp) {
+
+                    		analytics.track({
+		                    	page: 'hybrid_initialize',
+		                    	action: 'MFP_get',
+		                    	session_mfp: jsonStruct.extData.session_mfp
+		                    });
                     	}
                     }
 
-                    analytics.track({
-                    	page: 'hybrid_initialize',
-                    	action: 'MFP_get',
-                    	value: session_id
-                    });
+                    
                     
                     MobileFingerPrint.setSession(ponyUrl);                
                 }else{
