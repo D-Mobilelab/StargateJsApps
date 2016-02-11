@@ -7,14 +7,13 @@
         gamesDir,
         cacheDir,
         tempDirectory,
-        platform,
         publicInterface;
 
     /**
      * Init must be called after the 'deviceready' event
      * @returns {Promise<Array<boolean>>}
      * */
-    function initialize(userinfo){
+    function initialize(){
         if(!fileModule) return Promise.reject("Missing stargateProtected.file module!");
 
         baseDir = window.cordova.file.applicationStorageDirectory;
@@ -83,7 +82,7 @@
             return function(progressEvent){
                 var percentage = Math.round((progressEvent.loaded / progressEvent.total) * 100);
                 _onProgress({percentage:percentage,type:type});
-            }
+            };
         }
 
         var saveAsName = gameObject.gameID;
@@ -105,30 +104,29 @@
     }
 
     /**
-     * playGame
+     * play
      *
-     * @param {String} gameName - the game path in gamesDir where to look for. Note:the game is launched in the same webview
+     * @param {String} gameID - the game path in gamesDir where to look for. Note:the game is launched in the same webview
      * @returns Promise
      * */
-    function playGame(gameName){
+    function play(gameID){
 
         /*
         * TODO:
         * attach this to orientationchange in the game index.html
         * if(cr._sizeCanvas) window.cr_sizeCanvas(window.innerWidth, window.innerHeight)
         */
-        return fileModule.readDir(gamesDir + gameName)
+        return fileModule.readDir(gamesDir + gameID)
             .then(function(entries){
                 //Search for an index.html$
                 return entries.files.filter(function(entry){
                     var isIndex = new RegExp(/index\.html$/i);
-                    return isIndex.test(entry.fullPath)
+                    return isIndex.test(entry.fullPath);
                 });
             })
             .then(function(entry){
-                var address = entry[0].toURL();
+                var address = entry[0].toInternalURL();
 
-                console.log("Launching:", address, entry[0].toInternalURL());
                 if(isRunningOnIos()){
                     window.location.href = address;
                 }else{
@@ -137,7 +135,7 @@
             });
     }
 
-    function manipulateIndex(dom){
+    /*function manipulateIndex(dom){
         var scripts = dom.querySelectorAll("script");
         var scriptSDK;
         for(var i = 0; i < scripts.length;i++){
@@ -148,7 +146,7 @@
         }
         scriptSDK.src = "../../gfsdk/gfsdk.min.js";
         return dom;
-    }
+    }*/
 
     /*
     Somenthing like that
@@ -173,7 +171,7 @@
         GAMES_DIR:"",
         BASE_DIR:"",
         download:download,
-        playGame:playGame,
+        play:play,
         removeGame:removeGame,
         initialize:initialize
     };

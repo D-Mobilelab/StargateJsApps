@@ -31,7 +31,7 @@ module.exports = {
         '    var stargatePackageVersion = "'+pkg.version+'";\n' +
         '    var stargatePublic = {};\n' +
         '    var stargateProtected = {};' +
-		'    /* global cordova */\n\n\n',
+		'    /* global cordova, Promise, resolveLocalFileSystemUrl */\n\n\n',
 
 	closureEnd: '\n' +
  		'    // Just return a value to define the module export\n' +
