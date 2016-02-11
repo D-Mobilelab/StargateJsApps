@@ -7,7 +7,7 @@ module.exports = {
     ]
     .concat(buildConfig.bowerFileList)
     .concat(buildConfig.testHeader)
-    .concat('src/**/*.js'),
+    .concat('src/*.js'),
 
     frameworks: ['jasmine'],
     reporters: ['mocha','coverage','coveralls'],
