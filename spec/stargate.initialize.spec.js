@@ -46,7 +46,8 @@ var manifest_mock = {
             "gplusconnect": false,
             "androidMenuPlayme": false,
             "inappPurchase": true,
-            "deltadna" : false
+            "deltadna" : false,
+			"offline-game": false
         },
 
         "api": {
