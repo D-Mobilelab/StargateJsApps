@@ -30,7 +30,8 @@ module.exports = {
 		'    // Public interface\n' +
         '    var stargatePackageVersion = "'+pkg.version+'";\n' +
         '    var stargatePublic = {};\n' +
-		'    /* global cordova */\n\n\n',
+        '    var stargateProtected = {};' +
+		'    /* global cordova, Promise */\n\n\n',
 
 	closureEnd: '\n' +
  		'    // Just return a value to define the module export\n' +
@@ -38,19 +39,20 @@ module.exports = {
         '}));\n\n\n',
 
 
-	
+
 	version: pkg.version,
 
 	dist: 'dist/',
 	distBower: 'dist/bower/',
 	build: 'build/',
-	
+
 	bowerAllIncludes: 'includes.bower.js',
 	bowerFileList: [
 		'bower_components/urijs/src/URI.js',
 		'bower_components/urijs/src/URITemplate.js',
 		'bower_components/q/q.js',
 		'bower_components/aja/src/aja.js',
+		'bower_components/promise-polyfill/Promise.js',
 		'bower_components/cookies-js/dist/cookies.js'
 	],
 
