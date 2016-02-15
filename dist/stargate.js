@@ -5825,7 +5825,7 @@ return Q;
     // Public interface
     var stargatePackageVersion = "0.1.6";
     var stargatePublic = {};
-    var stargateProtected = {};    /* global cordova */
+    var stargateProtected = {};    /* global cordova, Promise */
 
 
 /* globals AdMob, MoPub */
@@ -7937,8 +7937,6 @@ var MFP = (function(){
                 if (response.content.inappInfo){
                     var jsonStruct = JSON.parse(response.content.inappInfo);
 
-                    var session_id = 'UNKNOWN';
-
                     if (jsonStruct.extData) {
                     	if (jsonStruct.extData.ponyUrl) {
                     		ponyUrl = jsonStruct.extData.ponyUrl;
@@ -7946,16 +7944,17 @@ var MFP = (function(){
                     	if (jsonStruct.extData.return_url) {
                     		window.localStorage.setItem('appUrl', jsonStruct.extData.return_url);
                     	}
-                    	if (jsonStruct.extData.session_id) {
-                    		session_id = jsonStruct.extData.session_id;
+                    	if (jsonStruct.extData.session_mfp) {
+
+                    		analytics.track({
+		                    	page: 'hybrid_initialize',
+		                    	action: 'MFP_get',
+		                    	session_mfp: jsonStruct.extData.session_mfp
+		                    });
                     	}
                     }
 
-                    analytics.track({
-                    	page: 'hybrid_initialize',
-                    	action: 'MFP_get',
-                    	value: session_id
-                    });
+                    
                     
                     MobileFingerPrint.setSession(ponyUrl);                
                 }else{
@@ -8320,7 +8319,7 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
     if (isStargateInitialized) {
         err("Stargate.initialize() already called, executing callback.");
         
-        callback(isStargateRunningInsideHybrid);
+        if(callback){callback(isStargateRunningInsideHybrid);}
 
         var alreadyRunningDefer = Q.defer();
         setTimeout(function(){
@@ -8463,6 +8462,7 @@ stargatePublic.getVersion = function() {
 
 stargatePublic.ad = new AdStargate();
 
+stargatePublic.game = stargateProtected.game;
 
 
 
@@ -8597,7 +8597,17 @@ var webappsFixes = (function() {
 stargateProtected = stargateProtected || {};
 
 (function(parent, name){
-    var ERROR_MAP = {
+    /**
+     * @namespace
+     * @alias stargateProtected.file
+     */
+    var File = {};
+
+    /**
+     * ERROR_MAP
+     * stargateProtected.file.ERROR_MAP
+     * */
+    File.ERROR_MAP = {
         1:"NOT_FOUND_ERR",
         2:"SECURITY_ERR",
         3:"ABORT_ERR",
@@ -8611,12 +8621,6 @@ stargateProtected = stargateProtected || {};
         11:"TYPE_MISMATCH_ERR",
         12:"PATH_EXISTS_ERR"
     };
-
-    /**
-     * @namespace
-     * @alias stargatePublic.file
-     */
-    var File = {};
 
     /**
      * stargateProtected.file.resolveFS
@@ -8635,19 +8639,26 @@ stargateProtected = stargateProtected || {};
     *
     * @param {String} filePath - the filepath file:// url like
     * @param {String} data - the string to write into the file
+    * @param {string} [overwrite=false] - overwrite
     * @returns {Promise<String|FileError>} where string is a filepath
     */
-    File.appendToFile = function(filePath, data){
+    File.appendToFile = function(filePath, data, overwrite){
+       //Default
+       overwrite = arguments[2] === undefined ? false : arguments[2];
        return File.resolveFS(filePath)
             .then(function(fileEntry){
 
                 return new Promise(function(resolve, reject){
                     fileEntry.createWriter(function(fileWriter) {
-                        fileWriter.seek(fileWriter.length);
+                        if(!overwrite){
+                            fileWriter.seek(fileWriter.length);
+                        }
                         var blob = new Blob([data], {type:'text/plain'});
                         fileWriter.write(blob);
+                        fileWriter.onerror = reject;
+                        fileWriter.onabort = reject;
                         fileWriter.onwriteend = function(){
-                            resolve(fileEntry);
+                            resolve(__transform([fileEntry]));
                         };
                     }, reject);
                 });
@@ -8751,12 +8762,23 @@ stargateProtected = stargateProtected || {};
      * @returns {Promise}
      * */
     File.download = function(url, filepath, saveAsName, _onProgress){
+        // one download at time for now
         var ft = new window.FileTransfer();
         ft.onprogress = _onProgress;
+        File.currentFileTransfer = ft;
+
         return new Promise(function(resolve, reject){
-           ft.download(window.encodeURI(url), filepath + saveAsName, function(entry){
-               resolve(__transform([entry]));
-           }, reject);
+           ft.download(window.encodeURI(url), filepath + saveAsName,
+               function(entry){
+                   resolve(__transform([entry]));
+                   File.currentFileTransfer = null;
+               },
+               function(reason){
+                   reject(reason);
+                   File.currentFileTransfer = null;
+               },
+               true
+           );
         });
     };
 
@@ -8772,7 +8794,7 @@ stargateProtected = stargateProtected || {};
             .then(function(dirEntry){
                 return new Promise(function(resolve, reject){
                     dirEntry.getDirectory(subFolderName, {create:true}, function(entry){
-                        resolve(entry.toURL());
+                        resolve(__transform([entry]));
                     }, reject);
                 });
             });
@@ -8803,7 +8825,7 @@ stargateProtected = stargateProtected || {};
      *  @returns {Promise<boolean|void>}
      * */
     File.dirExists = function(url){
-        return new Promise(function(resolve, reject){
+        return new Promise(function(resolve){
             window.resolveLocalFileSystemURL(url, function(entry){
 
                 resolve(entry.isDirectory);
@@ -8861,7 +8883,7 @@ stargateProtected = stargateProtected || {};
                         reader.onerror = reject;
                         reader.onabort = reject;
 
-                        reader.onloadend = function(e) {
+                        reader.onloadend = function() {
                             var textToParse = this.result;
                             resolve(textToParse);
                         };
@@ -8892,6 +8914,10 @@ stargateProtected = stargateProtected || {};
             });
     };
 
+    File.write = function(filepath, content){
+        return File.appendToFile(filepath, content, true);
+    };
+
     /**
      * __transform utils function
      * @private
@@ -8905,7 +8931,7 @@ stargateProtected = stargateProtected || {};
                 internalURL:entry.toInternalURL(),
                 isFile:entry.isFile,
                 isDirectory:entry.isDirectory
-            }
+            };
         });
     }
 
@@ -8920,22 +8946,22 @@ stargateProtected = stargateProtected || {};
  */
 (function(parent, name, fileModule){
 	var baseDir,
-        gamesDir,
         cacheDir,
         tempDirectory,
-        platform,
-        publicInterface;
+        publicInterface,
+        cordovajsDir;
 
     /**
      * Init must be called after the 'deviceready' event
      * @returns {Promise<Array<boolean>>}
      * */
-    function initialize(userinfo){
+    function initialize(){
         if(!fileModule) return Promise.reject("Missing stargateProtected.file module!");
 
         baseDir = window.cordova.file.applicationStorageDirectory;
         cacheDir = window.cordova.file.cacheDirectory;
         tempDirectory = window.cordova.file.tempDirectory;
+        cordovajsDir = cordova.file.applicationDirectory + "www/cordova.js";
 
         /**
         * Putting games under Documents r/w. ApplicationStorage is read only
@@ -8948,6 +8974,7 @@ stargateProtected = stargateProtected || {};
         publicInterface.BASE_DIR = baseDir;
         publicInterface.CACHE_DIR = cacheDir;
         publicInterface.TEMP_DIR = tempDirectory;
+        publicInterface.CORDOVAJS_DIR = cordovajsDir;
 
         var SDK_URL = "http://s.motime.com/js/wl/webstore_html5game/gfsdk/dist/gfsdk.min.js";
 
@@ -8972,21 +8999,24 @@ stargateProtected = stargateProtected || {};
                 return exists;
             }
         });
-
         return Promise.all([dirGames,getSDK]);
     }
 
     /**
-     * download
+     * download the game and unzip it
      *
      * @param {object} gameObject - The gameObject with the url of the html5game's zip
      * @param {object} [callbacks={}] - an object with start-end-progress callbacks
      * @param [callbacks.onProgress=function(){}] - a progress function filled with the percentage
      * @param [callbacks.onStart=function(){}] - called on on start
      * @param [callbacks.onEnd=function(){}] - called when unzipped is done
-     * @returns {Promise<boolean>} - true if all has gone good
+     * @returns {Promise<boolean|FileError>} - true if all has gone good
      * */
     function download(gameObject, callbacks){
+        if(isDownloading()){ return Promise.reject(["Downloading...try later", fileModule.currentFileTransfer]);}
+        var alreadyExists = fileModule.dirExists(publicInterface.GAMES_DIR + gameObject.id);
+
+        // Defaults
         callbacks = callbacks ? callbacks : {};
         var _onProgress = callbacks.onProgress ? callbacks.onProgress : function(){};
         var _onStart = callbacks.onStart ? callbacks.onStart : function(){};
@@ -8999,52 +9029,87 @@ stargateProtected = stargateProtected || {};
             return function(progressEvent){
                 var percentage = Math.round((progressEvent.loaded / progressEvent.total) * 100);
                 _onProgress({percentage:percentage,type:type});
-            }
+            };
         }
 
-        var saveAsName = gameObject.gameID;
-        _onStart({type:"download"});
+        var saveAsName = gameObject.id;
+            function start(){
+                _onStart({type:"download"});
+                return fileModule.download(gameObject.url_api_dld, publicInterface.TEMP_DIR, saveAsName + ".zip", wrapProgress("download"))
+                    .then(function(entriesTransformed){
 
-        return fileModule.download(gameObject.url_dld, publicInterface.GAMES_DIR, saveAsName + ".zip", wrapProgress("download"))
-            .then(function(entriesTransformed){
-                //Unpack
-                _onStart({type:"unzip"});
-                return fileModule._promiseZip(entriesTransformed[0].path, publicInterface.GAMES_DIR + saveAsName, wrapProgress("unzip"));
-            })
-            .then(function(result){
-                _onEnd(result);
-                return result;
-            })
-            .then(function(){
-                return fileModule.removeFile(publicInterface.GAMES_DIR + saveAsName + ".zip");
+                        //Unpack
+                        _onStart({type:"unzip"});
+                        return fileModule._promiseZip(entriesTransformed[0].path, publicInterface.GAMES_DIR + saveAsName, wrapProgress("unzip"));
+                    })
+                    .then(function(result){
+
+                        //Notify on end unzip
+                        _onEnd({type:"unzip"});
+                        return result;
+                    })
+                    .then(function(){
+
+                        //Remove the zip in the temp directory
+                        return fileModule.removeFile(publicInterface.TEMP_DIR + saveAsName + ".zip");
+
+                    })
+                    .then(function(result){
+
+                        //Notify onEnd download
+                        _onEnd({type:"download"});
+                        return result;
+                    })
+                    .then(function(){
+                        return fileModule.createFile(publicInterface.GAMES_DIR + saveAsName, "meta.json")
+                            .then(function(entries){
+                                var info = entries[0];
+                                return fileModule.write(info.path, JSON.stringify(gameObject));
+                            });
+                    })
+                    .then(function(metaWritten){
+                        if(metaWritten[0].path){
+                            return true;
+                        }
+                        return false;
+                    });
+            }
+
+            return alreadyExists.then(function(exists){
+                if(!exists){
+                    return start();
+                }else{
+                    return Promise.reject({12:"AlreadyExists"});
+                }
             });
+
     }
 
     /**
-     * playGame
+     * play
      *
-     * @param {String} gameName - the game path in gamesDir where to look for. Note:the game is launched in the same webview
+     * @param {String} gameID - the game path in gamesDir where to look for. Note:the game is launched in the same webview
      * @returns Promise
      * */
-    function playGame(gameName){
-
+    function play(gameID){
+        console.log("play", gameID);
         /*
         * TODO:
         * attach this to orientationchange in the game index.html
         * if(cr._sizeCanvas) window.cr_sizeCanvas(window.innerWidth, window.innerHeight)
         */
-        return fileModule.readDir(gamesDir + gameName)
+        var gamedir = publicInterface.GAMES_DIR + gameID;
+        return fileModule.readDir(gamedir)
             .then(function(entries){
-                //Search for an index.html$
-                return entries.files.filter(function(entry){
+                //Search for an /index.html$/
+                return entries.filter(function(entry){
                     var isIndex = new RegExp(/index\.html$/i);
-                    return isIndex.test(entry.fullPath)
+                    return isIndex.test(entry.path);
                 });
             })
             .then(function(entry){
-                var address = entry[0].toURL();
-
-                console.log("Launching:", address, entry[0].toInternalURL());
+                console.log(entry);
+                var address = entry[0].internalURL;
                 if(isRunningOnIos()){
                     window.location.href = address;
                 }else{
@@ -9053,7 +9118,18 @@ stargateProtected = stargateProtected || {};
             });
     }
 
-    function manipulateIndex(dom){
+    function _getIndexHtmlById(gameID){
+        return fileModule.readDir(publicInterface.GAMES_DIR + gameID)
+            .then(function(entries){
+                return entries.filter(function(entry){
+                    var isIndex = new RegExp(/index\.html$/i);
+                    return isIndex.test(entry.path);
+                });
+            });
+    }
+
+    function _injectLocalSDK(dom){
+
         var scripts = dom.querySelectorAll("script");
         var scriptSDK;
         for(var i = 0; i < scripts.length;i++){
@@ -9062,43 +9138,103 @@ stargateProtected = stargateProtected || {};
                 break;
             }
         }
-        scriptSDK.src = "../../gfsdk/gfsdk.min.js";
+        scriptSDK.src = "cdvfile://localhost/persistent/gfsdk/gfsdk.min.js";
         return dom;
     }
 
-    /*
-    Somenthing like that
-    to rewrite the index relativized
-    readHTMLFile(indexpath)
-        .then(manipulateIndex)
-        .then(domToString)
-        .then(function(docAsString){
-            resolveLocalFileSystemUrl(gamesDir + gameName + indexName)
-            .then(function(fileEntry){
-                writeToFile(fileEntry, docAsString);
+    function readIndexGameById(gameID){
+        var indexPath;
+        return _getIndexHtmlById(gameID)
+            .then(function(entry){
+                indexPath = entry[0].path;
+                return fileModule.readFileAsHTML(entry[0].path);
+            })
+            .then(function(dom){
+                return _injectLocalSDK(dom);
+            })
+            .then(function(dom){
+                var result = new XMLSerializer().serializeToString(dom);
+                var toReplace = "<html xmlns=\"http:\/\/www.w3.org\/1999\/xhtml\">";
+                result = result.replace(toReplace, "<html>");
+                return result;
+            })
+            .then(function(htmlAsString){
+              return fileModule.write(indexPath, htmlAsString);
             });
-        });
-    */
+    }
 
-    function removeGame(gameID){
-        return resolveLocalFileSystemUrl(gamesDir + gameID)
-                .then(fileModule.removeDir);
+    /**
+     * remove
+     * @param {string} gameID - the game id to delete on filesystem
+     * @returns {Promise<boolean|FileError>}
+     * */
+    function remove(gameID){
+        return fileModule.removeDir(publicInterface.GAMES_DIR + gameID);
+    }
+
+    /**
+     * isDownloading
+     * @returns {boolean}
+     * */
+    function isDownloading(){
+        return (fileModule.currentFileTransfer !== null || fileModule.currentFileTransfer !== undefined);
+    }
+
+    /**
+     * abortDownload
+     * @returns {boolean}
+     * */
+    function abortDownload(){
+        if(isDownloading()){
+            fileModule.currentFileTransfer.abort();
+            fileModule.currentFileTransfer = null;
+            return true;
+        }
+        console.warn("There's not a download operation to abort");
+        return false;
+    }
+
+    /**
+     * list
+     *
+     * @returns {Array<Object>} - Returns an array of metainfo game object
+     * */
+    function list(){
+        return fileModule.readDir(publicInterface.GAMES_DIR)
+            .then(function(entries){
+                return entries.map(function(entry){
+                    //get the ids careful: there's / at the end
+                    return entry.path;
+                });
+            }).then(function(ids){
+
+                var jsons = ids.map(function(id){
+                    return fileModule.readFileAsJSON(id + "meta.json");
+                });
+
+                return Promise.all(jsons).then(function(results){
+                    console.log(results);
+                });
+            });
     }
 
     publicInterface = {
         GAMES_DIR:"",
         BASE_DIR:"",
         download:download,
-        playGame:playGame,
-        removeGame:removeGame,
+        play:play,
+        remove:remove,
+        list:list,
+        readIndexGameById:readIndexGameById,
+        abortDownload:abortDownload,
+        isDownloading:isDownloading,
         initialize:initialize
     };
 
     /** definition **/
     parent[name] = publicInterface;
 
-})(stargateProtected, "game",stargateProtected.file);
-
+})(stargateProtected, "game", stargateProtected.file);
 /*
 * game.saveGamesMeta();
 * game.getGamesMeta(GAMEID);

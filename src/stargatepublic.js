@@ -48,7 +48,7 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
     if (isStargateInitialized) {
         err("Stargate.initialize() already called, executing callback.");
         
-        callback(isStargateRunningInsideHybrid);
+        if(callback){callback(isStargateRunningInsideHybrid);}
 
         var alreadyRunningDefer = Q.defer();
         setTimeout(function(){
@@ -191,3 +191,4 @@ stargatePublic.getVersion = function() {
 
 stargatePublic.ad = new AdStargate();
 
+stargatePublic.game = stargateProtected.game;
