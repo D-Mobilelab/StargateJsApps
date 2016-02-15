@@ -95,7 +95,6 @@ describe("Stargate.File modules tests", function() {
 
   it("file module should exists", function() {
     expect(file).toBeDefined();
-
   });
 
   it("file.createDir should return the Test path created", function(done) {
@@ -119,7 +118,7 @@ describe("Stargate.File modules tests", function() {
   it("file.removeDir should remove the Test path", function(done) {
 
       expect(file.removeDir).toBeDefined();
-          file.removeDir(TEST_FOLDER_DIR).then(function(result){
+      file.removeDir(TEST_FOLDER_DIR).then(function(result){
               expect(result).toBe(true);
               done();
           }).catch(function(err){
@@ -131,16 +130,11 @@ describe("Stargate.File modules tests", function() {
 
   it("file.readDir should return an empty array", function(done) {
 
-      file.createDir(STORAGE_DIR, TEST_FOLDER_NAME)
-          .then(file.readDir)
-          .then(function(entries){
-            expect(entries.length).toEqual(0);
-            done();
-          }).catch(function(err){
-            console.log(err);
-            done();
+      file.readDir(STORAGE_DIR + TEST_FOLDER_NAME)
+          .then(function(files){
+              expect(files.length).toEqual(0);
+              done();
           });
-
   });
 
   it("file.readDir should return a non-empty array of Entries", function(done) {
@@ -153,7 +147,6 @@ describe("Stargate.File modules tests", function() {
             done();
           }).catch(function(err){
             console.log(err);
-            done();
           });
   });
 
@@ -237,16 +230,20 @@ describe("Stargate.File modules tests", function() {
                 //append to File some new text
                 return file.appendToFile(filepath, secondContent);
             })
-            .then(function(fileEntry){
-                fileEntry.file(function(file) {
-                    var reader = new FileReader();
-                    reader.readAsText(file);
-                    reader.onloadend = function(e) {
-                        var result = this.result;
-                        expect(result).toBeDefined();
-                        expect(result).toEqual(firstContent + secondContent);
-                        done();
-                    };
+            .then(function(myFileObject){
+                console.log(myFileObject);
+
+                window.resolveLocalFileSystemURL(myFileObject[0].path, function(fileEntry){
+                    fileEntry.file(function(file) {
+                        var reader = new FileReader();
+                        reader.readAsText(file);
+                        reader.onloadend = function(e) {
+                            var result = this.result;
+                            expect(result).toBeDefined();
+                            expect(result).toEqual(firstContent + secondContent);
+                            done();
+                        };
+                    });
                 });
 
             })

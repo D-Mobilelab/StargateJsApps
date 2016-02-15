@@ -52,21 +52,26 @@ stargateProtected = stargateProtected || {};
     *
     * @param {String} filePath - the filepath file:// url like
     * @param {String} data - the string to write into the file
+    * @param {string} [overwrite=false] - overwrite
     * @returns {Promise<String|FileError>} where string is a filepath
     */
-    File.appendToFile = function(filePath, data){
+    File.appendToFile = function(filePath, data, overwrite){
+       //Default
+       var overwrite = arguments[2] === undefined ? false : arguments[2];
        return File.resolveFS(filePath)
             .then(function(fileEntry){
 
                 return new Promise(function(resolve, reject){
                     fileEntry.createWriter(function(fileWriter) {
-                        fileWriter.seek(fileWriter.length);
+                        if(!overwrite){
+                            fileWriter.seek(fileWriter.length);
+                        }
                         var blob = new Blob([data], {type:'text/plain'});
                         fileWriter.write(blob);
                         fileWriter.onerror = reject;
                         fileWriter.onabort = reject;
                         fileWriter.onwriteend = function(){
-                            resolve(fileEntry);
+                            resolve(__transform([fileEntry]));
                         };
                     }, reject);
                 });
@@ -178,12 +183,12 @@ stargateProtected = stargateProtected || {};
         return new Promise(function(resolve, reject){
            ft.download(window.encodeURI(url), filepath + saveAsName,
                function(entry){
-                   File.currentFileTransfer = null;
                    resolve(__transform([entry]));
+                   File.currentFileTransfer = null;
                },
                function(reason){
-                   File.currentFileTransfer = null;
                    reject(reason);
+                   File.currentFileTransfer = null;
                },
                true
            );
@@ -292,7 +297,6 @@ stargateProtected = stargateProtected || {};
                         reader.onabort = reject;
 
                         reader.onloadend = function(e) {
-                            console.log(e);
                             var textToParse = this.result;
                             resolve(textToParse);
                         };
@@ -321,6 +325,10 @@ stargateProtected = stargateProtected || {};
                     }, reject);
                 });
             });
+    };
+
+    File.write = function(filepath, content){
+        return File.appendToFile(filepath, content, true);
     };
 
     /**
