@@ -57,7 +57,7 @@ stargateProtected = stargateProtected || {};
     */
     File.appendToFile = function(filePath, data, overwrite){
        //Default
-       var overwrite = arguments[2] === undefined ? false : arguments[2];
+       overwrite = arguments[2] === undefined ? false : arguments[2];
        return File.resolveFS(filePath)
             .then(function(fileEntry){
 
@@ -296,7 +296,7 @@ stargateProtected = stargateProtected || {};
                         reader.onerror = reject;
                         reader.onabort = reject;
 
-                        reader.onloadend = function(e) {
+                        reader.onloadend = function() {
                             var textToParse = this.result;
                             resolve(textToParse);
                         };

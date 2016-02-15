@@ -6,7 +6,8 @@
 	var baseDir,
         cacheDir,
         tempDirectory,
-        publicInterface;
+        publicInterface,
+        cordovajsDir;
 
     /**
      * Init must be called after the 'deviceready' event
@@ -67,7 +68,7 @@
      * @param [callbacks.onProgress=function(){}] - a progress function filled with the percentage
      * @param [callbacks.onStart=function(){}] - called on on start
      * @param [callbacks.onEnd=function(){}] - called when unzipped is done
-     * @returns {Promise<boolean|>} - true if all has gone good
+     * @returns {Promise<boolean|FileError>} - true if all has gone good
      * */
     function download(gameObject, callbacks){
         if(isDownloading()){ return Promise.reject(["Downloading...try later", fileModule.currentFileTransfer]);}
@@ -117,7 +118,7 @@
                         _onEnd({type:"download"});
                         return result;
                     })
-                    .then(function(result){
+                    .then(function(){
                         return fileModule.createFile(publicInterface.GAMES_DIR + saveAsName, "meta.json")
                             .then(function(entries){
                                 var info = entries[0];
@@ -234,7 +235,7 @@
      * @returns {boolean}
      * */
     function isDownloading(){
-        return (fileModule.currentFileTransfer !== null || fileModule.currenFileTransfer !== undefined);
+        return (fileModule.currentFileTransfer !== null || fileModule.currentFileTransfer !== undefined);
     }
 
     /**

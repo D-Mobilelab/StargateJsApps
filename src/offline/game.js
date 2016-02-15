@@ -6,7 +6,8 @@
 	var baseDir,
         cacheDir,
         tempDirectory,
-        publicInterface;
+        publicInterface,
+        cordovajsDir;
 
     /**
      * Init must be called after the 'deviceready' event
@@ -117,7 +118,7 @@
                         _onEnd({type:"download"});
                         return result;
                     })
-                    .then(function(result){
+                    .then(function(){
                         return fileModule.createFile(publicInterface.GAMES_DIR + saveAsName, "meta.json")
                             .then(function(entries){
                                 var info = entries[0];
