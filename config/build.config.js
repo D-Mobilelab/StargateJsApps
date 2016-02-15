@@ -30,7 +30,6 @@ module.exports = {
 		'    // Public interface\n' +
         '    var stargatePackageVersion = "'+pkg.version+'";\n' +
         '    var stargatePublic = {};\n' +
-        '    var stargateProtected = {};' +
 		'    /* global cordova, Promise */\n\n\n',
 
 	closureEnd: '\n' +

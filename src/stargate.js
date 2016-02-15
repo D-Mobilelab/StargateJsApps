@@ -194,8 +194,9 @@ var onPluginReady = function () {
     webappsFixes.init();
 
     //Game Module Init
-    if (hasFeature('offline-game')) {
-        stargateProtected.game.initialize(hybrid_conf);
+    if (hasFeature('offline-game') && __game) {
+        stargatePublic.game = __game;
+        stargatePublic.game.initialize({});
     }
 
     // initialize finished

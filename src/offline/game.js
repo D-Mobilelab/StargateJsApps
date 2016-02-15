@@ -2,6 +2,7 @@
  * Game namespace.
  * @namespace {Object} stargateProtected.game
  */
+var fileModule = require("./file");
 var game = (function(fileModule){
 	var baseDir,
         cacheDir,
@@ -25,7 +26,7 @@ var game = (function(fileModule){
         * Putting games under Documents r/w. ApplicationStorage is read only
         * on android ApplicationStorage is r/w
         */
-        if(isRunningOnIos()){baseDir += "Documents/";}
+        if(window.device.platform.toLowerCase() == "ios"){baseDir += "Documents/";}
 
         publicInterface.SDK_DIR = baseDir + "gfsdk/";
         publicInterface.GAMES_DIR = baseDir + "games/";
@@ -292,16 +293,5 @@ var game = (function(fileModule){
     /** definition **/
     //parent[name] = publicInterface;
 
-})(stargateProtected.file);
-/*
-* game.saveGamesMeta();
-* game.getGamesMeta(GAMEID);
-* game.download({url_dld:"", url}, callbacks);
-* game.play(GAMEID)
-* game.remove(GAMEID);
-* game.getList()
-* game.saveUserInfo(USERINFO);
-* game.getUserInfo();
-* game.buildGameOverTemplate({});
-* game.canPlay() check if user can play o replay the game
-*/
+})(file);
+module.exports = game;

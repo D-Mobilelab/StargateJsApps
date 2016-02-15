@@ -5825,7 +5825,7 @@ return Q;
     // Public interface
     var stargatePackageVersion = "0.1.6";
     var stargatePublic = {};
-    var stargateProtected = {};    /* global cordova, Promise */
+    /* global cordova, Promise */
 
 
 /* globals AdMob, MoPub */
@@ -8170,8 +8170,9 @@ var onPluginReady = function () {
     webappsFixes.init();
 
     //Game Module Init
-    if (hasFeature('offline-game')) {
-        stargateProtected.game.initialize(hybrid_conf);
+    if (hasFeature('offline-game') && __game) {
+        stargatePublic.game = __game;
+        stargatePublic.game.initialize({});
     }
 
     // initialize finished
@@ -8329,7 +8330,6 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
         return alreadyRunningDefer.promise;
     }
 
-
     isStargateInitialized = true;
 
 
@@ -8461,8 +8461,6 @@ stargatePublic.getVersion = function() {
  */
 
 stargatePublic.ad = new AdStargate();
-
-stargatePublic.game = game;
 
 
 // FIXME
@@ -8936,11 +8934,12 @@ var file = (function(){
 
 })();
 
-// stargatePublic.file = stargateProtected.file;
+module.exports = file;
 /**
  * Game namespace.
  * @namespace {Object} stargateProtected.game
  */
+var fileModule = require("./file");
 var game = (function(fileModule){
 	var baseDir,
         cacheDir,
@@ -8964,7 +8963,7 @@ var game = (function(fileModule){
         * Putting games under Documents r/w. ApplicationStorage is read only
         * on android ApplicationStorage is r/w
         */
-        if(isRunningOnIos()){baseDir += "Documents/";}
+        if(window.device.platform.toLowerCase() == "ios"){baseDir += "Documents/";}
 
         publicInterface.SDK_DIR = baseDir + "gfsdk/";
         publicInterface.GAMES_DIR = baseDir + "games/";
@@ -9231,19 +9230,8 @@ var game = (function(fileModule){
     /** definition **/
     //parent[name] = publicInterface;
 
-})(stargateProtected.file);
-/*
-* game.saveGamesMeta();
-* game.getGamesMeta(GAMEID);
-* game.download({url_dld:"", url}, callbacks);
-* game.play(GAMEID)
-* game.remove(GAMEID);
-* game.getList()
-* game.saveUserInfo(USERINFO);
-* game.getUserInfo();
-* game.buildGameOverTemplate({});
-* game.canPlay() check if user can play o replay the game
-*/
+})(file);
+module.exports = game;
 
     // Just return a value to define the module export
     return stargatePublic;

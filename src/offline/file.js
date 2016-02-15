@@ -350,4 +350,4 @@ var file = (function(){
 
 })();
 
-// stargatePublic.file = stargateProtected.file;
+module.exports = file;

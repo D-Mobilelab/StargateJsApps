@@ -58,7 +58,6 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
         return alreadyRunningDefer.promise;
     }
 
-
     isStargateInitialized = true;
 
 
@@ -190,5 +189,3 @@ stargatePublic.getVersion = function() {
  */
 
 stargatePublic.ad = new AdStargate();
-
-stargatePublic.game = game;
