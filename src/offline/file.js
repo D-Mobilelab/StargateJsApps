@@ -6,10 +6,8 @@
  * file namespace.
  * @namespace {Object} stargateProtected.file
  */
-//just for test
-stargateProtected = stargateProtected || {};
 
-(function(parent, name){
+var file = (function(){
     /**
      * @namespace
      * @alias stargateProtected.file
@@ -348,8 +346,8 @@ stargateProtected = stargateProtected || {};
         });
     }
 
-    parent[name] = File;
+    return File;
 
-})(stargateProtected, "file");
+})();
 
 // stargatePublic.file = stargateProtected.file;

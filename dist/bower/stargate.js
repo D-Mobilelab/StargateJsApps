@@ -2657,8 +2657,7 @@ stargatePublic.getVersion = function() {
 
 stargatePublic.ad = new AdStargate();
 
-stargatePublic.game = stargateProtected.game;
-
+stargatePublic.game = game;
 
 
 // FIXME
@@ -2788,10 +2787,8 @@ var webappsFixes = (function() {
  * file namespace.
  * @namespace {Object} stargateProtected.file
  */
-//just for test
-stargateProtected = stargateProtected || {};
 
-(function(parent, name){
+var file = (function(){
     /**
      * @namespace
      * @alias stargateProtected.file
@@ -3130,16 +3127,16 @@ stargateProtected = stargateProtected || {};
         });
     }
 
-    parent[name] = File;
+    return File;
 
-})(stargateProtected, "file");
+})();
 
 // stargatePublic.file = stargateProtected.file;
 /**
  * Game namespace.
  * @namespace {Object} stargateProtected.game
  */
-(function(parent, name, fileModule){
+var game = (function(fileModule){
 	var baseDir,
         cacheDir,
         tempDirectory,
@@ -3413,7 +3410,7 @@ stargateProtected = stargateProtected || {};
             });
     }
 
-    publicInterface = {
+    return {
         GAMES_DIR:"",
         BASE_DIR:"",
         download:download,
@@ -3427,9 +3424,9 @@ stargateProtected = stargateProtected || {};
     };
 
     /** definition **/
-    parent[name] = publicInterface;
+    //parent[name] = publicInterface;
 
-})(stargateProtected, "game", stargateProtected.file);
+})(stargateProtected.file);
 /*
 * game.saveGamesMeta();
 * game.getGamesMeta(GAMEID);

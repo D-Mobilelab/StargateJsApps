@@ -191,4 +191,4 @@ stargatePublic.getVersion = function() {
 
 stargatePublic.ad = new AdStargate();
 
-stargatePublic.game = stargateProtected.game;
+stargatePublic.game = game;

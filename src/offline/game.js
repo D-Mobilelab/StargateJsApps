@@ -2,7 +2,7 @@
  * Game namespace.
  * @namespace {Object} stargateProtected.game
  */
-(function(parent, name, fileModule){
+var game = (function(fileModule){
 	var baseDir,
         cacheDir,
         tempDirectory,
@@ -276,7 +276,7 @@
             });
     }
 
-    publicInterface = {
+    return {
         GAMES_DIR:"",
         BASE_DIR:"",
         download:download,
@@ -290,9 +290,9 @@
     };
 
     /** definition **/
-    parent[name] = publicInterface;
+    //parent[name] = publicInterface;
 
-})(stargateProtected, "game", stargateProtected.file);
+})(stargateProtected.file);
 /*
 * game.saveGamesMeta();
 * game.getGamesMeta(GAMEID);
