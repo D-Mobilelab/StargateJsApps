@@ -8,7 +8,7 @@
  * @namespace {Object} stargateProtected.file
  */
 
-var file = (function(){
+(function(){
     /**
      * @namespace
      * @alias stargateProtected.file
@@ -347,18 +347,16 @@ var file = (function(){
         });
     }
 
-    return File;
+    module.exports = File;
 
 })();
-
-module.exports = file;
 },{}],2:[function(require,module,exports){
 /**
  * Game namespace.
- * @namespace {Object} game
+ * @namespace {Object} stargateProtected.game
  */
-var fileModule = require("./file");
-var game = (function(fileModule){
+var file = require("./file");
+(function(fileModule){
 	var baseDir,
         cacheDir,
         tempDirectory,
@@ -381,7 +379,7 @@ var game = (function(fileModule){
         * Putting games under Documents r/w. ApplicationStorage is read only
         * on android ApplicationStorage is r/w
         */
-        if(isRunningOnIos()){baseDir += "Documents/";}
+        if(window.device.platform.toLowerCase() == "ios"){baseDir += "Documents/";}
 
         publicInterface.SDK_DIR = baseDir + "gfsdk/";
         publicInterface.GAMES_DIR = baseDir + "games/";
@@ -632,7 +630,9 @@ var game = (function(fileModule){
             });
     }
 
-    return {
+    /** definition **/
+    //parent[name] = publicInterface;
+    module.exports = {
         GAMES_DIR:"",
         BASE_DIR:"",
         download:download,
@@ -644,12 +644,7 @@ var game = (function(fileModule){
         isDownloading:isDownloading,
         initialize:initialize
     };
-
-    /** definition **/
-    //parent[name] = publicInterface;
-
 })(file);
-module.exports = game;
 
 },{"./file":1}]},{},[2])(2)
 });
