@@ -638,5 +638,5 @@ var game = (function(fileModule){
         initialize:initialize
     };
 })(file);
-
+stargatePublic = {};
 stargatePublic.game = game;
