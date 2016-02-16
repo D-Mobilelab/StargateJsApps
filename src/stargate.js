@@ -259,6 +259,8 @@ var isHybridEnvironment = function() {
     if (window.localStorage.getItem('hybrid')) {
         return true;
     }
+
+    return false;
 };
 
 var stargateBusy = false;
