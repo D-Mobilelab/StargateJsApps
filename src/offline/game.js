@@ -2,7 +2,7 @@
  * Game namespace.
  * @namespace {Object} stargateProtected.game
  */
-var __game = (function(fileModule){
+var game = (function(fileModule){
 	var baseDir,
         cacheDir,
         tempDirectory,

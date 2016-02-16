@@ -350,7 +350,7 @@ var file = (function(){
  * Game namespace.
  * @namespace {Object} stargateProtected.game
  */
-var __game = (function(fileModule){
+var game = (function(fileModule){
     var baseDir,
         cacheDir,
         tempDirectory,
@@ -638,3 +638,5 @@ var __game = (function(fileModule){
         initialize:initialize
     };
 })(file);
+
+stargatePublic.game = game;
