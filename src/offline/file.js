@@ -7,7 +7,7 @@
  * @namespace {Object} stargateProtected.file
  */
 
-(function(){
+var file = (function(){
     /**
      * @namespace
      * @alias stargateProtected.file
@@ -346,6 +346,6 @@
         });
     }
 
-    module.exports = File;
+    return File;
 
 })();

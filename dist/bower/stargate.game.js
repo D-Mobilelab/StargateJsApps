@@ -1,14 +1,9 @@
-(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.__game = f()}})(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
-/*
-* global Promise
-* global stargateProtected
-* */
 /**
  * file namespace.
  * @namespace {Object} stargateProtected.file
  */
 
-(function(){
+var file = (function(){
     /**
      * @namespace
      * @alias stargateProtected.file
@@ -46,18 +41,18 @@
         });
     };
 
-	/**
-    * stargateProtected.file.appendToFile
-    *
-    * @param {String} filePath - the filepath file:// url like
-    * @param {String} data - the string to write into the file
-    * @param {string} [overwrite=false] - overwrite
-    * @returns {Promise<String|FileError>} where string is a filepath
-    */
+    /**
+     * stargateProtected.file.appendToFile
+     *
+     * @param {String} filePath - the filepath file:// url like
+     * @param {String} data - the string to write into the file
+     * @param {string} [overwrite=false] - overwrite
+     * @returns {Promise<String|FileError>} where string is a filepath
+     */
     File.appendToFile = function(filePath, data, overwrite){
-       //Default
-       overwrite = arguments[2] === undefined ? false : arguments[2];
-       return File.resolveFS(filePath)
+        //Default
+        overwrite = arguments[2] === undefined ? false : arguments[2];
+        return File.resolveFS(filePath)
             .then(function(fileEntry){
 
                 return new Promise(function(resolve, reject){
@@ -79,16 +74,16 @@
     };
 
     /**
-    * stargateProtected.file.readFileAsHTML
-    * @param {String} indexPath - the path to the file to read
-    * @returns {Promise<DOM|FileError>}
-    */
+     * stargateProtected.file.readFileAsHTML
+     * @param {String} indexPath - the path to the file to read
+     * @returns {Promise<DOM|FileError>}
+     */
     File.readFileAsHTML = function(indexPath){
 
-       return File.readFile(indexPath)
-        .then(function(documentAsString){
-           return new window.DOMParser().parseFromString(documentAsString, "text/html");
-        });
+        return File.readFile(indexPath)
+            .then(function(documentAsString){
+                return new window.DOMParser().parseFromString(documentAsString, "text/html");
+            });
     };
 
     /**
@@ -107,13 +102,13 @@
             });
     };
 
-     /**
+    /**
      *  stargateProtected.file.removeFile
      *
      *  @param {String} filePath -
      *  @returns {Promise<String|FileError>}
      * */
-     File.removeFile = function(filePath){
+    File.removeFile = function(filePath){
         return File.resolveFS(filePath)
             .then(function(fileEntry){
                 return new Promise(function(resolve,reject){
@@ -140,7 +135,7 @@
                 });
             });
     };
-    
+
     /**
      *  stargateProtected.file._promiseZip
      *
@@ -180,17 +175,17 @@
         File.currentFileTransfer = ft;
 
         return new Promise(function(resolve, reject){
-           ft.download(window.encodeURI(url), filepath + saveAsName,
-               function(entry){
-                   resolve(__transform([entry]));
-                   File.currentFileTransfer = null;
-               },
-               function(reason){
-                   reject(reason);
-                   File.currentFileTransfer = null;
-               },
-               true
-           );
+            ft.download(window.encodeURI(url), filepath + saveAsName,
+                function(entry){
+                    resolve(__transform([entry]));
+                    File.currentFileTransfer = null;
+                },
+                function(reason){
+                    reject(reason);
+                    File.currentFileTransfer = null;
+                },
+                true
+            );
         });
     };
 
@@ -213,11 +208,11 @@
     };
 
     /**
-    *  stargateProtected.file.fileExists
-    *
-    *  @param {String} url - the toURL path to check
-    *  @returns {Promise<boolean|void>}
-    * */
+     *  stargateProtected.file.fileExists
+     *
+     *  @param {String} url - the toURL path to check
+     *  @returns {Promise<boolean|void>}
+     * */
     File.fileExists = function(url){
         return new Promise(function(resolve){
             window.resolveLocalFileSystemURL(url, function(entry){
@@ -281,10 +276,10 @@
     };
 
     /**
-    * stargateProtected.file.readFile
-    * @param {String} filePath - the file entry to readAsText
-    * @returns {Promise<String|FileError>}
-    */
+     * stargateProtected.file.readFile
+     * @param {String} filePath - the file entry to readAsText
+     * @returns {Promise<String|FileError>}
+     */
     File.readFile = function(filePath) {
 
         return File.resolveFS(filePath)
@@ -347,17 +342,16 @@
         });
     }
 
-    module.exports = File;
+    return File;
 
 })();
-},{}],2:[function(require,module,exports){
+
 /**
  * Game namespace.
  * @namespace {Object} stargateProtected.game
  */
-var file = require("./file");
-(function(fileModule){
-	var baseDir,
+var __game = (function(fileModule){
+    var baseDir,
         cacheDir,
         tempDirectory,
         publicInterface,
@@ -376,9 +370,9 @@ var file = require("./file");
         cordovajsDir = cordova.file.applicationDirectory + "www/cordova.js";
 
         /**
-        * Putting games under Documents r/w. ApplicationStorage is read only
-        * on android ApplicationStorage is r/w
-        */
+         * Putting games under Documents r/w. ApplicationStorage is read only
+         * on android ApplicationStorage is r/w
+         */
         if(window.device.platform.toLowerCase() == "ios"){baseDir += "Documents/";}
 
         publicInterface.SDK_DIR = baseDir + "gfsdk/";
@@ -435,8 +429,8 @@ var file = require("./file");
         var _onEnd = callbacks.onEnd ? callbacks.onEnd : function(){};
 
         /**
-        * Decorate progress function with percentage and type operation
-        */
+         * Decorate progress function with percentage and type operation
+         */
         function wrapProgress(type){
             return function(progressEvent){
                 var percentage = Math.round((progressEvent.loaded / progressEvent.total) * 100);
@@ -445,55 +439,55 @@ var file = require("./file");
         }
 
         var saveAsName = gameObject.id;
-            function start(){
-                _onStart({type:"download"});
-                return fileModule.download(gameObject.url_api_dld, publicInterface.TEMP_DIR, saveAsName + ".zip", wrapProgress("download"))
-                    .then(function(entriesTransformed){
+        function start(){
+            _onStart({type:"download"});
+            return fileModule.download(gameObject.url_api_dld, publicInterface.TEMP_DIR, saveAsName + ".zip", wrapProgress("download"))
+                .then(function(entriesTransformed){
 
-                        //Unpack
-                        _onStart({type:"unzip"});
-                        return fileModule._promiseZip(entriesTransformed[0].path, publicInterface.GAMES_DIR + saveAsName, wrapProgress("unzip"));
-                    })
-                    .then(function(result){
+                    //Unpack
+                    _onStart({type:"unzip"});
+                    return fileModule._promiseZip(entriesTransformed[0].path, publicInterface.GAMES_DIR + saveAsName, wrapProgress("unzip"));
+                })
+                .then(function(result){
 
-                        //Notify on end unzip
-                        _onEnd({type:"unzip"});
-                        return result;
-                    })
-                    .then(function(){
+                    //Notify on end unzip
+                    _onEnd({type:"unzip"});
+                    return result;
+                })
+                .then(function(){
 
-                        //Remove the zip in the temp directory
-                        return fileModule.removeFile(publicInterface.TEMP_DIR + saveAsName + ".zip");
+                    //Remove the zip in the temp directory
+                    return fileModule.removeFile(publicInterface.TEMP_DIR + saveAsName + ".zip");
 
-                    })
-                    .then(function(result){
+                })
+                .then(function(result){
 
-                        //Notify onEnd download
-                        _onEnd({type:"download"});
-                        return result;
-                    })
-                    .then(function(){
-                        return fileModule.createFile(publicInterface.GAMES_DIR + saveAsName, "meta.json")
-                            .then(function(entries){
-                                var info = entries[0];
-                                return fileModule.write(info.path, JSON.stringify(gameObject));
-                            });
-                    })
-                    .then(function(metaWritten){
-                        if(metaWritten[0].path){
-                            return true;
-                        }
-                        return false;
-                    });
+                    //Notify onEnd download
+                    _onEnd({type:"download"});
+                    return result;
+                })
+                .then(function(){
+                    return fileModule.createFile(publicInterface.GAMES_DIR + saveAsName, "meta.json")
+                        .then(function(entries){
+                            var info = entries[0];
+                            return fileModule.write(info.path, JSON.stringify(gameObject));
+                        });
+                })
+                .then(function(metaWritten){
+                    if(metaWritten[0].path){
+                        return true;
+                    }
+                    return false;
+                });
+        }
+
+        return alreadyExists.then(function(exists){
+            if(!exists){
+                return start();
+            }else{
+                return Promise.reject({12:"AlreadyExists"});
             }
-
-            return alreadyExists.then(function(exists){
-                if(!exists){
-                    return start();
-                }else{
-                    return Promise.reject({12:"AlreadyExists"});
-                }
-            });
+        });
 
     }
 
@@ -506,10 +500,10 @@ var file = require("./file");
     function play(gameID){
         console.log("play", gameID);
         /*
-        * TODO:
-        * attach this to orientationchange in the game index.html
-        * if(cr._sizeCanvas) window.cr_sizeCanvas(window.innerWidth, window.innerHeight)
-        */
+         * TODO:
+         * attach this to orientationchange in the game index.html
+         * if(cr._sizeCanvas) window.cr_sizeCanvas(window.innerWidth, window.innerHeight)
+         */
         var gamedir = publicInterface.GAMES_DIR + gameID;
         return fileModule.readDir(gamedir)
             .then(function(entries){
@@ -571,7 +565,7 @@ var file = require("./file");
                 return result;
             })
             .then(function(htmlAsString){
-              return fileModule.write(indexPath, htmlAsString);
+                return fileModule.write(indexPath, htmlAsString);
             });
     }
 
@@ -631,8 +625,7 @@ var file = require("./file");
     }
 
     /** definition **/
-    //parent[name] = publicInterface;
-    module.exports = {
+    return {
         GAMES_DIR:"",
         BASE_DIR:"",
         download:download,
@@ -645,6 +638,3 @@ var file = require("./file");
         initialize:initialize
     };
 })(file);
-
-},{"./file":1}]},{},[2])(2)
-});

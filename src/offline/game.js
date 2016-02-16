@@ -2,8 +2,7 @@
  * Game namespace.
  * @namespace {Object} stargateProtected.game
  */
-var file = require("./file");
-(function(fileModule){
+var __game = (function(fileModule){
 	var baseDir,
         cacheDir,
         tempDirectory,
@@ -278,8 +277,7 @@ var file = require("./file");
     }
 
     /** definition **/
-    //parent[name] = publicInterface;
-    module.exports = {
+    return {
         GAMES_DIR:"",
         BASE_DIR:"",
         download:download,
