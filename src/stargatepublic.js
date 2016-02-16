@@ -182,6 +182,30 @@ stargatePublic.getVersion = function() {
     return stargatePackageVersion;
 };
 
+/**
+ * This is a decorator:
+ * before calling a module's function I check that stargate is initialized for each module
+ *
+ * @param {Object} context - context is the "this" of the method. usually the parent
+ * @param {Function} fn - fn is the function to decorate with isStargateInitialized
+ * @returns {Function} the function actually called
+ * */
+/*function decorateWithInitialized(context, fn){
+    return function(){
+        if(isStargateInitialized){
+            return fn.apply(context, arguments);
+        }
+        console.warn("[Stargate.js] - WARN! not initialize");
+    };
+}
+
+// decorate the game modules: do it for all modules?
+for(var fn in _modules.game){
+    if(typeof _modules.game[fn] === "function"){
+        _modules.game[fn] = decorateWithInitialized(_modules.game, _modules.game[fn]);
+    }
+}*/
+
 /**  
  *
  *  stargatePublic.inApp* -> iap.js

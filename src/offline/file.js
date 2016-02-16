@@ -1,13 +1,9 @@
-/*
-* global Promise
-* global stargateProtected
-* */
 /**
  * file namespace.
  * @namespace {Object} stargateProtected.file
+ * @see cordova.file
  */
-
-var file = (function(){
+(function(_modules){
     /**
      * @namespace
      * @alias stargateProtected.file
@@ -45,18 +41,18 @@ var file = (function(){
         });
     };
 
-	/**
-    * stargateProtected.file.appendToFile
-    *
-    * @param {String} filePath - the filepath file:// url like
-    * @param {String} data - the string to write into the file
-    * @param {string} [overwrite=false] - overwrite
-    * @returns {Promise<String|FileError>} where string is a filepath
-    */
+    /**
+     * stargateProtected.file.appendToFile
+     *
+     * @param {String} filePath - the filepath file:// url like
+     * @param {String} data - the string to write into the file
+     * @param {string} [overwrite=false] - overwrite
+     * @returns {Promise<String|FileError>} where string is a filepath
+     */
     File.appendToFile = function(filePath, data, overwrite){
-       //Default
-       overwrite = arguments[2] === undefined ? false : arguments[2];
-       return File.resolveFS(filePath)
+        //Default
+        overwrite = arguments[2] === undefined ? false : arguments[2];
+        return File.resolveFS(filePath)
             .then(function(fileEntry){
 
                 return new Promise(function(resolve, reject){
@@ -78,16 +74,16 @@ var file = (function(){
     };
 
     /**
-    * stargateProtected.file.readFileAsHTML
-    * @param {String} indexPath - the path to the file to read
-    * @returns {Promise<DOM|FileError>}
-    */
+     * stargateProtected.file.readFileAsHTML
+     * @param {String} indexPath - the path to the file to read
+     * @returns {Promise<DOM|FileError>}
+     */
     File.readFileAsHTML = function(indexPath){
 
-       return File.readFile(indexPath)
-        .then(function(documentAsString){
-           return new window.DOMParser().parseFromString(documentAsString, "text/html");
-        });
+        return File.readFile(indexPath)
+            .then(function(documentAsString){
+                return new window.DOMParser().parseFromString(documentAsString, "text/html");
+            });
     };
 
     /**
@@ -106,13 +102,13 @@ var file = (function(){
             });
     };
 
-     /**
+    /**
      *  stargateProtected.file.removeFile
      *
      *  @param {String} filePath -
      *  @returns {Promise<String|FileError>}
      * */
-     File.removeFile = function(filePath){
+    File.removeFile = function(filePath){
         return File.resolveFS(filePath)
             .then(function(fileEntry){
                 return new Promise(function(resolve,reject){
@@ -139,7 +135,7 @@ var file = (function(){
                 });
             });
     };
-    
+
     /**
      *  stargateProtected.file._promiseZip
      *
@@ -179,17 +175,17 @@ var file = (function(){
         File.currentFileTransfer = ft;
 
         return new Promise(function(resolve, reject){
-           ft.download(window.encodeURI(url), filepath + saveAsName,
-               function(entry){
-                   resolve(__transform([entry]));
-                   File.currentFileTransfer = null;
-               },
-               function(reason){
-                   reject(reason);
-                   File.currentFileTransfer = null;
-               },
-               true
-           );
+            ft.download(window.encodeURI(url), filepath + saveAsName,
+                function(entry){
+                    resolve(__transform([entry]));
+                    File.currentFileTransfer = null;
+                },
+                function(reason){
+                    reject(reason);
+                    File.currentFileTransfer = null;
+                },
+                true
+            );
         });
     };
 
@@ -212,11 +208,11 @@ var file = (function(){
     };
 
     /**
-    *  stargateProtected.file.fileExists
-    *
-    *  @param {String} url - the toURL path to check
-    *  @returns {Promise<boolean|void>}
-    * */
+     *  stargateProtected.file.fileExists
+     *
+     *  @param {String} url - the toURL path to check
+     *  @returns {Promise<boolean|void>}
+     * */
     File.fileExists = function(url){
         return new Promise(function(resolve){
             window.resolveLocalFileSystemURL(url, function(entry){
@@ -280,10 +276,10 @@ var file = (function(){
     };
 
     /**
-    * stargateProtected.file.readFile
-    * @param {String} filePath - the file entry to readAsText
-    * @returns {Promise<String|FileError>}
-    */
+     * stargateProtected.file.readFile
+     * @param {String} filePath - the file entry to readAsText
+     * @returns {Promise<String|FileError>}
+     */
     File.readFile = function(filePath) {
 
         return File.resolveFS(filePath)
@@ -345,7 +341,7 @@ var file = (function(){
             };
         });
     }
-
+    _modules.file = File;
     return File;
 
-})();
+})(_modules);

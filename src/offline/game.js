@@ -2,8 +2,8 @@
  * Game namespace.
  * @namespace {Object} stargateProtected.game
  */
-var game = (function(fileModule){
-	var baseDir,
+(function(fileModule, _modules){
+    var baseDir,
         cacheDir,
         tempDirectory,
         publicInterface,
@@ -22,9 +22,9 @@ var game = (function(fileModule){
         cordovajsDir = cordova.file.applicationDirectory + "www/cordova.js";
 
         /**
-        * Putting games under Documents r/w. ApplicationStorage is read only
-        * on android ApplicationStorage is r/w
-        */
+         * Putting games under Documents r/w. ApplicationStorage is read only
+         * on android ApplicationStorage is r/w
+         */
         if(window.device.platform.toLowerCase() == "ios"){baseDir += "Documents/";}
 
         publicInterface.SDK_DIR = baseDir + "gfsdk/";
@@ -81,8 +81,8 @@ var game = (function(fileModule){
         var _onEnd = callbacks.onEnd ? callbacks.onEnd : function(){};
 
         /**
-        * Decorate progress function with percentage and type operation
-        */
+         * Decorate progress function with percentage and type operation
+         */
         function wrapProgress(type){
             return function(progressEvent){
                 var percentage = Math.round((progressEvent.loaded / progressEvent.total) * 100);
@@ -91,55 +91,55 @@ var game = (function(fileModule){
         }
 
         var saveAsName = gameObject.id;
-            function start(){
-                _onStart({type:"download"});
-                return fileModule.download(gameObject.url_api_dld, publicInterface.TEMP_DIR, saveAsName + ".zip", wrapProgress("download"))
-                    .then(function(entriesTransformed){
+        function start(){
+            _onStart({type:"download"});
+            return fileModule.download(gameObject.url_api_dld, publicInterface.TEMP_DIR, saveAsName + ".zip", wrapProgress("download"))
+                .then(function(entriesTransformed){
 
-                        //Unpack
-                        _onStart({type:"unzip"});
-                        return fileModule._promiseZip(entriesTransformed[0].path, publicInterface.GAMES_DIR + saveAsName, wrapProgress("unzip"));
-                    })
-                    .then(function(result){
+                    //Unpack
+                    _onStart({type:"unzip"});
+                    return fileModule._promiseZip(entriesTransformed[0].path, publicInterface.GAMES_DIR + saveAsName, wrapProgress("unzip"));
+                })
+                .then(function(result){
 
-                        //Notify on end unzip
-                        _onEnd({type:"unzip"});
-                        return result;
-                    })
-                    .then(function(){
+                    //Notify on end unzip
+                    _onEnd({type:"unzip"});
+                    return result;
+                })
+                .then(function(){
 
-                        //Remove the zip in the temp directory
-                        return fileModule.removeFile(publicInterface.TEMP_DIR + saveAsName + ".zip");
+                    //Remove the zip in the temp directory
+                    return fileModule.removeFile(publicInterface.TEMP_DIR + saveAsName + ".zip");
 
-                    })
-                    .then(function(result){
+                })
+                .then(function(result){
 
-                        //Notify onEnd download
-                        _onEnd({type:"download"});
-                        return result;
-                    })
-                    .then(function(){
-                        return fileModule.createFile(publicInterface.GAMES_DIR + saveAsName, "meta.json")
-                            .then(function(entries){
-                                var info = entries[0];
-                                return fileModule.write(info.path, JSON.stringify(gameObject));
-                            });
-                    })
-                    .then(function(metaWritten){
-                        if(metaWritten[0].path){
-                            return true;
-                        }
-                        return false;
-                    });
+                    //Notify onEnd download
+                    _onEnd({type:"download"});
+                    return result;
+                })
+                .then(function(){
+                    return fileModule.createFile(publicInterface.GAMES_DIR + saveAsName, "meta.json")
+                        .then(function(entries){
+                            var info = entries[0];
+                            return fileModule.write(info.path, JSON.stringify(gameObject));
+                        });
+                })
+                .then(function(metaWritten){
+                    if(metaWritten[0].path){
+                        return true;
+                    }
+                    return false;
+                });
+        }
+
+        return alreadyExists.then(function(exists){
+            if(!exists){
+                return start();
+            }else{
+                return Promise.reject({12:"AlreadyExists"});
             }
-
-            return alreadyExists.then(function(exists){
-                if(!exists){
-                    return start();
-                }else{
-                    return Promise.reject({12:"AlreadyExists"});
-                }
-            });
+        });
 
     }
 
@@ -152,10 +152,10 @@ var game = (function(fileModule){
     function play(gameID){
         console.log("play", gameID);
         /*
-        * TODO:
-        * attach this to orientationchange in the game index.html
-        * if(cr._sizeCanvas) window.cr_sizeCanvas(window.innerWidth, window.innerHeight)
-        */
+         * TODO:
+         * attach this to orientationchange in the game index.html
+         * if(cr._sizeCanvas) window.cr_sizeCanvas(window.innerWidth, window.innerHeight)
+         */
         var gamedir = publicInterface.GAMES_DIR + gameID;
         return fileModule.readDir(gamedir)
             .then(function(entries){
@@ -217,7 +217,7 @@ var game = (function(fileModule){
                 return result;
             })
             .then(function(htmlAsString){
-              return fileModule.write(indexPath, htmlAsString);
+                return fileModule.write(indexPath, htmlAsString);
             });
     }
 
@@ -277,7 +277,7 @@ var game = (function(fileModule){
     }
 
     /** definition **/
-    return {
+    _modules.game = {
         GAMES_DIR:"",
         BASE_DIR:"",
         download:download,
@@ -289,4 +289,4 @@ var game = (function(fileModule){
         isDownloading:isDownloading,
         initialize:initialize
     };
-})(file);
+})(_modules.file, _modules);
