@@ -19,7 +19,8 @@ var gulp = require('gulp'),
     argv = require('minimist')(process.argv.slice(2)),
     karma = require('karma'),
     buildConfig = require('./config/build.config'),
-  	karmaConf = require('./config/karma.conf.js');
+  	karmaConf = require('./config/karma.conf.js'),
+    depsOrder = require('gulp-deps-order');
 
 
 gulp.task('bower:install', function() {
@@ -37,6 +38,7 @@ gulp.task('build:bower', ['bower:install'], function() {
 
 gulp.task('build:src:nonotify', ['build:bower'], function() {
 	return gulp.src('src/**/*.js')
+        .pipe(depsOrder())
 		.pipe(concat(buildConfig.distFile))
 		.pipe(header(buildConfig.closureStart))
 		.pipe(footer(buildConfig.closureEnd))
@@ -133,24 +135,24 @@ gulp.task('lint:jshint', function() {
 });
 
 gulp.task('watchSpec', function(){
-    watch("spec/offline/*.js", batch(function (events, done) {
+    watch("spec/modules/*.js", batch(function (events, done) {
         gulp.start("copySpec", done);
     }));
 });
 
 gulp.task('copySpec', function(){
-    return gulp.src("spec/offline/**/*.js")
+    return gulp.src("spec/modules/**/*.js")
         .pipe(gulp.dest("./hello/www/jasmine/spec"));
 });
 
 gulp.task('watchSrc', function(){
-    watch("src/offline/**/*.js", batch(function (events, done) {
+    watch("src/modules/**/*.js", batch(function (events, done) {
         gulp.start("copySrc", done);
     }));
 });
 
 gulp.task("copySrc", function(){
-    return gulp.src("src/offline/**/*.js")
+    return gulp.src("src/modules/**/*.js")
         .pipe(gulp.dest("./hello/www/jasmine/src/"));
 });
 
