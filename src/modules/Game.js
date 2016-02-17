@@ -239,7 +239,7 @@
      * @returns {boolean}
      * */
     function isDownloading(){
-        return (fileModule.currentFileTransfer !== null || fileModule.currentFileTransfer !== undefined);
+        return (fileModule.currentFileTransfer !== null || fileModule.currentFileTransfer === undefined);
     }
 
     /**
