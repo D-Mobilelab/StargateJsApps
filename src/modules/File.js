@@ -1,18 +1,15 @@
-/**global Promise, cordova, _modules **/
 /**
  * File module
  * @module src/modules/File
  * @type {Object}
  * @see cordova.file
- * @requires Logger.js
+ * @requires ./Logger.js
  */
-(function(_modules){
-    /**
-     * @namespace
-     * @alias stargateProtected.file
-     */
-    var File = {};
+(function(_modules, Logger){
 
+    var File = {};
+    var LOG;
+    File.LOG = LOG = new Logger("ALL", "[File - module]");
     /**
      * ERROR_MAP
      * stargateProtected.file.ERROR_MAP
@@ -150,7 +147,7 @@
      * */
     File._promiseZip = function(zipPath, outFolder, _onProgress){
 
-        console.log("PROMISEZIP:", arguments);
+        LOG.d("PROMISEZIP:", arguments);
         return new Promise(function(resolve,reject){
             window.zip.unzip(zipPath, outFolder, function(result){
                 if(result === 0){
@@ -347,4 +344,4 @@
     _modules.file = File;
     return File;
 
-})(_modules);
+})(_modules, _modules.Logger);

@@ -3,21 +3,22 @@
  * Game module
  * @module src/modules/Game
  * @type {Object}
- * @requires File.js, Logger.js
+ * @requires ./Logger.js, ./File.js,
  */
-(function(fileModule, _modules){
+(function(fileModule, Logger, _modules){
     var baseDir,
         cacheDir,
         tempDirectory,
         publicInterface = {},
         cordovajsDir;
 
+    var LOG = new Logger("ALL", "[Game - module]");
     /**
      * Init must be called after the 'deviceready' event
      * @returns {Promise<Array<boolean>>}
      * */
     function initialize(){
-        console.log("[Game] - Initialized called", arguments);
+        LOG.d("[Game] - Initialized called", arguments);
         if(!fileModule){return Promise.reject("Missing file module!");}
 
         baseDir = window.cordova.file.applicationStorageDirectory;
@@ -154,7 +155,7 @@
      * @returns Promise
      * */
     function play(gameID){
-        console.log("play", gameID);
+        LOG.d("[Game] - play", gameID);
         /*
          * TODO:
          * attach this to orientationchange in the game index.html
@@ -170,7 +171,6 @@
                 });
             })
             .then(function(entry){
-                console.log(entry);
                 var address = entry[0].internalURL;
                 if(window.device.platform.toLowerCase() == "ios"){
                     window.location.href = address;
@@ -252,7 +252,7 @@
             fileModule.currentFileTransfer = null;
             return true;
         }
-        console.warn("There's not a download operation to abort");
+        LOG.w("There's not a download operation to abort");
         return false;
     }
 
@@ -282,6 +282,7 @@
 
     /** definition **/
     _modules.game = {
+        LOG:LOG,
         download:download,
         play:play,
         remove:remove,
@@ -291,4 +292,4 @@
         isDownloading:isDownloading,
         initialize:initialize
     };
-})(_modules.file, _modules);
+})(_modules.file, _modules.Logger, _modules);

@@ -30,11 +30,14 @@ module.exports = {
 		'    // Public interface\n' +
         '    var stargatePackageVersion = "'+pkg.version+'";\n' +
         '    var stargatePublic = {};\n' +
-		'    var _modules = {}; // jshint ignore:line '+
-		'    /* global cordova, Promise, _modules */\n\n\n',
+        '    \n' +
+        '    var _modules = {};'+
+        '    \n' +
+		'    /* globals cordova, Promise, _modules */\n\n\n',
 
 	closureEnd: '\n' +
         '    stargatePublic.game = _modules.game;\n' +
+        '    '+
  		'    // Just return a value to define the module export\n' +
     	'    return stargatePublic;\n' +
         '}));\n\n\n',

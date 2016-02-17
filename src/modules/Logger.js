@@ -3,20 +3,12 @@
  * Logger module
  * @module src/modules/Logger
  * @type {Object}
- * @example var myLogger = new Logger("ALL", "TAG"); myLogger.i("Somenthing", 1); // output will be "TAG" "Somenthing" 1
+ * @example var myLogger = new Logger("ALL", "TAG");
+ * myLogger.i("Somenthing", 1); // output will be "TAG" "Somenthing" 1
+ * myLogger.setLevel("off") // other values OFF|DEBUG|INFO|WARN|ERROR|ALL
  */
 (function(_modules){
-    Logger.levels = {
-        ALL:5,
-        ERROR:4,
-        WARN:3,
-        INFO:2,
-        DEBUG:1,
-        OFF:0
-    };
 
-    //OFF < DEBUG < INFO < WARN < ERROR < ALL
-    // 0  < 1  < 2 < 3 < 4 < 5
     /**
      * @constructor
      * @alias module:src/modules/Logger
@@ -27,6 +19,17 @@
         this.level = Logger.levels[label.toUpperCase()];
         this.tag = tag;
     }
+
+    //OFF < DEBUG < INFO < WARN < ERROR < ALL
+    // 0  < 1  < 2 < 3 < 4 < 5
+    Logger.levels = {
+        ALL:5,
+        ERROR:4,
+        WARN:3,
+        INFO:2,
+        DEBUG:1,
+        OFF:0
+    };
 
     /**
      * Error Logging

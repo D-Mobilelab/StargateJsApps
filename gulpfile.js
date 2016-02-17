@@ -64,6 +64,7 @@ gulp.task('build:src:nonotify', ['build:bower'], function() {
 
 gulp.task('build:bowerpackage', function() {
 	return gulp.src('src/**/*.js')
+		.pipe(depsOrder())
 		.pipe(concat(buildConfig.distFile))
 		.pipe(header(buildConfig.closureStart))
 		.pipe(footer(buildConfig.closureEnd))
