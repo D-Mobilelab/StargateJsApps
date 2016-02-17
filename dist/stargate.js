@@ -5825,7 +5825,7 @@ return Q;
     // Public interface
     var stargatePackageVersion = "0.1.6";
     var stargatePublic = {};
-    /*jshint -W098 */
+    
     var _modules = {};    
     /* globals cordova, Promise, _modules */
 
@@ -5964,6 +5964,7 @@ return Q;
         12:"PATH_EXISTS_ERR"
     };
 
+    File.currentFileTransfer = null;
     /**
      * stargateProtected.file.resolveFS
      *
@@ -6300,7 +6301,7 @@ return Q;
      * @returns {Promise<Array<boolean>>}
      * */
     function initialize(){
-        LOG.d("[Game] - Initialized called with:", arguments);
+        LOG.d("[Game] - Initialized called", arguments);
         if(!fileModule){return Promise.reject("Missing file module!");}
 
         baseDir = window.cordova.file.applicationStorageDirectory;
@@ -9355,7 +9356,7 @@ var AdManager = {
 	
 };
     stargatePublic.game = _modules.game;
-    /*jshint +W098 */    // Just return a value to define the module export
+        // Just return a value to define the module export
     return stargatePublic;
 }));
 
