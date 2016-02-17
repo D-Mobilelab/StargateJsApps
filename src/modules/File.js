@@ -29,6 +29,7 @@
         12:"PATH_EXISTS_ERR"
     };
 
+    File.currentFileTransfer = null;
     /**
      * stargateProtected.file.resolveFS
      *
