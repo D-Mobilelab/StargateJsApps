@@ -30,7 +30,7 @@ module.exports = {
 		'    // Public interface\n' +
         '    var stargatePackageVersion = "'+pkg.version+'";\n' +
         '    var stargatePublic = {};\n' +
-		'    var _modules = {};'+
+		'    var _modules = {}; // jshint ignore:line '+
 		'    /* global cordova, Promise, _modules */\n\n\n',
 
 	closureEnd: '\n' +
