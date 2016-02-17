@@ -1,12 +1,15 @@
+/**global Promise, cordova, _modules **/
 /**
- * Game namespace.
- * @namespace {Object} stargateProtected.game
+ * Game module
+ * @module src/modules/Game
+ * @type {Object}
+ * @requires File.js, Logger.js
  */
 (function(fileModule, _modules){
     var baseDir,
         cacheDir,
         tempDirectory,
-        publicInterface,
+        publicInterface = {},
         cordovajsDir;
 
     /**
@@ -14,7 +17,8 @@
      * @returns {Promise<Array<boolean>>}
      * */
     function initialize(){
-        if(!fileModule) return Promise.reject("Missing stargateProtected.file module!");
+        console.log("[Game] - Initialized called", arguments);
+        if(!fileModule){return Promise.reject("Missing file module!");}
 
         baseDir = window.cordova.file.applicationStorageDirectory;
         cacheDir = window.cordova.file.cacheDirectory;
@@ -168,7 +172,7 @@
             .then(function(entry){
                 console.log(entry);
                 var address = entry[0].internalURL;
-                if(isRunningOnIos()){
+                if(window.device.platform.toLowerCase() == "ios"){
                     window.location.href = address;
                 }else{
                     window.navigator.app.loadUrl(address);
@@ -271,15 +275,13 @@
                 });
 
                 return Promise.all(jsons).then(function(results){
-                    console.log(results);
+                    return results;
                 });
             });
     }
 
     /** definition **/
     _modules.game = {
-        GAMES_DIR:"",
-        BASE_DIR:"",
         download:download,
         play:play,
         remove:remove,

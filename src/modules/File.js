@@ -1,7 +1,10 @@
+/**global Promise, cordova, _modules **/
 /**
- * file namespace.
- * @namespace {Object} stargateProtected.file
+ * File module
+ * @module src/modules/File
+ * @type {Object}
  * @see cordova.file
+ * @requires Logger.js
  */
 (function(_modules){
     /**

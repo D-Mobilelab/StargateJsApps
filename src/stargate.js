@@ -194,7 +194,7 @@ var onPluginReady = function () {
     webappsFixes.init();
 
     //Game Module Init
-    if (hasFeature('offline-game') && _modules.game) {
+    if (hasFeature('game') && _modules.game) {
         _modules.game.initialize({});
     }
 
@@ -259,6 +259,8 @@ var isHybridEnvironment = function() {
     if (window.localStorage.getItem('hybrid')) {
         return true;
     }
+
+    return false;
 };
 
 var stargateBusy = false;
