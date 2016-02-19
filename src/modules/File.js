@@ -12,7 +12,7 @@
     File.LOG = LOG = new Logger("ALL", "[File - module]");
     /**
      * ERROR_MAP
-     * stargateProtected.file.ERROR_MAP
+     * File.ERROR_MAP
      * */
     File.ERROR_MAP = {
         1:"NOT_FOUND_ERR",
@@ -43,7 +43,7 @@
     };
 
     /**
-     * stargateProtected.file.appendToFile
+     * File.appendToFile
      *
      * @param {String} filePath - the filepath file:// url like
      * @param {String} data - the string to write into the file
@@ -75,7 +75,7 @@
     };
 
     /**
-     * stargateProtected.file.readFileAsHTML
+     * File.readFileAsHTML
      * @param {String} indexPath - the path to the file to read
      * @returns {Promise<DOM|FileError>}
      */
@@ -88,7 +88,7 @@
     };
 
     /**
-     * stargateProtected.file.readFileAsJSON
+     * File.readFileAsJSON
      * @param {String} indexPath - the path to the file to read
      * @returns {Promise<Object|FileError>}
      */
@@ -104,7 +104,7 @@
     };
 
     /**
-     *  stargateProtected.file.removeFile
+     *  File.removeFile
      *
      *  @param {String} filePath -
      *  @returns {Promise<String|FileError>}
@@ -121,7 +121,7 @@
     };
 
     /**
-     *  stargateProtected.file.removeDir
+     *  File.removeDir
      *
      *  @param {String} dirpath - the directory entry to remove recursively
      *  @returns Promise<void|FileError>
@@ -138,7 +138,7 @@
     };
 
     /**
-     *  stargateProtected.file._promiseZip
+     *  File._promiseZip
      *
      *  @private
      *  @param {String} zipPath - the file to unpack
@@ -161,7 +161,7 @@
     };
 
     /**
-     * stargateProtected.file.download
+     * File.download
      *
      * @param {String} url - the URL of the resource to download
      * @param {String} filepath - a directory entry type object where to save the file
@@ -191,7 +191,7 @@
     };
 
     /**
-     * stargateProtected.file.createDir
+     * File.createDir
      *
      * @param {String} dirPath - a file:// like path
      * @param {String} subFolderName
@@ -209,7 +209,7 @@
     };
 
     /**
-     *  stargateProtected.file.fileExists
+     *  File.fileExists
      *
      *  @param {String} url - the toURL path to check
      *  @returns {Promise<boolean|void>}
@@ -227,7 +227,7 @@
     };
 
     /**
-     *  stargateProtected.file.dirExists
+     *  File.dirExists
      *
      *  @param {String} url - the toURL path to check
      *  @returns {Promise<boolean|void>}
@@ -246,7 +246,7 @@
     };
 
     /**
-     * stargateProtected.file.requestFileSystem
+     * File.requestFileSystem
      *
      * @param {int} TYPE - 0 == window.LocalFileSystem.TEMPORARY or 1 == window.LocalFileSystem.PERSISTENT
      * @param {int} size - The size in bytes for example 5*1024*1024 == 5MB
@@ -259,7 +259,7 @@
     };
 
     /**
-     * stargateProtected.file.readDir
+     * File.readDir
      *
      * @param {String} dirPath - a directory path to read
      * @returns {Promise<Array>} - returns an array of Object files
@@ -277,7 +277,7 @@
     };
 
     /**
-     * stargateProtected.file.readFile
+     * File.readFile
      * @param {String} filePath - the file entry to readAsText
      * @returns {Promise<String|FileError>}
      */
@@ -305,7 +305,7 @@
     };
 
     /**
-     * stargateProtected.file.createFile
+     * File.createFile
      *
      * @param {String} directory - filepath file:// like string
      * @param {String} filename - the filename including the .txt

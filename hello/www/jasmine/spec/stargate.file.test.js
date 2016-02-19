@@ -4,7 +4,7 @@ describe("Stargate.File modules tests", function() {
     console.log(arguments);
   }
   /** from Stargate import File as file*/
-  var file = stargateProtected.file;
+  var file = _modules.file;
   var TEST_FOLDER_DIR,
       STORAGE_DIR,
       TEST_FOLDER_NAME = "Test";

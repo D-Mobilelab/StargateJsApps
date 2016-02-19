@@ -20,6 +20,7 @@
         this.tag = tag;
     }
 
+    //Logger.prototype.group
     //OFF < DEBUG < INFO < WARN < ERROR < ALL
     // 0  < 1  < 2 < 3 < 4 < 5
     Logger.levels = {

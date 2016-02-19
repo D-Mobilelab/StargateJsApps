@@ -1,8 +1,6 @@
 {
     "short_name": "Gameasy",
-    "mjs_api_access": [
-    { "match": "http://www2.gameasy.com/*", "platform": "android, ios", "access": "cordova" }
-],
+    "mjs_api_access": [{ "match": "http://www2.gameasy.com/*", "platform": "android, ios", "access": "cordova" }],
     "mjs_cordova": {
     "plugin_mode": "client"
 },
@@ -69,4 +67,4 @@
                 "onFirstRunSendNewPlayerEvent":false
         }
     }
-}
+}}

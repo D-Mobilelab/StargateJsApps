@@ -65,6 +65,22 @@ var gameObject = {
     }
 };
 
+// URL API DLD RESPONSE
+// url_api_dld:http://www2.gameasy.com/ww//v01/contents/<game-id>/download?formats=html5applications
+/*{
+    "status": 200,
+    "url_binary":"http://"
+    "url_download": "http://www2.gameasy.com/ww/html5gameplay/dc/e0/dce0fe873d4cd836f63af5c8ba77bb8d/xx_gameasy/game/black_gold_plumber/black_gold_plumber_index.html",
+    "message": "WEBAPP_CONTENT_DOWNLOAD_STARTED",
+    "md5":"1232qwf23t",
+    "size":5678
+}*/
+/*
+{
+    "status":1403,
+    "message":null
+}*/
+
 function createFolder(where, name){
     return new Promise(function(resolve,reject){
         window.resolveLocalFileSystemURL(where,
@@ -95,7 +111,9 @@ function mock_file_download_success(url, filepath, saveAsName, _onProgress){
 }
 
 function promResolvedWith(obj){
-    return Promise.resolve(obj);
+    return function(){
+        return Promise.resolve(obj);
+    }
 }
 
 function promRejectWith(obj){
@@ -114,6 +132,16 @@ function fileExists(url){
     });
 }
 
+function readDir(url){
+    return new Promise(function(resolve, reject){
+        window.resolveLocalFileSystemURL(url, function(dirEntry){
+                var reader = dirEntry.createReader();
+                reader.readEntries(function(entries){
+                    resolve(entries);
+                }, reject);
+        }, reject);
+    });
+}
 var GamifiveInfo = {"label":"it_igames",
     "contentId":"4de756a55ac71f45c5b7b4211b71219e",
     "userId":"aac3121ebf5111e5a728005056b60712",
@@ -163,7 +191,7 @@ describe("Game module tests", function() {
             });
         }
     }
-    var game = stargateProtected.game;
+    var game = _modules.game;
     var TEST_FOLDER_DIR,
         STORAGE_DIR,
         TEST_FOLDER_NAME = "Test";
@@ -251,7 +279,7 @@ describe("Game module tests", function() {
             });
     });
 
-    it("Test simple game download(save meta.json)", function(done){
+    fit("Test simple game download(save meta.json)", function(done){
         function log(){
             console.log(arguments);
         }
@@ -269,22 +297,15 @@ describe("Game module tests", function() {
                 return game.download(gameObject, cbks);
             })
             .then(function(results){
+                console.log("TEST", results);
                 expect(results).toEqual(true);
-            })
-            .then(function(){
-                var metaFilePath = game.GAMES_DIR + gameObject.id + "/meta.json";
-                console.log(metaFilePath);
-                return fileExists(metaFilePath);
-            })
-            .then(function(exists){
-                expect(exists).toBe(true);
                 done();
             })
             .catch(function(err){
                 expect(true).toBe(false);
                 console.error(err);
                 done();
-        });
+            });
 
     });
 
@@ -304,14 +325,13 @@ describe("Game module tests", function() {
 
     it("Test abortDownload should not to abort if is not downloading", function(done){
 
-        game.initialize(GamifiveInfo.user)
-            .then(function(){
+        game.initialize(GamifiveInfo.user);
+
                 setTimeout(function pippo(){
                     var res = game.abortDownload();
                     expect(res).toBe(false);
                     done();
                 }, 10);
-            });
     });
 
     it("Test download game already exists", function(done){
@@ -337,17 +357,8 @@ describe("Game module tests", function() {
             })
             .then(function(result){
                 expect(result).toBe(true);
-                return game.readIndexGameById(gameObject.id);
-            })
-            .then(function(result){
-                //return game.play(gameObject.gameID);
-                expect(result[0].path).toContain(gameObject.id);
-                return result;
-            }).then(function(){
-                game.list().then(function(jsons){
-                    console.log(jsons);
-                    done();
-                });
+                var gamePath = game.GAMES_DIR + gameObject.id;
+                done();
             });
     });
 });

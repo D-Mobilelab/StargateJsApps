@@ -3,7 +3,7 @@
     <name>HelloTaco</name>
     <description>A blank project that uses Apache Cordova to help you build an app that targets multiple mobile platforms: Android, iOS, Windows, and Windows Phone.</description>
     <author email="dev@cordova.apache.org" href="http://cordova.io">Apache Cordova Team</author>
-    <content src="index.html" />
+    <content src="jasmine/SpecRunner.html" />
     <access origin="*" />
     <preference name="SplashScreen" value="screen" />
     <preference name="windows-target-version" value="8.1" />

@@ -154,6 +154,8 @@ gulp.task('watchSrc', function(){
 
 gulp.task("copySrc", function(){
     return gulp.src("src/modules/**/*.js")
+        .pipe(depsOrder())
+        .pipe(concat("modules.js"))
         .pipe(gulp.dest("./hello/www/jasmine/src/"));
 });
 
