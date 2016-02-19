@@ -450,7 +450,7 @@
     return File;
 
 })(_modules, _modules.Logger);
-/**global Promise, cordova, _modules **/
+/**globals Promise, cordova, _modules **/
 /**
  * Game module
  * @module src/modules/Game
@@ -564,7 +564,7 @@
             return meta.then(function(response){
                     //change with response.url_binary
                     LOG.d("Download:", gameObject.id);
-                    return fileModule.download(response.url_binary, publicInterface.TEMP_DIR, saveAsName + ".zip", wrapProgress("download"))
+                    return fileModule.download(response.url_binary, publicInterface.TEMP_DIR, saveAsName + ".zip", wrapProgress("download"));
                 }).then(function(entriesTransformed){
 
                     //Unpack
@@ -582,7 +582,7 @@
                 .then(function(result){
 
                     //Remove the zip in the temp directory
-                    LOG.d("Remove zip from:", publicInterface.TEMP_DIR + saveAsName + ".zip");
+                    LOG.d("Remove zip from:", publicInterface.TEMP_DIR + saveAsName + ".zip", "last operation result", result);
                     return fileModule.removeFile(publicInterface.TEMP_DIR + saveAsName + ".zip");
                 })
                 .then(function(result){
@@ -602,10 +602,11 @@
                 })
                 .then(function(result){
                     //TODO: inject stargate?
+                    LOG.d("result last operation:save meta.json", result);
                     LOG.d("InjectScripts in game:", gameObject.id, cordovajsDir);
                     return injectScripts(gameObject.id, [
-                        "cdvfile://localhost/bundle/www/cordova.js"
-                        ,"cdvfile://localhost/persistent/gfsdk/gfsdk.min.js"
+                        "cdvfile://localhost/bundle/www/cordova.js",
+                        "cdvfile://localhost/persistent/gfsdk/gfsdk.min.js"
                         //, "cdvfile://localhost/bundle/www/js/stargate.js"
                         ]);
                 });
