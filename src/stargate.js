@@ -196,12 +196,16 @@ var onPluginReady = function () {
     navigator.splashscreen.hide();
     setBusy(false);
 
+    // initialize all modules
+
+    // In-app purchase initialization
     IAP.initialize();
-    
+
+    // receive appsflyer conversion data event
+    appsflyer.init();
     
     // apply webapp fixes
     webappsFixes.init();
-
 
     // initialize finished
     isStargateOpen = true;
@@ -272,6 +276,8 @@ var isHybridEnvironment = function() {
     if (window.localStorage.getItem('hybrid')) {
         return true;
     }
+
+    return false;
 };
 
 var stargateBusy = false;

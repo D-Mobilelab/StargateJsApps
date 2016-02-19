@@ -91,6 +91,8 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
         return notHybridDefer.promise;
     }
 
+    log("initialize() starting up, configuration: ",hybrid_conf);
+
     initializeCallback = callback;
     initializeDeferred = Q.defer();
 
