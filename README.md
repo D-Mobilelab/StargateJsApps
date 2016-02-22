@@ -143,6 +143,12 @@ Set the callback to call when an analytic event need to be sent.
 
 Please call this before [Stargate.initialize](#stargateinitializeconfigurations-callback), so it can track events logged on initialize too, like MFP.
 
+## Stargate.setConversionDataCallback(callBackFunction)
+
+Set the callback to call when converion data from AppsFlyer are received.
+You may need to save the data you receive, becouse you'll only got that data the first time the app is run after installation.
+
+Please call this before [Stargate.initialize](#stargateinitializeconfigurations-callback), so it can call you during initialize too.
 
 ## Stargate.checkConnection(callbackSuccess, callbackError)
 
