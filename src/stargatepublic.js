@@ -1,9 +1,9 @@
 
 
 // global variable used by old stargate client
-// @deprecated since v0.2
+// @deprecated since v0.1.2
 window.pubKey = '';
-// @deprecated since v0.2
+// @deprecated since v0.1.2
 window.forge = '';
 
 
