@@ -1,5 +1,4 @@
 var pkg = require('../package.json');
-
 var interfaceName = 'Stargate';
 
 module.exports = {
@@ -30,10 +29,15 @@ module.exports = {
 		'    // Public interface\n' +
         '    var stargatePackageVersion = "'+pkg.version+'";\n' +
         '    var stargatePublic = {};\n' +
-        '    var stargateProtected = {};' +
-		'    /* global cordova, Promise */\n\n\n',
+        '    \n' +
+        '    var stargateModules = {};'+
+        '   ' +
+        '    \n' +
+		'    /* globals cordova, Promise */\n\n\n',
 
 	closureEnd: '\n' +
+        '    stargatePublic.game = stargateModules.game._public;\n' +
+        '    '+
  		'    // Just return a value to define the module export\n' +
     	'    return stargatePublic;\n' +
         '}));\n\n\n',

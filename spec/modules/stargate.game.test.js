@@ -191,8 +191,9 @@ describe("Game module tests", function() {
             });
         }
     }
-    var game = stargateModules.game.public;
-    game.initialize = stargateModules.game.protected.initialize;
+    var game = stargateModules.game._public;
+    game.initialize = stargateModules.game._protected.initialize;
+    console.log(game);
     var TEST_FOLDER_DIR,
         STORAGE_DIR,
         GAMES_DIR,

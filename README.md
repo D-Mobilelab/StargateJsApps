@@ -144,11 +144,15 @@ Set the callback to call when an analytic event need to be sent.
 Please call this before [Stargate.initialize](#stargateinitializeconfigurations-callback), so it can track events logged on initialize too, like MFP.
 
 
-## Stargate.checkConnection(callbackSuccess, callbackError)
-
-Call callbackSuccess with an object with the network type like this:
-{'networkState': networkState}
-networkState got from navigator.connection.type of cordova-plugin-network-information plugin
+## Stargate.checkConnection([callbackSuccess=function(){}], [callbackError=function(){}])
+### Example Usage
+```javascript
+var info = Stargate.checkConnection();
+Stargate.checkConnection(function(info){ console.log(info.networkState, info.type); });
+// info is equal to: {'networkState': "wifi|3g|4g|none", type:"online|offline"}
+```
+The connection info object is updated to the last connection status change 
+the networkState is retrieved from navigator.connection.type of cordova-plugin-network-information plugin
 
 ## Stargate.getDeviceID(callbackSuccess, callbackError)
     

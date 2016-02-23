@@ -17,6 +17,18 @@ describe("Stargate public interface", function() {
 
 
 describe("Stargate initialization required", function() {
+
+    function SimulateEvent(eventName, attrs, time){
+        var event = new Event(eventName);
+
+        for(var key in attrs){
+            event[key] = attrs[key];
+        }
+        setTimeout(function(){
+            document.dispatchEvent(event);
+        }, time || 3000);
+    }
+
 	it("isInitialized is false", function() {
 		expect(stargatePublic.isInitialized()).toBeFalsy();
 	});

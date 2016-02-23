@@ -105,4 +105,6 @@
     <plugin name="cordova-plugin-transport-security" spec="~0.1.1" />
     <plugin name="cordova-plugin-whitelist" spec="~1.2.1" />
     <plugin name="cordova-plugin-zip" spec="~3.0.0" />
+    <plugin name="cordova-plugin-statusbar" spec="~2.0.0" />
+    <plugin name="cordova-plugin-app-version" spec="~0.1.8" />
 </widget>

@@ -1,5 +1,4 @@
 var buildConfig = require('./build.config.js');
-
 module.exports = {
     files: [
         'spec/*.js',
@@ -7,7 +6,7 @@ module.exports = {
     ]
     .concat(buildConfig.bowerFileList)
     .concat(buildConfig.testHeader)
-    .concat('src/**/*.js'),
+    .concat('src/*.js'),
 
     frameworks: ['jasmine'],
     reporters: ['mocha','coverage','coveralls'],
@@ -37,5 +36,5 @@ module.exports = {
     // - Safari (only Mac; has to be installed with `npm install karma-safari-launcher`)
     // - PhantomJS
     // - IE (only Windows; has to be installed with `npm install karma-ie-launcher`)
-    browsers: ['Chrome']
+    browsers: ['PhantomJS']
 };
