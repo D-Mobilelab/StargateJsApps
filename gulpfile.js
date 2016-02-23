@@ -94,33 +94,14 @@ gulp.task('watch', function () {
     }));
 });
 
-/*
-gulp.task('demo:serve', function() {
-  gulp.src('demo/www/')
-    .pipe(webserver({
-    	//path: 'demo/www/',
-      	livereload: true,
-      	fallback: 'index.html',
-      	directoryListing: false,
-      	open: true
-    }));
+
+gulp.task('concatModulesInOrder', function(){
+    return gulp.src("src/modules/**/*.js")
+        .pipe(depsOrder())
+        .pipe(concat("modules.js"))
+        .pipe(gulp.dest("src/modules.js"));
 });
 
-gulp.task('demo:clean', function () {
-	// delete platforms and plugins
-	return del([
-		'demo/platforms/',
-		'demo/plugins/'
-	])
-	.then(function() {
-		return process.chdir(cordovaTestProjectDir);
-	})
-	.then(function() {
-		// add platform and download again plugin specified by config.xml
-    	return cdv.platform('add', [testPlatform])
-	});
-});
-*/
 
 gulp.task('lint:jshint', function() {
 	return gulp.src('src/**/*.js')
@@ -178,7 +159,7 @@ gulp.task('demo:run', ['build:src'], function(cb) {
 });
 */
 
-gulp.task('karma', ['build'], function (done) {
+gulp.task('karma', ['concatModulesInOrder','build'], function (done) {
 
 	// default to don't do single run
 	argv.singlerun && (karmaConf.singleRun = true);

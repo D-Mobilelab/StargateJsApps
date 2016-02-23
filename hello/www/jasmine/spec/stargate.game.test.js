@@ -191,15 +191,20 @@ describe("Game module tests", function() {
             });
         }
     }
-    var game = _modules.game;
+    var game = stargateModules.game.public;
+    game.initialize = stargateModules.game.protected.initialize;
     var TEST_FOLDER_DIR,
         STORAGE_DIR,
+        GAMES_DIR,
+        SDK_DIR,
         TEST_FOLDER_NAME = "Test";
 
     beforeAll(function(done){
         document.addEventListener("deviceready", function(readyEvent){
             STORAGE_DIR = cordova.file.applicationStorageDirectory;
             if(isRunningOnIos()){ STORAGE_DIR += "Documents/"; }
+            GAMES_DIR = STORAGE_DIR + "gfsdk/";
+            SDK_DIR = STORAGE_DIR + "games/";
             done();
         });
     });
@@ -223,8 +228,8 @@ describe("Game module tests", function() {
                 console.log("game init results:", results);
                 var secondResult = results[1][0];
                 var firstResult = results[0][0];
-                expect(firstResult.path).toEqual(game.GAMES_DIR);
-                expect(secondResult.path).toEqual(game.SDK_DIR + "gfsdk.min.js");
+                expect(firstResult.path).toEqual(GAMES_DIR);
+                expect(secondResult.path).toEqual(SDK_DIR + "gfsdk.min.js");
                 expect(secondResult.isFile).toEqual(true);
                 done();
             })
@@ -248,8 +253,8 @@ describe("Game module tests", function() {
         var firstInit = game.initialize(GamifiveInfo.user)
             .then(function(results){
                 console.log(results);
-                expect(results[0][0].path).toEqual(game.GAMES_DIR);
-                expect(results[1][0].path).toEqual(game.SDK_DIR + "gfsdk.min.js");
+                expect(results[0][0].path).toEqual(GAMES_DIR);
+                expect(results[1][0].path).toEqual(SDK_DIR + "gfsdk.min.js");
             }).then(function(){
 
                 //MOCK FILE EXISTS AND DIREXISTS
@@ -279,7 +284,7 @@ describe("Game module tests", function() {
             });
     });
 
-    fit("Test simple game download(save meta.json)", function(done){
+    it("Test simple game download(save meta.json)", function(done){
         function log(){
             console.log(arguments);
         }
@@ -289,7 +294,9 @@ describe("Game module tests", function() {
                     console.log(e);
                 }
             },
-            onStart:function(e){console.log("START", e);}
+            onStart:function(e){
+                console.log("START", e);
+            }
         };
 
         game.initialize(GamifiveInfo.user)
@@ -297,8 +304,7 @@ describe("Game module tests", function() {
                 return game.download(gameObject, cbks);
             })
             .then(function(results){
-                console.log("TEST", results);
-                expect(results).toEqual(true);
+                expect(results).toBeDefined(results);
                 done();
             })
             .catch(function(err){
@@ -331,7 +337,7 @@ describe("Game module tests", function() {
                     var res = game.abortDownload();
                     expect(res).toBe(false);
                     done();
-                }, 10);
+                }, 500);
     });
 
     it("Test download game already exists", function(done){
@@ -339,13 +345,13 @@ describe("Game module tests", function() {
         game.initialize(GamifiveInfo.user)
             .then(function(results){
                console.log(results);
-               return createFolder(game.GAMES_DIR, gameObject.id);
+               return createFolder(GAMES_DIR, gameObject.id);
             })
             .then(function(result){
                 return game.download(gameObject);
             })
             .catch(function(reason){
-                expect(reason).toEqual({12:"AlreadyExists"});
+                expect(reason).toEqual({12:"AlreadyExists",gameID:gameObject.id});
                 done();
             });
     });
@@ -356,9 +362,11 @@ describe("Game module tests", function() {
                 return game.download(gameObject, {onEnd:function(e){console.log("DONE",e.type);}});
             })
             .then(function(result){
-                expect(result).toBe(true);
-                var gamePath = game.GAMES_DIR + gameObject.id;
+                expect(result).toBeDefined();
+                var gamePath = GAMES_DIR + gameObject.id;
                 done();
+            }).catch(function(reason){
+                console.error(reason);
             });
     });
 });

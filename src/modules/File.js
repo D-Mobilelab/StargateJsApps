@@ -345,4 +345,4 @@
     _modules.file = File;
     return File;
 
-})(_modules, _modules.Logger);
+})(stargateModules, stargateModules.Logger);

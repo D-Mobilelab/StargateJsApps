@@ -4,11 +4,10 @@ describe("Stargate.File modules tests", function() {
     console.log(arguments);
   }
   /** from Stargate import File as file*/
-  var file = _modules.file;
+  var file = stargateModules.file;
   var TEST_FOLDER_DIR,
       STORAGE_DIR,
       TEST_FOLDER_NAME = "Test";
-
   function removeTestFolder(done){
     window.resolveLocalFileSystemURL(TEST_FOLDER_DIR,
     function(dirEntry){

@@ -63,21 +63,11 @@ var initDevice = function() {
 
 
 
-var getManifest = function() {
+function getManifest() {
 
-    var deferred = Q.defer();
+    return stargateModules.file.readFileAsJSON(cordova.file.applicationDirectory + "www/manifest.json");
 
-    window.hostedwebapp.getManifest(
-        function(manifest){
-            deferred.resolve(manifest);
-        },
-        function(error){
-            deferred.reject(new Error(error));
-            console.error(error);
-        }
-    );
-    return deferred.promise;
-};
+}
 
 var launchUrl = function (url) {
     log("launchUrl: "+url);
@@ -194,8 +184,8 @@ var onPluginReady = function () {
     webappsFixes.init();
 
     //Game Module Init
-    if (hasFeature('game') && _modules.game) {
-        _modules.game.initialize({});
+    if (hasFeature('game') && stargateModules.game) {
+        stargateModules.game._protected.initialize({});
     }
 
     // initialize finished

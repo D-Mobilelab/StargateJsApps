@@ -1,19 +1,19 @@
-/**global Promise, cordova, _modules **/
 /**
  * Logger module
  * @module src/modules/Logger
  * @type {Object}
- * @example var myLogger = new Logger("ALL", "TAG");
- * myLogger.i("Somenthing", 1); // output will be "TAG" "Somenthing" 1
- * myLogger.setLevel("off") // other values OFF|DEBUG|INFO|WARN|ERROR|ALL
  */
-(function(_modules){
+(function(stargateModules){
 
     /**
      * @constructor
      * @alias module:src/modules/Logger
      * @param {String} label - OFF|DEBUG|INFO|WARN|ERROR|ALL
      * @param {String} tag - a tag to identify a log group. it will be prepended to any log function
+     * @example
+     * var myLogger = new Logger("ALL", "TAG");
+     * myLogger.i("Somenthing", 1); // output will be > ["TAG"], "Somenthing", 1
+     * myLogger.setLevel("off") // other values OFF|DEBUG|INFO|WARN|ERROR|ALL
      * */
     function Logger(label, tag){
         this.level = Logger.levels[label.toUpperCase()];
@@ -92,13 +92,14 @@
         this.level = Logger.levels[label];
     };
 
+
     /**
      * A module representing a Logger class
      * @exports Logger
      */
-    if (_modules) {
-        _modules.Logger = Logger;
+    if (stargateModules) {
+        stargateModules.Logger = Logger;
     } else {
         window.Logger = Logger;
     }
-})(_modules);
+})(stargateModules);
