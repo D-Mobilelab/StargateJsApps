@@ -5823,7 +5823,7 @@ return Q;
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.1.6";
+    var stargatePackageVersion = "0.1.7";
     var stargatePublic = {};
     
     var stargateModules = {};       
@@ -7188,6 +7188,24 @@ var updateStatusBar = function() {
     }
 };
 
+/**
+* Set on webapp that we are hybrid
+* (this will be called only after device ready is received and 
+*   we are sure to be inside cordova app)
+*/
+var setIsHybrid = function() {
+
+    window.Cookies.set("hybrid", "1");
+    window.Cookies.set("stargateVersion", stargateVersion);
+
+    if (!window.localStorage.getItem('hybrid')) {
+        window.localStorage.setItem('hybrid', 1);
+    }
+    if (!window.localStorage.getItem('stargateVersion')) {
+        window.localStorage.setItem('stargateVersion', stargateVersion);
+    }
+};
+
 var onPluginReady = function () {
     
     // FIXME: this is needed ??
@@ -7220,22 +7238,13 @@ var onPluginReady = function () {
         );
     }
 
-
+    
     navigator.splashscreen.hide();
     setBusy(false);
 
     IAP.initialize();
-
-    window.Cookies.set("hybrid", "1");
-    window.Cookies.set("stargateVersion", stargateVersion);
-
-    if (!window.localStorage.getItem('hybrid')) {
-        window.localStorage.setItem('hybrid', 1);
-    }
-    if (!window.localStorage.getItem('stargateVersion')) {
-        window.localStorage.setItem('stargateVersion', stargateVersion);
-    }
-
+    
+    
     // apply webapp fixes
     webappsFixes.init();
 
@@ -7260,15 +7269,22 @@ var onPluginReady = function () {
 };
 
 var onDeviceReady = function () {
+
+    // device ready received so i'm sure to be hybrid
+    setIsHybrid();
+    
+    // get device information
     initDevice();
 
+    // request all asyncronous initialization to complete
     Q.all([
-        // include here all needed initializazion
+        // include here all needed asyncronous initializazion
         cordova.getAppVersion.getVersionNumber(),
         getManifest()
     ])
     .then(function(results) {
-        
+        // save async initialization result
+
         appVersion = results[0];
 		
 		if (typeof results[1] !== 'object') {
@@ -7279,6 +7295,7 @@ var onDeviceReady = function () {
 
         stargateConf = results[1].stargateConf;
 
+        // execute remaining initialization
         onPluginReady();
     })
     .fail(function (error) {
