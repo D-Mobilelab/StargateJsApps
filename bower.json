@@ -8,7 +8,7 @@
     "Giada Fatarella <Giada.Fatarella@buongiorno.com>"
   ],
   "description": "StargateJS hybridization library for HTML5 apps",
-  "main": ["dist/bower/stargate.js","dist/bower/stargate.game.js"],
+  "main": "dist/bower/stargate.js",
   "moduleType": [],
   "keywords": [
     "cordova",
