@@ -5826,26 +5826,26 @@ return Q;
     var stargatePackageVersion = "0.1.6";
     var stargatePublic = {};
     
-    var _modules = {};    
-    /* globals cordova, Promise, _modules */
+    var stargateModules = {};       
+    /* globals cordova, Promise */
 
 
-/**global Promise, cordova, _modules **/
 /**
  * Logger module
  * @module src/modules/Logger
  * @type {Object}
- * @example var myLogger = new Logger("ALL", "TAG");
- * myLogger.i("Somenthing", 1); // output will be "TAG" "Somenthing" 1
- * myLogger.setLevel("off") // other values OFF|DEBUG|INFO|WARN|ERROR|ALL
  */
-(function(_modules){
+(function(stargateModules){
 
     /**
      * @constructor
      * @alias module:src/modules/Logger
      * @param {String} label - OFF|DEBUG|INFO|WARN|ERROR|ALL
      * @param {String} tag - a tag to identify a log group. it will be prepended to any log function
+     * @example
+     * var myLogger = new Logger("ALL", "TAG");
+     * myLogger.i("Somenthing", 1); // output will be > ["TAG"], "Somenthing", 1
+     * myLogger.setLevel("off") // other values OFF|DEBUG|INFO|WARN|ERROR|ALL
      * */
     function Logger(label, tag){
         this.level = Logger.levels[label.toUpperCase()];
@@ -5924,16 +5924,17 @@ return Q;
         this.level = Logger.levels[label];
     };
 
+
     /**
      * A module representing a Logger class
      * @exports Logger
      */
-    if (_modules) {
-        _modules.Logger = Logger;
+    if (stargateModules) {
+        stargateModules.Logger = Logger;
     } else {
         window.Logger = Logger;
     }
-})(_modules);
+})(stargateModules);
 /**
  * File module
  * @module src/modules/File
@@ -6281,15 +6282,16 @@ return Q;
     _modules.file = File;
     return File;
 
-})(_modules, _modules.Logger);
-/**globals Promise, cordova, _modules **/
+})(stargateModules, stargateModules.Logger);
+/**globals Promise, cordova **/
 /**
  * Game module
  * @module src/modules/Game
  * @type {Object}
- * @requires ./Logger.js, ./File.js,
+ * @requires ./Logger.js,./File.js
  */
 (function(fileModule, Logger, _modules){
+    "use strict";
     var baseDir,
         cacheDir,
         tempDirectory,
@@ -6299,10 +6301,21 @@ return Q;
     var LOG = new Logger("ALL", "[Game - module]");
 
     /**
+     * @constructor
+     * @alias module:src/modules/Game
+     * @example
+     * Stargate.game.download(gameObject, {onStart:function(){},onEnd:function(){},onProgress:function(){}})
+     * .then(function(results){
+     *  Stargate.game.play(results[0]) // and you leave this planet
+     * });
+     * */
+    function Game(){}
+
+    /**
      * Init must be called after the 'deviceready' event
      * @returns {Promise<Array<boolean>>}
      * */
-    function initialize(conf){
+     function initialize(conf){
         LOG.d("Initialized called", conf);
         if(!fileModule){return Promise.reject("Missing file module!");}
 
@@ -6324,9 +6337,9 @@ return Q;
          */
         if(window.device.platform.toLowerCase() == "ios"){baseDir += "Documents/";}
 
-        publicInterface.SDK_DIR = _modules.game.SDK_DIR = baseDir + "gfsdk/";
-        publicInterface.GAMES_DIR = _modules.game.GAMES_DIR = baseDir + "games/";
-        publicInterface.BASE_DIR = _modules.game.BASE_DIR = baseDir;
+        publicInterface.SDK_DIR = baseDir + "gfsdk/";
+        publicInterface.GAMES_DIR = baseDir + "games/";
+        publicInterface.BASE_DIR = baseDir;
         publicInterface.CACHE_DIR = cacheDir;
         publicInterface.TEMP_DIR = tempDirectory;
         publicInterface.CORDOVAJS_DIR = cordovajsDir;
@@ -6356,7 +6369,7 @@ return Q;
                 return exists;
             }
         });
-        return Promise.all([dirGames,getSDK]);
+        return Promise.all([dirGames, getSDK]);
     }
 
     /**
@@ -6367,10 +6380,10 @@ return Q;
      * @param [callbacks.onProgress=function(){}] - a progress function filled with the percentage
      * @param [callbacks.onStart=function(){}] - called on on start
      * @param [callbacks.onEnd=function(){}] - called when unzipped is done
-     * @returns {Promise<boolean|FileError|403>} - true if all has gone good, 403 if unathorized, FileError in case can write in the folder
+     * @returns {Promise<boolean|FileError|Number>} - true if all has gone good, 403 if unathorized, FileError in case can write in the folder
      * */
-    function download(gameObject, callbacks){
-        if(isDownloading()){ return Promise.reject(["Downloading...try later", fileModule.currentFileTransfer]);}
+    Game.prototype.download = function(gameObject, callbacks){
+        if(this.isDownloading()){ return Promise.reject(["Downloading...try later", fileModule.currentFileTransfer]);}
         var alreadyExists = fileModule.dirExists(publicInterface.GAMES_DIR + gameObject.id);
 
         // Defaults
@@ -6425,7 +6438,7 @@ return Q;
                     return result;
                 })
                 .then(function(){
-                    LOG.d("save meta.json for:", gameObject.id);
+                    LOG.d("Save meta.json for:", gameObject.id);
                     return fileModule.createFile(publicInterface.GAMES_DIR + saveAsName, "meta.json")
                         .then(function(entries){
                             var info = entries[0];
@@ -6433,14 +6446,17 @@ return Q;
                         });
                 })
                 .then(function(result){
-                    //TODO: inject stargate?
+                    //TODO: inject stargate? and css of gameover
                     LOG.d("result last operation:save meta.json", result);
                     LOG.d("InjectScripts in game:", gameObject.id, cordovajsDir);
-                    return injectScripts(gameObject.id, [
-                        "cdvfile://localhost/bundle/www/cordova.js",
-                        "cdvfile://localhost/persistent/gfsdk/gfsdk.min.js"
-                        //, "cdvfile://localhost/bundle/www/js/stargate.js"
-                        ]);
+                    return [
+                            gameObject.id,
+                            injectScripts(gameObject.id, [
+                                "cdvfile://localhost/bundle/www/cordova.js",
+                                "cdvfile://localhost/persistent/gfsdk/gfsdk.min.js",
+                                "cdvfile://localhost/bundle/www/js/stargate.js"
+                            ])
+                        ];
                 });
         }
 
@@ -6452,7 +6468,7 @@ return Q;
             }
         });
 
-    }
+    };
 
     /**
      * Retrieve the url_binary
@@ -6492,9 +6508,9 @@ return Q;
      * play
      *
      * @param {String} gameID - the game path in gamesDir where to look for. Note:the game is launched in the same webview
-     * @returns Promise
+     * @returns {Promise}
      * */
-    function play(gameID){
+    Game.prototype.play = function(gameID){
         LOG.d("Play", gameID);
         /*
          * TODO: check if games built with Construct2 has orientation issue
@@ -6518,7 +6534,7 @@ return Q;
                     window.navigator.app.loadUrl(address);
                 }
             });
-    }
+    };
 
     /**
      * Returns an Array of entries that match /index\.html$/i should be only one in the game directory
@@ -6540,8 +6556,8 @@ return Q;
      * removeRemoteSDK from game's dom
      *
      * @private
-     * @param {DocumentElement} dom - the document object
-     * @returns {DocumentElement} the cleaned document element
+     * @param {Document} dom - the document object
+     * @returns {Document} the cleaned document element
      * */
     function _removeRemoteSDK(dom){
 
@@ -6561,7 +6577,7 @@ return Q;
      * _injectScriptsInDom
      *
      * @private
-     * @param {DocumentElement} dom - the document where to inject scripts
+     * @param {Document} dom - the document where to inject scripts
      * @param {Array|String} sources - the src tag string or array of strings
      * */
     function _injectScriptsInDom(dom, sources){
@@ -6584,7 +6600,7 @@ return Q;
      * @private
      * @param {String} gameID
      * @param {Array} sources - array of src'string
-     * @returns {Promise<|FileError>}
+     * @returns {Promise<Object|FileError>}
      * */
     function injectScripts(gameID, sources){
         var indexPath;
@@ -6614,15 +6630,15 @@ return Q;
     }
 
     /**
-     * remove
+     * remove the game directory
      *
      * @public
      * @param {string} gameID - the game id to delete on filesystem
      * @returns {Promise<boolean|FileError>}
      * */
-    function remove(gameID){
+    Game.prototype.remove = function(gameID){
         return fileModule.removeDir(publicInterface.GAMES_DIR + gameID);
-    }
+    };
 
     /**
      * isDownloading
@@ -6630,9 +6646,9 @@ return Q;
      * @public
      * @returns {boolean}
      * */
-    function isDownloading(){
+    Game.prototype.isDownloading = function(){
         return (fileModule.currentFileTransfer !== null || fileModule.currentFileTransfer === undefined);
-    }
+    };
 
     /**
      * abortDownload
@@ -6640,15 +6656,15 @@ return Q;
      * @public
      * @returns {boolean}
      * */
-    function abortDownload(){
-        if(isDownloading()){
+    Game.prototype.abortDownload = function(){
+        if(this.isDownloading()){
             fileModule.currentFileTransfer.abort();
             fileModule.currentFileTransfer = null;
             return true;
         }
         LOG.w("There's not a download operation to abort");
         return false;
-    }
+    };
 
     /**
      * list
@@ -6656,7 +6672,7 @@ return Q;
      * @public
      * @returns {Array<Object>} - Returns an array of metainfo game object
      * */
-    function list(){
+    Game.prototype.list = function(){
         return fileModule.readDir(publicInterface.GAMES_DIR)
             .then(function(entries){
                 return entries.map(function(entry){
@@ -6673,23 +6689,16 @@ return Q;
                     return results;
                 });
             });
-    }
-
-    /** definition **/
-    _modules.game = {
-        download:download,
-        play:play,
-        remove:remove,
-        list:list,
-        abortDownload:abortDownload,
-        isDownloading:isDownloading,
-        initialize:initialize,
-        GAMES_DIR:"",
-        SDK_DIR:"",
-        BASE_DIR:"",
-        LOG:LOG
     };
-})(_modules.file, _modules.Logger, _modules);
+
+    var _protected = {};
+    _protected.initialize = initialize;
+    _modules.game = {
+        _protected:_protected,
+        _public:new Game()
+    };
+
+})(stargateModules.file, stargateModules.Logger, stargateModules);
 
 var webappsFixes = (function() {
 
@@ -6811,22 +6820,16 @@ var webappsFixes = (function() {
 //}
 
 
-
-
 // global variable used by old stargate client
 // @deprecated since v0.2
 window.pubKey = '';
 // @deprecated since v0.2
 window.forge = '';
 
-
 /**
 *
 * initialize(configurations, callback)
-*
-* 
 * @deprecated initialize(configurations, pubKey, forge, callback)
-*
 */
 stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callback) {
 
@@ -6945,16 +6948,41 @@ stargatePublic.googleLogin = function(callbackSuccess, callbackError) {
     err("unimplemented");
     callbackError("unimplemented");
 };
-stargatePublic.checkConnection = function(callbackSuccess, callbackError) {
+
+var connectionStatus = {};
+function updateConnectionStatus(theEvent){
+    connectionStatus.type = theEvent.type;
+    connectionStatus.networkState = navigator.connection.type;
+}
+
+window.addEventListener("online", updateConnectionStatus, false);
+window.addEventListener("offline", updateConnectionStatus, false);
+
+
+/**
+ * checkConnection function returns the updated state of the client connection
+ * @param {Function} [callbackSuccess=function(){}] - callback success filled with: {type:"online|offline",networkState:"wifi|3g|4g|none"}
+ * @param {Function} [callbackError=function(){}] - called if stargate is not initialize or cordova plugin missing
+ * @returns {Object|boolean} connection info {type:"online|offline",networkState:"wifi|3g|4g|none"}
+ * */
+stargatePublic.checkConnection = function() {
+
+    var callbackSuccess = arguments.length <= 0 || arguments[0] === undefined ? function(){} : arguments[0];
+    var callbackError = arguments.length <= 1 || arguments[1] === undefined ? function(){} : arguments[1];
 
 	if (!isStargateInitialized) {
-		return callbackError("Stargate not initialized, call Stargate.initialize first!");
+		callbackError("Stargate not initialized, call Stargate.initialize first!");
+        return false;
     }
 
-    // FIXME: check that network plugin is installed
+    if(typeof navigator.connection.getInfo !== "function"){
+        callbackError("Missing cordova plugin");
+        console.warn("Cordova Network Information module missing");
+        return false;
+    }
 
-    var networkState = navigator.connection.type;
-    callbackSuccess({'networkState': networkState});
+    callbackSuccess(connectionStatus);
+    return connectionStatus;
 };
 stargatePublic.getDeviceID = function(callbackSuccess, callbackError) {
 
@@ -7091,21 +7119,11 @@ var initDevice = function() {
 
 
 
-var getManifest = function() {
+function getManifest() {
 
-    var deferred = Q.defer();
+    return stargateModules.file.readFileAsJSON(cordova.file.applicationDirectory + "www/manifest.json");
 
-    window.hostedwebapp.getManifest(
-        function(manifest){
-            deferred.resolve(manifest);
-        },
-        function(error){
-            deferred.reject(new Error(error));
-            console.error(error);
-        }
-    );
-    return deferred.promise;
-};
+}
 
 var launchUrl = function (url) {
     log("launchUrl: "+url);
@@ -7222,8 +7240,8 @@ var onPluginReady = function () {
     webappsFixes.init();
 
     //Game Module Init
-    if (hasFeature('game') && _modules.game) {
-        _modules.game.initialize({});
+    if (hasFeature('game') && stargateModules.game) {
+        stargateModules.game._protected.initialize({});
     }
 
     // initialize finished
@@ -9469,7 +9487,7 @@ var AdManager = {
 	
 	
 };
-    stargatePublic.game = _modules.game;
+    stargatePublic.game = stargateModules.game._public;
         // Just return a value to define the module export
     return stargatePublic;
 }));
