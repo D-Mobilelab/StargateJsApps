@@ -121,14 +121,16 @@ function SimulateEvent(eventName, attrs, time, target){
         _target = document;
     }
 
-    var event = new Event(eventName);
-
+    var event = document.createEvent('CustomEvent');
     for(var key in attrs){
-        event[key] = attrs[key];
+        if(!event.hasOwnProperty(key)){
+            event[key] = attrs[key];
+        }
     }
+    event.initEvent(eventName, true, true);
     setTimeout(function(){
         _target.dispatchEvent(event);
-    }, time || 3000);
+    }, time || 1000);
 }
 
 
