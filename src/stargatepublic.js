@@ -4,6 +4,27 @@ window.pubKey = '';
 // @deprecated since v0.2
 window.forge = '';
 
+
+var initOfflinePromise;
+//var TIMEOUT_INIT_OFFLINE = 50000;
+/**
+ * Initialize offline will be resolved at the deviceready event or rejected after a timeout
+ * @returns {Promise<boolean>}
+ * */
+stargatePublic.initializeOffline = function(){
+
+    if(initOfflinePromise) {
+        return initOfflinePromise;
+    }
+    isStargateInitialized = true;
+    initOfflinePromise = new Promise(function (resolve) {
+        document.addEventListener("deviceready", function deviceReadyOffline() {
+            console.log("[Stargate] - deviceready");
+            resolve(true);
+        });
+    });
+    return initOfflinePromise;
+};
 /**
 *
 * initialize(configurations, callback)

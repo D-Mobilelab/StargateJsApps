@@ -162,8 +162,9 @@ describe("Stargate initialize", function() {
 			return Promise.resolve(manifest_mock);
 		};
 		jasmine.Ajax.install();
+        document.removeEventListener("deviceready",onDeviceReady, false);
 
-	});
+    });
 	afterEach(function() {
 		cookie_mock._val = {};
 		window.localStorage.clear();
@@ -301,6 +302,35 @@ describe("Stargate initialize", function() {
 		});
 		
 	});
+
+    it("initializeOffline should resolve with true at deviceready", function(done){
+        var task = stargatePublic.initializeOffline();
+
+        SimulateEvent("deviceready",{ready:true});
+        task.then(function(result){
+            expect(result).toBe(true);
+            expect(isStargateInitialized).toEqual(true);
+            //restore original value
+            isStargateInitialized = false;
+            initOfflinePromise = undefined;
+            done();
+        });
+    });
+
+    it("initializeOffline called twice should resolve immediately", function(done){
+        var task = stargatePublic.initializeOffline();
+        SimulateEvent("deviceready",{ready:true});
+        task.then(function(result){
+            expect(result).toBe(true);
+            expect(isStargateInitialized).toEqual(true);
+        });
+
+        stargatePublic.initializeOffline()
+            .then(function(result){
+                expect(result).toEqual(true);
+                done();
+            });
+    });
 
     it("checkConnection info object online", function(done) {
         var timeout = 100;
