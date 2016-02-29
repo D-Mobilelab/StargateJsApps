@@ -62,6 +62,7 @@ var appsflyer = (function(){
 			// send it
 			try {
 				cb(conversionData);
+				log("[appsflyer] parameters sent to webapp callback: "+JSON.stringify(conversionData));
 			}
 			catch (error) {
 				err("[appsflyer] callback error: "+error, error);
