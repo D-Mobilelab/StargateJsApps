@@ -46,7 +46,8 @@ var manifest_mock = {
             "gplusconnect": false,
             "androidMenuPlayme": false,
             "inappPurchase": true,
-            "deltadna" : false
+            "deltadna" : false,
+			"offline-game": false
         },
 
         "api": {
@@ -100,13 +101,37 @@ var navigator_splashscreen_mock = {
 };
 
 
-
 var cookie_mock = {
 	_val: {},
 	get: function(name) { return cookie_mock._val[name] },
 	set: function(name, value) { return cookie_mock._val[name] = value; }
 };
 
+var navigator_connection_mock = {
+    type:'wifi',
+    getInfo:function(cb, cbe){}
+};
+
+function SimulateEvent(eventName, attrs, time, target){
+    var _target;
+
+    if(target && target === "window"){
+        _target = window;
+    }else{
+        _target = document;
+    }
+
+    var event = document.createEvent('CustomEvent');
+    for(var key in attrs){
+        if(!event.hasOwnProperty(key)){
+            event[key] = attrs[key];
+        }
+    }
+    event.initEvent(eventName, true, true);
+    setTimeout(function(){
+        _target.dispatchEvent(event);
+    }, time || 1000);
+}
 
 
 describe("Stargate initialize", function() {
@@ -130,14 +155,20 @@ describe("Stargate initialize", function() {
 		window.cordova = cordova_mock;
 		window.StatusBar = statusbar_mock;
 		navigator.splashscreen = navigator_splashscreen_mock;
+        navigator.connection = navigator_connection_mock;
 		window.store = store_mock;
 		window.storekit = storekit_mock;
 		
 		log = jasmine.createSpy();
 
-		jasmine.Ajax.install();
+		getManifest = function(){
+			return Promise.resolve(manifest_mock);
+		};
 
-	});
+		jasmine.Ajax.install();
+        document.removeEventListener("deviceready",onDeviceReady, false);
+
+    });
 	afterEach(function() {
 		cookie_mock._val = {};
 		window.localStorage.clear();
@@ -191,11 +222,7 @@ describe("Stargate initialize", function() {
 
 		var res = stargatePublic.initialize(spec_configurations, pubKey, forge, cbFinish);
 		
-		// dispatch deviceready event
-		var deviceReadyEvent = document.createEvent('CustomEvent');  // MUST be 'CustomEvent'
-		deviceReadyEvent.initCustomEvent('deviceready', false, false, null);
-
-		document.dispatchEvent(deviceReadyEvent);
+        SimulateEvent("deviceready", {}, 200);
 
 		expect(isStargateInitialized).toBe(true);
 		expect(isStargateRunningInsideHybrid).toBe(true);
@@ -223,12 +250,7 @@ describe("Stargate initialize", function() {
 		var cbFinish = jasmine.createSpy('cbFinish');
 
 		var res = stargatePublic.initialize(spec_configurations, cbFinish);
-		
-		// dispatch deviceready event
-		var deviceReadyEvent = document.createEvent('CustomEvent');  // MUST be 'CustomEvent'
-		deviceReadyEvent.initCustomEvent('deviceready', false, false, null);
-
-		document.dispatchEvent(deviceReadyEvent);
+        SimulateEvent("deviceready", 300);
 
 		expect(isStargateInitialized).toBe(true);
 		expect(isStargateRunningInsideHybrid).toBe(true);
@@ -284,5 +306,83 @@ describe("Stargate initialize", function() {
 		});
 		
 	});
+
+    it("initializeOffline should resolve with true at deviceready", function(done){
+        var task = stargatePublic.initializeOffline();
+
+        SimulateEvent("deviceready",{ready:true});
+        task.then(function(result){
+            expect(result).toBe(true);
+            expect(isStargateInitialized).toEqual(true);
+            //restore original value
+            isStargateInitialized = false;
+            initOfflinePromise = undefined;
+            done();
+        });
+    });
+
+    it("initializeOffline called twice should resolve immediately", function(done){
+        var task = stargatePublic.initializeOffline();
+        SimulateEvent("deviceready",{ready:true});
+        task.then(function(result){
+            expect(result).toBe(true);
+            expect(isStargateInitialized).toEqual(true);
+        });
+
+        stargatePublic.initializeOffline()
+            .then(function(result){
+                expect(result).toEqual(true);
+                done();
+            });
+    });
+
+    it("checkConnection info object online", function(done) {
+        var timeout = 100;
+        isStargateInitialized = true;
+        navigator_connection_mock.type = "wifi";
+        SimulateEvent("online",{networkState:"wifi"}, timeout, "window");
+
+        setTimeout(function() {
+            var connectionInfo = stargatePublic.checkConnection(function(){}, function(){});
+            expect(connectionInfo.type).toBeDefined();
+            expect(connectionInfo.type).toEqual("online");
+            expect(connectionInfo.networkState).toBeDefined();
+            expect(connectionInfo.networkState).toEqual("wifi");
+            isStargateInitialized = false;
+            done();
+        }, timeout + 10);
+    });
+
+    it("checkConnection info object offline", function(done) {
+        var timeout = 100;
+        isStargateInitialized = true;
+        navigator_connection_mock.type = "none";
+        SimulateEvent("offline", {networkState:"none"}, timeout, "window");
+        setTimeout(function() {
+            var connectionInfo = stargatePublic.checkConnection(function(){}, function(){});
+            expect(connectionInfo.type).toBeDefined();
+            expect(connectionInfo.type).toEqual("offline");
+            expect(connectionInfo.networkState).toBeDefined();
+            expect(connectionInfo.networkState).toEqual("none");
+            isStargateInitialized = false;
+            done();
+        }, timeout + 10);
+    });
+
+    it("checkConnection without functions callback", function(done) {
+        var timeout = 100;
+        isStargateInitialized = true;
+        navigator_connection_mock.type = "none";
+        SimulateEvent("offline", {networkState:"none"}, timeout, "window");
+        setTimeout(function() {
+            var connectionInfo = stargatePublic.checkConnection();
+            expect(connectionInfo.type).toBeDefined();
+            expect(connectionInfo.type).toEqual("offline");
+            expect(connectionInfo.networkState).toBeDefined();
+            expect(connectionInfo.networkState).toEqual("none");
+            isStargateInitialized = false;
+            done();
+        }, timeout + 10);
+    });
 	
 });

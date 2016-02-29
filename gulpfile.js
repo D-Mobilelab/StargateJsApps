@@ -19,7 +19,8 @@ var gulp = require('gulp'),
     argv = require('minimist')(process.argv.slice(2)),
     karma = require('karma'),
     buildConfig = require('./config/build.config'),
-  	karmaConf = require('./config/karma.conf.js');
+  	karmaConf = require('./config/karma.conf.js'),
+    depsOrder = require('gulp-deps-order');
 
 
 gulp.task('bower:install', function() {
@@ -37,6 +38,7 @@ gulp.task('build:bower', ['bower:install'], function() {
 
 gulp.task('build:src:nonotify', ['build:bower'], function() {
 	return gulp.src('src/**/*.js')
+        .pipe(depsOrder())
 		.pipe(concat(buildConfig.distFile))
 		.pipe(header(buildConfig.closureStart))
 		.pipe(footer(buildConfig.closureEnd))
@@ -51,8 +53,8 @@ gulp.task('build:src:nonotify', ['build:bower'], function() {
 
 	    // save also to demo folder
 	    .pipe(gulp.dest('demo/www/js/'))
-		
-		// save minified version	    
+
+		// save minified version
 	    .pipe(rename({suffix: '.min'}))
 	    .pipe(uglify().on('error', gulpUtil.log))
 	    .pipe(header(buildConfig.banner))
@@ -62,6 +64,7 @@ gulp.task('build:src:nonotify', ['build:bower'], function() {
 
 gulp.task('build:bowerpackage', function() {
 	return gulp.src('src/**/*.js')
+		.pipe(depsOrder())
 		.pipe(concat(buildConfig.distFile))
 		.pipe(header(buildConfig.closureStart))
 		.pipe(footer(buildConfig.closureEnd))
@@ -91,33 +94,14 @@ gulp.task('watch', function () {
     }));
 });
 
-/*
-gulp.task('demo:serve', function() {
-  gulp.src('demo/www/')
-    .pipe(webserver({
-    	//path: 'demo/www/',
-      	livereload: true,
-      	fallback: 'index.html',
-      	directoryListing: false,
-      	open: true
-    }));
+
+gulp.task('concatModulesInOrder', function(){
+    return gulp.src("src/modules/**/*.js")
+        .pipe(depsOrder())
+        .pipe(concat("modules.js"))
+        .pipe(gulp.dest("src/modules.js"));
 });
 
-gulp.task('demo:clean', function () {
-	// delete platforms and plugins
-	return del([
-		'demo/platforms/',
-		'demo/plugins/'
-	])
-	.then(function() {
-		return process.chdir(cordovaTestProjectDir);
-	})
-	.then(function() {
-		// add platform and download again plugin specified by config.xml
-    	return cdv.platform('add', [testPlatform])
-	});
-});
-*/
 
 gulp.task('lint:jshint', function() {
 	return gulp.src('src/**/*.js')
@@ -132,9 +116,34 @@ gulp.task('lint:jshint', function() {
 	    .pipe(jshint.reporter('fail'));
 });
 
+gulp.task('watchSpec', function(){
+    watch("spec/modules/*.js", batch(function (events, done) {
+        gulp.start("copySpec", done);
+    }));
+});
+
+gulp.task('copySpec', function(){
+    return gulp.src("spec/modules/**/*.js")
+        .pipe(gulp.dest("./hello/www/jasmine/spec"));
+});
+
+gulp.task('watchSrc', function(){
+    watch("src/modules/**/*.js", batch(function (events, done) {
+        gulp.start("copySrc", done);
+    }));
+});
+
+gulp.task("copySrc", function(){
+    return gulp.src("src/modules/**/*.js")
+        .pipe(depsOrder())
+        .pipe(concat("modules.js"))
+        .pipe(gulp.dest("./hello/www/jasmine/src/"));
+});
+
+gulp.task('testondevice', ['watchSpec', 'watchSrc']);
+
 gulp.task('default', ['build:src'] );
 gulp.task('build', ['build:src'] );
-
 
 
 gulp.task('lint', ['lint:jshint'] );
@@ -150,8 +159,8 @@ gulp.task('demo:run', ['build:src'], function(cb) {
 });
 */
 
-gulp.task('karma', ['build'], function (done) {
-	
+gulp.task('karma', ['concatModulesInOrder','build'], function (done) {
+
 	// default to don't do single run
 	argv.singlerun && (karmaConf.singleRun = true);
 	argv.browsers && (karmaConf.browsers = argv.browsers.trim().split(','));
@@ -161,7 +170,7 @@ gulp.task('karma', ['build'], function (done) {
 });
 
 gulp.task('karma:singlerun', ['build'], function (done) {
-	
+
 	karmaConf.singleRun = true;
 	argv.browsers && (karmaConf.browsers = argv.browsers.trim().split(','));
 	argv.reporters && (karmaConf.reporters = argv.reporters.trim().split(','));

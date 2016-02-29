@@ -1,0 +1,73 @@
+{
+    "short_name": "Gameasy",
+    "mjs_api_access": [
+    { "match": "http://www2.gameasy.com/*", "platform": "android, ios", "access": "cordova" }
+],
+    "mjs_cordova": {
+    "plugin_mode": "client"
+},
+
+    "comment": "FIXME list of allowed url",
+    "mjs_extended_scope": [
+    "*"
+],
+    "wat_navigation": {
+    "hideOnPageBackButton": true
+},
+    "comment": "https://w3c.github.io/screen-orientation/#idl-def-OrientationLockType",
+    "orientation": "any",
+
+    "stargateConf": {
+    "title": "Gameasy",
+        "country": "",
+
+        "motime_apikey": "",
+        "namespace": "",
+        "label": "",
+        "billing_key": "",
+
+        "features": {
+            "newton": false,
+            "facebookconnect": true,
+            "mfp": true,
+            "gesturePlaymeVertical": false,
+            "gplusconnect": false,
+            "androidMenuPlayme": false,
+            "inappPurchase": true,
+            "deltadna" : false,
+            "offline":true
+    },
+
+    "api": {
+            "mfpSetUriTemplate": "{protocol}://{hostname}/mfpset.php{?url,domain,_PONY}",
+            "mfpGetUriTemplate": "http://api.motime.com/v01/mobileFingerprint.get{?apikey,contents_inapp,country,expire}",
+            "googleToken": "https://accounts.google.com/o/oauth2/token",
+            "userCreate": "%domain%/%country%/%selector%/%app_prefix%/store/usercreate/"
+    },
+
+    "statusbar": {
+        "hideOnUrlPattern": [
+            ".*"
+        ]
+    },
+
+    "webappsfixes": {
+        "gamifiveSearchBox": {
+            "platforms": {
+                "ios": true,
+                    "android": false
+            }
+        }
+    },
+
+    "deltadna" : {
+        "environmentKey": "",
+            "collectApi": "",
+            "engageApi": "",
+            "settings" : {
+            "onStartSendGameStartedEvent":true,
+                "onFirstRunSendNewPlayerEvent":false
+        }
+    }
+}
+}

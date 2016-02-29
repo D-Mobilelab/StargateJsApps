@@ -1,5 +1,3 @@
-
-
 // global variable used by old stargate client
 // @deprecated since v0.1.2
 window.pubKey = '';
@@ -7,13 +5,30 @@ window.pubKey = '';
 window.forge = '';
 
 
+var initOfflinePromise;
+//var TIMEOUT_INIT_OFFLINE = 50000;
+/**
+ * Initialize offline will be resolved at the deviceready event or rejected after a timeout
+ * @returns {Promise<boolean>}
+ * */
+stargatePublic.initializeOffline = function(){
+
+    if(initOfflinePromise) {
+        return initOfflinePromise;
+    }
+    isStargateInitialized = true;
+    initOfflinePromise = new Promise(function (resolve) {
+        document.addEventListener("deviceready", function deviceReadyOffline() {
+            console.log("[Stargate] - deviceready");
+            resolve(true);
+        });
+    });
+    return initOfflinePromise;
+};
 /**
 *
 * initialize(configurations, callback)
-*
-* 
 * @deprecated initialize(configurations, pubKey, forge, callback)
-*
 */
 stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callback) {
 
@@ -48,7 +63,7 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
     if (isStargateInitialized) {
         err("Stargate.initialize() already called, executing callback.");
         
-        callback(isStargateRunningInsideHybrid);
+        if(callback){callback(isStargateRunningInsideHybrid);}
 
         var alreadyRunningDefer = Q.defer();
         setTimeout(function(){
@@ -57,7 +72,6 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
         }, 1);
         return alreadyRunningDefer.promise;
     }
-
 
     isStargateInitialized = true;
 
@@ -135,16 +149,41 @@ stargatePublic.googleLogin = function(callbackSuccess, callbackError) {
     err("unimplemented");
     callbackError("unimplemented");
 };
-stargatePublic.checkConnection = function(callbackSuccess, callbackError) {
+
+var connectionStatus = {};
+function updateConnectionStatus(theEvent){
+    connectionStatus.type = theEvent.type;
+    connectionStatus.networkState = navigator.connection.type;
+}
+
+window.addEventListener("online", updateConnectionStatus, false);
+window.addEventListener("offline", updateConnectionStatus, false);
+
+
+/**
+ * checkConnection function returns the updated state of the client connection
+ * @param {Function} [callbackSuccess=function(){}] - callback success filled with: {type:"online|offline",networkState:"wifi|3g|4g|none"}
+ * @param {Function} [callbackError=function(){}] - called if stargate is not initialize or cordova plugin missing
+ * @returns {Object|boolean} connection info {type:"online|offline",networkState:"wifi|3g|4g|none"}
+ * */
+stargatePublic.checkConnection = function() {
+
+    var callbackSuccess = arguments.length <= 0 || arguments[0] === undefined ? function(){} : arguments[0];
+    var callbackError = arguments.length <= 1 || arguments[1] === undefined ? function(){} : arguments[1];
 
 	if (!isStargateInitialized) {
-		return callbackError("Stargate not initialized, call Stargate.initialize first!");
+		callbackError("Stargate not initialized, call Stargate.initialize first!");
+        return false;
     }
 
-    // FIXME: check that network plugin is installed
+    if(typeof navigator.connection.getInfo !== "function"){
+        callbackError("Missing cordova plugin");
+        console.warn("Cordova Network Information module missing");
+        return false;
+    }
 
-    var networkState = navigator.connection.type;
-    callbackSuccess({'networkState': networkState});
+    callbackSuccess(connectionStatus);
+    return connectionStatus;
 };
 stargatePublic.getDeviceID = function(callbackSuccess, callbackError) {
 
@@ -185,6 +224,30 @@ stargatePublic.getVersion = function() {
     return stargatePackageVersion;
 };
 
+/**
+ * This is a decorator:
+ * before calling a module's function I check that stargate is initialized for each module
+ *
+ * @param {Object} context - context is the "this" of the method. usually the parent
+ * @param {Function} fn - fn is the function to decorate with isStargateInitialized
+ * @returns {Function} the function actually called
+ * */
+/*function decorateWithInitialized(context, fn){
+    return function(){
+        if(isStargateInitialized){
+            return fn.apply(context, arguments);
+        }
+        console.warn("[Stargate.js] - WARN! not initialize");
+    };
+}
+
+// decorate the game modules: do it for all modules?
+for(var fn in _modules.game){
+    if(typeof _modules.game[fn] === "function"){
+        _modules.game[fn] = decorateWithInitialized(_modules.game, _modules.game[fn]);
+    }
+}*/
+
 /**  
  *
  *  stargatePublic.inApp* -> iap.js
@@ -192,4 +255,3 @@ stargatePublic.getVersion = function() {
  */
 
 stargatePublic.ad = new AdStargate();
-
