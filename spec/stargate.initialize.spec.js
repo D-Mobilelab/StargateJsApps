@@ -132,6 +132,8 @@ describe("Stargate initialize", function() {
 		navigator.splashscreen = navigator_splashscreen_mock;
 		window.store = store_mock;
 		window.storekit = storekit_mock;
+		
+		log = jasmine.createSpy();
 
 		jasmine.Ajax.install();
 
@@ -168,12 +170,12 @@ describe("Stargate initialize", function() {
 		stargatePublic.initialize(spec_configurations, pubKey, forge, function(){});		
 		expect(isStargateInitialized).toBe(true);
 
-		spyOn(console, 'error');
+		err = jasmine.createSpy();
 
 		var cbFinish = jasmine.createSpy('cbFinish');
 
 		stargatePublic.initialize(spec_configurations, pubKey, forge, cbFinish);
-		expect(console.error).toHaveBeenCalled();
+		expect(err).toHaveBeenCalled();
 		expect(cbFinish).toHaveBeenCalled();
 	});
 

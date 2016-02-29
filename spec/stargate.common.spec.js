@@ -26,10 +26,11 @@ describe("Stargate initialization required", function() {
 	});
 
 	it("openUrl require initialization", function() {
-		spyOn(console, 'error');
+		
+		err = jasmine.createSpy();
 
 		expect(stargatePublic.openUrl()).toBeFalsy();
-		expect(console.error).toHaveBeenCalled();
+		expect(err).toHaveBeenCalled();
 	});
 
 	it("googleLogin require initialization", function() {
