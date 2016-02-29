@@ -11,22 +11,9 @@
 var stargateVersion = "2";
 
 // logger function
-var log = function(msg, obj) {
-    if (typeof obj !== 'undefined') {
-        console.log("[Stargate] "+msg+" ",obj);
-    } else {
-        console.log("[Stargate] "+msg);
-    }
-    return true;
-};
-var err = function(msg, obj) {
-    if (typeof obj !== 'undefined') {
-        console.error("[Stargate] "+msg+" ",obj);
-    } else {
-        console.error("[Stargate] "+msg);
-    }
-    return false;
-};
+var log = console.log.bind(window.console, "[Stargate] ");
+var err = console.error.bind(window.console, "[Stargate] ");
+
 
 
 // device informations   // examples
