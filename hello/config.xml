@@ -4,17 +4,27 @@
     <description>A blank project that uses Apache Cordova to help you build an app that targets multiple mobile platforms: Android, iOS, Windows, and Windows Phone.</description>
     <author email="dev@cordova.apache.org" href="http://cordova.io">Apache Cordova Team</author>
     <content src="jasmine/SpecRunner.html" />
-    <access origin="*" />
     <preference name="SplashScreen" value="screen" />
     <preference name="windows-target-version" value="8.1" />
     <preference name="windows-phone-target-version" value="8.1" />
-    <plugin name="cordova-plugin-whitelist" spec="1" />
+
     <allow-intent href="http://*/*" />
     <allow-intent href="https://*/*" />
     <allow-intent href="tel:*" />
     <allow-intent href="sms:*" />
     <allow-intent href="mailto:*" />
     <allow-intent href="geo:*" />
+    <allow-intent href="cdvfile:*"/>
+    <allow-intent href="file:*"/>
+
+    <access origin="*"/>
+    <access origin="cdvfile://*"/>
+    <access origin="file://*"/>
+    <allow-navigation href="cdvfile://*"/>
+    <allow-navigation href="file://*"/>
+    <allow-navigation href="*://*/*"/>
+
+
     <platform name="android">
         <allow-intent href="market:*" />
         <preference name="AndroidPersistentFileLocation" value="Internal" />
@@ -103,8 +113,12 @@
     <plugin name="cordova-plugin-globalization" spec="~1.0.2" />
     <plugin name="cordova-plugin-network-information" spec="~1.2.0" />
     <plugin name="cordova-plugin-transport-security" spec="~0.1.1" />
-    <plugin name="cordova-plugin-whitelist" spec="~1.2.1" />
     <plugin name="cordova-plugin-zip" spec="~3.0.0" />
     <plugin name="cordova-plugin-statusbar" spec="~2.0.0" />
     <plugin name="cordova-plugin-app-version" spec="~0.1.8" />
+    <preference name="xwalkVersion" value="16+" />
+    <preference name="xwalkCommandLine" value="--disable-pull-to-refresh-effect" />
+    <preference name="xwalkMode" value="embedded" />
+    <preference name="xwalkMultipleApk" value="true" />
+    <plugin name="cordova-plugin-whitelist" spec="https://github.com/agamemnus/cordova-plugin-whitelist.git" />
 </widget>
