@@ -8,78 +8,75 @@ function isRunningOnIos(){
 function isRunningOnAndroid(){
     return window.device.platform.toLowerCase() == "android";
 }
-var gameObject = {
-    id: "94904060fe5d50dd6c22b927c6a7c71d",
-    publisher: {
-    title_publisher: "anuman",
-        url_publisher: "#!/publisher/anuman"
+var gameObject =
+{
+    "id":"4de756a55ac71f45c5b7b4211b71219e",
+    "title":"Fruit Slicer",
+    "description":"Slice fruits, make combos & break records!",
+    "publisher":{
+        "title_publisher":"alexanderPorubov",
+        "url_publisher":"#!\/publisher\/alexanderPorubov"
     },
-    title: "Prohibition 1930",
-    description: "Take on the role of William Hall, a tenacious and incorruptible detective who is determined to avenge his family's assassination! Embark upon a terrible vendetta and wipe out every member of the mob covering up Vincent Parrizi's escape. Make your way through vast environments to the rhythm of frenetic shootouts, and slow down time to rack up headshots! Will you try to gather clues in order to arrest the godfather or will you kill him in revenge?",
-    description_short: "Take on the role of William Hall, a tenacious and incorruptible detective who is determined to av...",
-    images: {
-    screenshot: [
-        "http://s2.motime.com/p/bcontents/absimageappscreenshot1_5/h[HSIZE]/w[WSIZE]/xx_gameasy/mnt/alfresco_content_prod/contentstore/2014/2/25/10/51/51a21222-f6be-40b3-8267-fd3228ab0275/prohibition-1930.bin?v=1450266963",
-        "http://s2.motime.com/p/bcontents/absimageappscreenshot1_5/h[HSIZE]/w[WSIZE]/xx_gameasy/mnt/alfresco_content_prod/contentstore/2014/2/25/10/52/86e1c95a-cbba-4875-b528-0ecf029bf96d/prohibition-1930.bin?v=1450266963",
-        "http://s2.motime.com/p/bcontents/absimageappscreenshot1_5/h[HSIZE]/w[WSIZE]/xx_gameasy/mnt/alfresco_content_prod/contentstore/2014/2/25/10/49/2d642371-2960-435f-ac7c-b4e4923d81a1/prohibition-1930.bin?v=1450266963"
-    ],
-    cover: {
-        ratio_1_4:"http://s2.motime.com/p/bcontents/absimageapp1_4/h[HSIZE]/w[WSIZE]/xx_gameasy/mnt/alfresco_content_prod/contentstore/2014/2/25/10/50/42624bdc-c47f-437d-bcbb-e1a7b3d48d3f/prohibition-1930.bin?v=1450266963",
-            ratio_0_7:"http://s2.motime.com/p/bcontents/absimageapp0_7/h[HSIZE]/w[WSIZE]/xx_gameasy/mnt/alfresco_content_prod/contentstore/2014/2/25/10/51/148348cd-05e3-4378-bae8-b7648ffa9f1f/prohibition-1930.bin?v=1450266963",
-            ratio_1: "http://s2.motime.com/p/bcontents/absimageapp1/h[HSIZE]/w[WSIZE]/xx_gameasy/mnt/alfresco_content_prod/contentstore/2014/2/25/10/51/d2179a25-f07d-422c-adbc-7cb1bb001b62/prohibition-1930.bin?v=1450266963",
-            ratio_2: "http://s2.motime.com/p/bcontents/absimageapp2/h[HSIZE]/w[WSIZE]/xx_gameasy/mnt/alfresco_content_prod/contentstore/2014/2/25/10/50/080d3dce-c136-4584-8c6f-85bc8ade1539/prohibition-1930.bin?v=1450266963",
-            ratio_1_5:"http://s2.motime.com/p/bcontents/absimageapp1_5/h[HSIZE]/w[WSIZE]/xx_gameasy/mnt/alfresco_content_prod/contentstore/2014/2/25/10/52/1651accd-dc66-4177-b57c-3f65765068b2/prohibition-1930.bin?v=1450266963"
+    "description_short":"Slice fruits, make combos & break records!",
+    "images":{
+        "screenshot":[
+            "http:\/\/s2.motime.com\/p\/bcontents\/absimageappscreenshot0_8\/h[HSIZE]\/w[WSIZE]\/xx_gameasy\/mnt\/alfresco_content_prod\/contentstore\/2014\/8\/27\/16\/44\/bc3519c2-38d3-4378-a23d-fe06396b3932\/fruit-slicer.bin?v=1455555646",
+            "http:\/\/s2.motime.com\/p\/bcontents\/absimageappscreenshot0_8\/h[HSIZE]\/w[WSIZE]\/xx_gameasy\/mnt\/alfresco_content_prod\/contentstore\/2014\/8\/27\/16\/44\/546e2a1e-d52d-4983-973d-71babf723107\/fruit-slicer.bin?v=1455555646",
+            "http:\/\/s2.motime.com\/p\/bcontents\/absimageappscreenshot0_8\/h[HSIZE]\/w[WSIZE]\/xx_gameasy\/mnt\/alfresco_content_prod\/contentstore\/2014\/8\/27\/16\/44\/cc67c3ba-a2d7-4b17-abb7-01f2b885b744\/fruit-slicer.bin?v=1455555646"
+        ],
+        "cover":{
+            "ratio_1_4":"http:\/\/s2.motime.com\/p\/bcontents\/absimageapp1_4\/h[HSIZE]\/w[WSIZE]\/xx_gameasy\/mnt\/alfresco_content_prod\/contentstore\/2014\/8\/27\/16\/44\/c5e35302-5776-4a9d-bf4c-3501e2dce850\/fruit-slicer.bin?v=1455555646",
+            "ratio_0_7":"http:\/\/s2.motime.com\/p\/bcontents\/absimageapp0_7\/h[HSIZE]\/w[WSIZE]\/xx_gameasy\/mnt\/alfresco_content_prod\/contentstore\/2014\/8\/27\/16\/44\/7a02027e-7998-4d86-82ac-4e035cb495db\/fruit-slicer.bin?v=1455555646",
+            "ratio_1":"http:\/\/s2.motime.com\/p\/bcontents\/absimageapp1\/h[HSIZE]\/w[WSIZE]\/xx_gameasy\/mnt\/alfresco_content_prod\/contentstore\/2014\/8\/27\/16\/44\/bb9ce100-9250-4875-8db7-8d72628f0d51\/fruit-slicer.bin?v=1455555646",
+            "ratio_2":"http:\/\/s2.motime.com\/p\/bcontents\/absimageapp2\/h[HSIZE]\/w[WSIZE]\/xx_gameasy\/mnt\/alfresco_content_prod\/contentstore\/2014\/8\/27\/16\/44\/4d9f5cc2-35ac-4da1-98c6-464afd7d84dd\/fruit-slicer.bin?v=1455555646",
+            "ratio_1_5":"http:\/\/s2.motime.com\/p\/bcontents\/absimageapp1_5\/h[HSIZE]\/w[WSIZE]\/xx_gameasy\/mnt\/alfresco_content_prod\/contentstore\/2014\/8\/27\/16\/44\/9b26ea5e-874b-4137-9c12-8ed66e54cf8d\/fruit-slicer.bin?v=1455555646"
+        },
+        "icon":"http:\/\/s2.motime.com\/p\/bcontents\/absimageappicon\/h[HSIZE]\/w[WSIZE]\/xx_gameasy\/mnt\/alfresco_content_prod\/contentstore\/2014\/8\/27\/16\/44\/3a87847e-b08a-4c6f-822b-8e9bd1314e23\/fruit-slicer.bin?v=1455555646"
     },
-    icon: "http://s2.motime.com/p/bcontents/absimageappicon/h[HSIZE]/w[WSIZE]/xx_gameasy/mnt/alfresco_content_prod/contentstore/2014/2/25/10/52/44293609-5caa-4106-b0c9-a43da15b48e1/prohibition-1930.bin?v=1450266963"
+    "category":{
+        "id_category":"0ea1cbfb288aee1a1cc1579f97696dc7",
+        "name_category":"Beat the score",
+        "cs_id":"0eea88cf-d140-461e-98eb-62735f12d75e",
+        "born_date_category":"Mon, 16 Nov 2015 10:58:45 -0000",
+        "inserted_date_category":"Fri, 11 Dec 2015 14:17:05 -0000",
+        "source_id":"alfresco_xx_gameasy_Beat the score",
+        "supplier_id":"alfresco",
+        "url_cover":"http:\/\/s2.motime.com\/p\/bcontents\/absimageappraw\/h1\/w1\/xx_gameasy\/mnt\/alfresco_content_prod\/contentstore\/2016\/2\/15\/12\/53\/0576ffb9-f5ab-438d-8752-ff460752c68a\/beat-the-score.bin?v=1455555402",
+        "url_category":"#!\/category\/0ea1cbfb288aee1a1cc1579f97696dc7\/Beat+the+score",
+        "url_leaf_engine_subscription_category":"",
+        "url_preview_big_category":"",
+        "url_preview_small_category":""
     },
-    category: {
-        id_category: "5bfa4fcff1f05613b419ebb072035925",
-            name_category: "Adventure",
-            cs_id: "60e9cc48-2662-4ad7-9e1d-dc27b9e5b3d3",
-            born_date_category: "Thu, 26 Nov 2015 08:17:47 -0000",
-            inserted_date_category: "Fri, 11 Dec 2015 14:17:05 -0000",
-            source_id: "alfresco_xx_gameasy_Adventure",
-            supplier_id: "alfresco",
-            url_category: "#!/category/5bfa4fcff1f05613b419ebb072035925/Adventure",
-            url_leaf_engine_subscription_category: "",
-            url_preview_big_category: "",
-            url_preview_small_category: ""
+    "url_zoom":"#!\/games\/fruit-slicer_4de756a55ac71f45c5b7b4211b71219e",
+    "url_zoom_simple":"fruit-slicer_4de756a55ac71f45c5b7b4211b71219e",
+    "img_qrcode":"\/qrcode?text=%2Fsetwelcome%3Freturn_url%3D%252F%2523%2521%252Fgames%252Ffruit-slicer_HA990001689",
+    "url_share":"\/share\/games\/fruit-slicer_HA990001689",
+    "url_leaf_engine_subscription":"\/subscribe\/content\/HA990001689",
+    "url_api_dld":"\/v01\/contents\/4de756a55ac71f45c5b7b4211b71219e\/download?formats=html5applications",
+    "size":"7,17 MB",
+    "alfresco_id":"HA990001689",
+    "counters_matches":91,
+    "counters_favourites":0,
+    "cs_id":"HA990001689",
+    "url_play":"\/html5gameplay\/4de756a55ac71f45c5b7b4211b71219e\/game\/fruit-slicer",
+    "has_sdk":true,
+    "format":"html5applications",
+    "access_type":{
+        "guest":false,
+        "free":false,
+        "premium":true
     },
-    url_zoom: "#!/games/prohibition-1930_94904060fe5d50dd6c22b927c6a7c71d",
-    url_zoom_simple: "prohibition-1930_94904060fe5d50dd6c22b927c6a7c71d",
-    img_qrcode: "http://www2.gameasy.com/qrcode?text=http%3A%2F%2Fwww2.gameasy.com%2Fsetwelcome%3Freturn_url%3Dhttp%253A%252F%252Fwww2.gameasy.com%252F%2523%2521%252Fgames%252Fprohibition-1930_AA990001747",
-    url_share: "http://www2.gameasy.com/share/games/prohibition-1930_AA990001747",
-    url_leaf_engine_subscription: "http://www2.gameasy.com/subscribe/content/AA990001747",
-    url_api_dld: "http://www2.giochissimo.it/pask/zip/FruitSlicer.zip",
-    alfresco_id: "AA990001747",
-    counters_matches: "",
-    counters_favourites: "",
-    cs_id: "AA990001747",
-    url_play: "http://www2.gameasy.com/html5gameplay/94904060fe5d50dd6c22b927c6a7c71d/game/prohibition-1930",
-    has_sdk: "",
-    format: "html5applications",
-    access_type: {
-        guest: false,
-        free: false,
-        premium: true
+    "offline_available":true,
+
+
+    response_api_dld: {
+        "status":200,
+        "url_download":"http:\/\/www2.gameasy.com\/ww\/html5gameplay\/01\/93\/019315303f5014ee53877ca1ff9d96b3\/xx_gameasy\/game\/Juicy_dash_boungourno\/juicy_dash_index.html",
+        "binary_url":"http:\/\/s2.motime.com\/p\/bcontents\/appsdownload\/xx_gameasy\/2015\/10\/22\/13\/2\/1086a078-207c-41a8-b24f-9ed1afd17176\/juicy-dash.bin?v="+Date.now(),
+        "binary_md5":"e8a852d5b1cee637d5b17ce813113083",
+        "message":"WEBAPP_CONTENT_DOWNLOAD_STARTED"
     }
 };
-
-// URL API DLD RESPONSE
-// url_api_dld:http://www2.gameasy.com/ww//v01/contents/<game-id>/download?formats=html5applications
-/*{
-    "status": 200,
-    "url_binary":"http://"
-    "url_download": "http://www2.gameasy.com/ww/html5gameplay/dc/e0/dce0fe873d4cd836f63af5c8ba77bb8d/xx_gameasy/game/black_gold_plumber/black_gold_plumber_index.html",
-    "message": "WEBAPP_CONTENT_DOWNLOAD_STARTED",
-    "md5":"1232qwf23t",
-    "size":5678
-}*/
-/*
-{
-    "status":1403,
-    "message":null
-}*/
 
 function createFolder(where, name){
     return new Promise(function(resolve,reject){
@@ -125,6 +122,18 @@ function fileExists(url){
         window.resolveLocalFileSystemURL(url, function(entry){
 
             resolve(entry.isFile);
+
+        }, function(fileError){
+            resolve(fileError.code !== 1);
+        });
+    });
+}
+
+function dirExists(url){
+    return new Promise(function(resolve){
+        window.resolveLocalFileSystemURL(url, function(entry){
+
+            resolve(entry.isDirectory);
 
         }, function(fileError){
             resolve(fileError.code !== 1);
@@ -178,7 +187,6 @@ describe("Game module tests", function() {
             window.resolveLocalFileSystemURL(STORAGE_DIR + names[i], function(entry){
                 entry.removeRecursively(function(result){
                     counter += 1;
-
                     if(counter == names.length){
                         done();
                     }
@@ -193,7 +201,6 @@ describe("Game module tests", function() {
     }
     var game = stargateModules.game._public;
     game.initialize = stargateModules.game._protected.initialize;
-    console.log(game);
     var TEST_FOLDER_DIR,
         STORAGE_DIR,
         GAMES_DIR,
@@ -226,12 +233,14 @@ describe("Game module tests", function() {
     it("Game folders should exists after initialize", function(done) {
         game.initialize(GamifiveInfo.user)
             .then(function(results){
-                console.log("game init results:", results);
+                console.log("game init results:", results[0][0], results[1][0]);
                 var secondResult = results[1][0];
                 var firstResult = results[0][0];
-                expect(firstResult.path).toEqual(GAMES_DIR);
-                expect(secondResult.path).toEqual(SDK_DIR + "gfsdk.min.js");
-                expect(secondResult.isFile).toEqual(true);
+                return Promise.all([fileExists(secondResult.path),dirExists(firstResult.path)]);
+            })
+            .then(function(res){
+                expect(res[0]).toEqual(true);
+                expect(res[1]).toEqual(true);
                 done();
             })
             .catch(function(err){
@@ -240,7 +249,7 @@ describe("Game module tests", function() {
             });
     });
 
-    it("SDK should not be downloaded if already there", function(done) {
+/*    it("SDK should not be downloaded if already there", function(done) {
         var SDK_URL = "http://s.motime.com/js/wl/webstore_html5game/gfsdk/dist/gfsdk.min.js";
         //var originalDownload = stargateProtected.file.download;
         //var originalFileExists = stargateProtected.file.fileExists;
@@ -253,9 +262,11 @@ describe("Game module tests", function() {
 
         var firstInit = game.initialize(GamifiveInfo.user)
             .then(function(results){
-                console.log(results);
-                expect(results[0][0].path).toEqual(GAMES_DIR);
-                expect(results[1][0].path).toEqual(SDK_DIR + "gfsdk.min.js");
+                console.log(results[0][0]);
+                console.log(results[1][0]);
+
+                expect(results[1][0].path).toEqual(GAMES_DIR);
+                expect(results[0][0].path).toEqual(SDK_DIR);
             }).then(function(){
 
                 //MOCK FILE EXISTS AND DIREXISTS
@@ -283,38 +294,7 @@ describe("Game module tests", function() {
                 //stargateProtected.dirExists = originalDirExists;
                 done();
             });
-    });
-
-    it("Test simple game download(save meta.json)", function(done){
-        function log(){
-            console.log(arguments);
-        }
-        var cbks = {
-            onEnd:function(e){console.log("END", e);
-                if(e.type == "download"){
-                    console.log(e);
-                }
-            },
-            onStart:function(e){
-                console.log("START", e);
-            }
-        };
-
-        game.initialize(GamifiveInfo.user)
-            .then(function(){
-                return game.download(gameObject, cbks);
-            })
-            .then(function(results){
-                expect(results).toBeDefined(results);
-                done();
-            })
-            .catch(function(err){
-                expect(true).toBe(false);
-                console.error(err);
-                done();
-            });
-
-    });
+    });*/
 
     it("Test abortDownload", function(done){
 
@@ -326,7 +306,7 @@ describe("Game module tests", function() {
                     var res = game.abortDownload();
                     expect(res).toBe(true);
                     done();
-                }, 10);
+                }, 100);
             });
     });
 
@@ -357,17 +337,37 @@ describe("Game module tests", function() {
             });
     });
 
-    it("Should download the game, and modify the index.html with local sdk",function(done){
+    it("Test simple game download(save meta.json)", function(done){
+
+        var cbks = {
+            onEnd:function(e){console.log(e);},
+            onStart:function(e){console.log(e);},
+            onProgress:function(e){console.log(e);}
+        };
+
         game.initialize()
-            .then(function(){
-                return game.download(gameObject, {onEnd:function(e){console.log("DONE",e.type);}});
+            .then(function(results){
+                console.log("Initialize results", results);
+                return game.download(gameObject, cbks);
             })
-            .then(function(result){
-                expect(result).toBeDefined();
-                var gamePath = GAMES_DIR + gameObject.id;
+            .then(function(results){
+                console.log("AAAAAAAAAAAAAAA", results);
                 done();
-            }).catch(function(reason){
-                console.error(reason);
             });
+
     });
+
+ //   it("Should download the game, and modify the index.html with local sdk",function(done){
+ //       game.initialize()
+ //           .then(function(){
+ //               return game.download(gameObject, {onEnd:function(e){console.log("DONE",e.type);}});
+ //           })
+ //           .then(function(result){
+ //               expect(result).toBeDefined();
+ //               var gamePath = GAMES_DIR + gameObject.id;
+ //               done();
+ //           }).catch(function(reason){
+ //               console.error(reason);
+ //           });
+ //   });
 });
