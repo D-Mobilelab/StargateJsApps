@@ -211,6 +211,9 @@ var onDeviceReady = function () {
     
     // get device information
     initDevice();
+    
+    // get connection information
+    initializeConnectionStatus();
 
     // request all asyncronous initialization to complete
     Q.all([
