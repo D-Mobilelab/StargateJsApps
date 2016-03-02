@@ -158,12 +158,17 @@ describe("Stargate initialize", function() {
         navigator.connection = navigator_connection_mock;
 		window.store = store_mock;
 		window.storekit = storekit_mock;
+		
+		log = jasmine.createSpy();
+
 		getManifest = function(){
 			return Promise.resolve(manifest_mock);
 		};
-		jasmine.Ajax.install();
 
-	});
+		jasmine.Ajax.install();
+        document.removeEventListener("deviceready",onDeviceReady, false);
+
+    });
 	afterEach(function() {
 		cookie_mock._val = {};
 		window.localStorage.clear();
@@ -196,12 +201,12 @@ describe("Stargate initialize", function() {
 		stargatePublic.initialize(spec_configurations, pubKey, forge, function(){});		
 		expect(isStargateInitialized).toBe(true);
 
-		spyOn(console, 'error');
+		err = jasmine.createSpy();
 
 		var cbFinish = jasmine.createSpy('cbFinish');
 
 		stargatePublic.initialize(spec_configurations, pubKey, forge, cbFinish);
-		expect(console.error).toHaveBeenCalled();
+		expect(err).toHaveBeenCalled();
 		expect(cbFinish).toHaveBeenCalled();
 	});
 
@@ -301,6 +306,35 @@ describe("Stargate initialize", function() {
 		});
 		
 	});
+
+    it("initializeOffline should resolve with true at deviceready", function(done){
+        var task = stargatePublic.initializeOffline();
+
+        SimulateEvent("deviceready",{ready:true});
+        task.then(function(result){
+            expect(result).toBe(true);
+            expect(isStargateInitialized).toEqual(true);
+            //restore original value
+            isStargateInitialized = false;
+            initOfflinePromise = undefined;
+            done();
+        });
+    });
+
+    it("initializeOffline called twice should resolve immediately", function(done){
+        var task = stargatePublic.initializeOffline();
+        SimulateEvent("deviceready",{ready:true});
+        task.then(function(result){
+            expect(result).toBe(true);
+            expect(isStargateInitialized).toEqual(true);
+        });
+
+        stargatePublic.initializeOffline()
+            .then(function(result){
+                expect(result).toEqual(true);
+                done();
+            });
+    });
 
     it("checkConnection info object online", function(done) {
         var timeout = 100;

@@ -11,22 +11,9 @@
 var stargateVersion = "2";
 
 // logger function
-var log = function(msg, obj) {
-    if (typeof obj !== 'undefined') {
-        console.log("[Stargate] "+msg+" ",obj);
-    } else {
-        console.log("[Stargate] "+msg);
-    }
-    return true;
-};
-var err = function(msg, obj) {
-    if (typeof obj !== 'undefined') {
-        console.error("[Stargate] "+msg+" ",obj);
-    } else {
-        console.error("[Stargate] "+msg);
-    }
-    return false;
-};
+var log = console.log.bind(window.console, "[Stargate] ");
+var err = console.error.bind(window.console, "[Stargate] ");
+
 
 
 // device informations   // examples
@@ -186,8 +173,13 @@ var onPluginReady = function () {
     navigator.splashscreen.hide();
     setBusy(false);
 
+    // initialize all modules
+
+    // In-app purchase initialization
     IAP.initialize();
-    
+
+    // receive appsflyer conversion data event
+    appsflyer.init();
     
     // apply webapp fixes
     webappsFixes.init();
@@ -219,6 +211,9 @@ var onDeviceReady = function () {
     
     // get device information
     initDevice();
+    
+    // get connection information
+    initializeConnectionStatus();
 
     // request all asyncronous initialization to complete
     Q.all([

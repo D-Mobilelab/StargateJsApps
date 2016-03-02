@@ -1,8 +1,101 @@
 // global variable used by old stargate client
-// @deprecated since v0.2
+// @deprecated since v0.1.2
 window.pubKey = '';
-// @deprecated since v0.2
+// @deprecated since v0.1.2
 window.forge = '';
+
+
+var initOfflinePromise;
+
+/**
+ * Initialize offline will be resolved at the deviceready event or rejected after a timeout
+ * @param {object} [options={}] - an object with offline initialization options
+ * @param [options.hideSplashScreen=true] - a boolean indicating to hide or not the splash screen
+ * @returns {Promise<boolean>}
+ * */
+stargatePublic.initializeOffline = function(options){
+
+    if(initOfflinePromise) {
+        return initOfflinePromise;
+    }
+    
+    // - start set default options -
+    if (typeof options !== "object") {
+        options = {};
+    }
+    if (! options.hasOwnProperty("hideSplashScreen")) {
+        options.hideSplashScreen = true;
+    }
+    // -- end set default options --
+    
+    isStargateInitialized = true;
+    initOfflinePromise = new Promise(function (initOfflineResolve) {
+        document.addEventListener("deviceready", function deviceReadyOffline() {
+
+            // device ready received so i'm sure to be hybrid
+            setIsHybrid();
+            
+            // get device information
+            initDevice();
+            
+            // get connection information
+            initializeConnectionStatus();
+
+            // request all asyncronous initialization to complete
+            Promise.all([
+                // include here all needed asyncronous initializazion
+                cordova.getAppVersion.getVersionNumber(),
+                getManifest()
+            ])
+            .then(function(results) {
+                // save async initialization result
+
+                appVersion = results[0];
+                
+                if (typeof results[1] !== 'object') {
+                    results[1] = JSON.parse(results[1]);
+                }
+
+                baseUrl = results[1].start_url;
+
+                stargateConf = results[1].stargateConf;
+                
+                if (options.hideSplashScreen) {
+                    navigator.splashscreen.hide();
+                    setBusy(false);                    
+                }
+
+                // initialize finished
+                isStargateOpen = true;
+
+                log("Stargate.initializeOffline() done");
+
+                initOfflineResolve(true);
+
+            })
+            .catch(function (error) {
+                err("initializeOffline() error: "+error);
+            });
+
+            
+        });
+    });
+    return initOfflinePromise;
+};
+
+
+/**
+ * Stargate application configuration getters namespace
+ */
+stargatePublic.conf = {};
+
+/**
+ * Get url of webapp starting page when hybrid 
+ * @returns {String}
+ */
+stargatePublic.conf.getWebappStartUrl = function() {
+    return stargateConf.webapp_start_url;
+};
 
 /**
 *
@@ -84,6 +177,8 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
         return notHybridDefer.promise;
     }
 
+    log("initialize() starting up, configuration: ",hybrid_conf);
+
     initializeCallback = callback;
     initializeDeferred = Q.defer();
 
@@ -127,7 +222,11 @@ stargatePublic.googleLogin = function(callbackSuccess, callbackError) {
     callbackError("unimplemented");
 };
 
-var connectionStatus = {};
+var connectionStatus = {
+    type: "unknown",
+    networkState: "unknown"
+};
+
 function updateConnectionStatus(theEvent){
     connectionStatus.type = theEvent.type;
     connectionStatus.networkState = navigator.connection.type;
@@ -136,6 +235,15 @@ function updateConnectionStatus(theEvent){
 window.addEventListener("online", updateConnectionStatus, false);
 window.addEventListener("offline", updateConnectionStatus, false);
 
+function initializeConnectionStatus() {
+    connectionStatus.networkState = navigator.connection.type;
+    
+    if (navigator.connection.type === "none") {
+        connectionStatus.type = "offline";
+    } else {
+        connectionStatus.type = "online";        
+    }
+}
 
 /**
  * checkConnection function returns the updated state of the client connection
