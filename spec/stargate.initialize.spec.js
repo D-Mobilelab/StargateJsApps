@@ -84,9 +84,7 @@ var hostedwebapp_mock = {
 var cordova_mock = {
 	getAppVersion: {
 		getVersionNumber: function() {
-			var deferred = Q.defer();
-		    setTimeout(deferred.resolve("0.0.1"), 1);
-		    return deferred.promise;
+            return Promise.resolve("0.0.1");
 		}
 	}
 };
@@ -228,7 +226,7 @@ describe("Stargate initialize", function() {
 		expect(isStargateRunningInsideHybrid).toBe(true);
 
 		expect(document.addEventListener).toHaveBeenCalled();
-		expect(document.addEventListener).toHaveBeenCalledWith('deviceready', onDeviceReady, false);
+		expect(document.addEventListener).toHaveBeenCalledWith('deviceready', jasmine.any(Function), false);
 
 		expect(res.then).toBeDefined();
 
@@ -255,7 +253,7 @@ describe("Stargate initialize", function() {
 		expect(isStargateInitialized).toBe(true);
 		expect(isStargateRunningInsideHybrid).toBe(true);
 		expect(document.addEventListener).toHaveBeenCalled();
-		expect(document.addEventListener).toHaveBeenCalledWith('deviceready', onDeviceReady, false);
+		expect(document.addEventListener).toHaveBeenCalledWith('deviceready', jasmine.any(Function), false);
 
 		expect(res.then).toBeDefined();
 
