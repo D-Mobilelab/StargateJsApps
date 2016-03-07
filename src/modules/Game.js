@@ -13,8 +13,15 @@
         constants = {},
         wwwDir,
         dataDir,
-        stargatejsDir;
-
+        stargatejsDir,
+        SDK_URL = "http://s2.motime.com/js/wl/webstore_html5game/gfsdk/dist/gfsdk.js";
+    
+    // GAMEINFO object
+    //
+    // GET /gameplay?<content_id>
+    // fileModule.write(response)
+    // 
+    // inject in game fileModule.readFileAsJson(gameinfo.json)
     var LOG = new Logger("ALL", "[Game - module]");
 
     /**
@@ -60,6 +67,7 @@
 
         constants.SDK_DIR = baseDir + "scripts/";
         constants.SDK_RELATIVE_DIR = "../../scripts/";
+        constants.GAMEOVER_RELATIVE_DIR = "../../gameover_template/";        
         constants.GAMES_DIR = baseDir + "games/";
         constants.BASE_DIR = baseDir;
         constants.CACHE_DIR = cacheDir;
@@ -68,46 +76,51 @@
         constants.CORDOVA_PLUGINS_JS = wwwDir + "cordova_plugins.js";
         constants.STARGATEJS = wwwDir + "js/stargate.js";
         constants.DATA_DIR = dataDir;
+        constants.GAMEOVER_DIR = constants.BASE_DIR + "gameover_template/";
+        constants.WWW_DIR = wwwDir;
+
+        /** expose games dir */
+        _modules.game.GAMES_DIR = constants.GAMES_DIR;
+        
+        function firstInit(){
+            /**
+             * Create directories
+             * */
+            var gamesDirTask = fileModule.createDir(constants.BASE_DIR, "games");
+            var scriptsDirTask = fileModule.createDir(constants.BASE_DIR, "scripts");
+        
+            return Promise.all([
+                    gamesDirTask, 
+                    scriptsDirTask
+                ]).then(function(results){
+                    LOG.d("GamesDir and ScriptsDir created", results);
+                    LOG.d("Getting SDK from:", SDK_URL);
+                    return Promise.all([
+                        fileModule.download(SDK_URL, results[1].path, "gfsdk.min.js"),
+                        fileModule.copyDir(constants.WWW_DIR + "gameover_template", constants.BASE_DIR + "gameover_template"),
+                        fileModule.copyDir(constants.WWW_DIR + "plugins", constants.SDK_DIR + "plugins"),
+                        fileModule.copyFile(constants.CORDOVAJS, constants.SDK_DIR + "cordova.js"),
+                        fileModule.copyFile(constants.CORDOVA_PLUGINS_JS, constants.SDK_DIR + "cordova_plugins.js"),
+                        fileModule.copyFile(constants.STARGATEJS, constants.SDK_DIR + "stargate.js")                    
+                    ]);                
+                });    
+        }
 
         //Object.freeze(constants);
 
-        var SDK_URL = "http://s.motime.com/js/wl/webstore_html5game/gfsdk/dist/gfsdk.min.js";
-
         var gamesDirTaskExists = fileModule.dirExists(constants.GAMES_DIR);
         var SDKExists = fileModule.fileExists(constants.SDK_DIR + "gfsdk.min.js");
-
-        /**
-         * Create directories
-         * */
-        var dirGames = gamesDirTaskExists.then(function(exists){
-            if(!exists){
-                return fileModule.createDir(constants.BASE_DIR, "games");
-            }else{
-                return exists;
-            }
-        });
-
-        var getSDK = SDKExists.then(function(exists){
-            if(!exists){
-                LOG.d("Getting SDK from:", SDK_URL);
-                return fileModule.download(SDK_URL, constants.SDK_DIR, "gfsdk.min.js");
-            }else{
-                LOG.d("SDK already downloaded");
-                return exists;
-            }
-        });
-
-        //TODO: check if scripts folder already exists
-        return Promise.all([dirGames, getSDK]).then(function(results){
-            LOG.d("games dir created:",results[0]);
-            LOG.d("getSDK:", results[1]);
-            return Promise.all([
-                fileModule.copyDir(wwwDir + "plugins", constants.SDK_DIR + "plugins"),
-                fileModule.copyFile(constants.CORDOVAJS, constants.SDK_DIR + "cordova.js"),
-                fileModule.copyFile(constants.CORDOVA_PLUGINS_JS, constants.SDK_DIR + "cordova_plugins.js"),
-                fileModule.copyFile(constants.STARGATEJS, constants.SDK_DIR + "stargate.js")
-            ]);
-        });
+        
+        return Promise.all([
+                gamesDirTaskExists, 
+                SDKExists])
+            .then(function(results){
+                if(!results[0] && !results[1]){
+                    return firstInit();
+                }else{
+                    return Promise.resolve(true);
+                }
+            });       
     }
 
     /**
@@ -146,11 +159,11 @@
             _onStart({type:"download"});
             LOG.d("Download:", gameObject.id, gameObject.response_api_dld.binary_url);
             return fileModule.download(gameObject.response_api_dld.binary_url, constants.TEMP_DIR, saveAsName + ".zip", wrapProgress("download"))
-                .then(function(entriesTransformed){
+                .then(function(entry){
                     //Unpack
                     _onStart({type:"unzip"});
                     LOG.d("unzip:", gameObject.id, constants.TEMP_DIR + saveAsName);
-                    return fileModule._promiseZip(entriesTransformed[0].path, constants.TEMP_DIR + saveAsName, wrapProgress("unzip"));
+                    return fileModule._promiseZip(entry.path, constants.TEMP_DIR + saveAsName, wrapProgress("unzip"));
                 })
                 .then(function(result){
                     //Notify on end unzip
@@ -162,14 +175,14 @@
                     var folders = str.substring(str.lastIndexOf("game"), str.length).split("/");
 
                     var src = "";
-                    LOG.d("Get the right index folder of the game");
+                    LOG.d("Get the right index folder of the game",folders);
                     for(var i = 0; i < folders.length;i++){
                         if(isIndexHtml(folders[i])){
                             src = constants.TEMP_DIR + [saveAsName, folders[i - 1]].join("/");
                         }
                     }
-                    LOG.d("Source folder in zip game",src, constants.GAMES_DIR + saveAsName);
-                    return fileModule.moveDir(src, constants.GAMES_DIR + saveAsName);
+                    LOG.d("Copy game folder in games/", src, constants.GAMES_DIR + saveAsName);                    
+                    return fileModule.moveDir(src, constants.GAMES_DIR + saveAsName);                   
                 })
                 .then(function(result){
                     //Remove the zip in the temp directory
@@ -179,25 +192,26 @@
                 .then(function(){
                     LOG.d("Save meta.json for:", gameObject.id);
                     return fileModule.createFile(constants.GAMES_DIR + saveAsName, "meta.json")
-                        .then(function(entries){
-                            var info = entries[0];
-                            return fileModule.write(info.path, JSON.stringify(gameObject));
+                        .then(function(entry){                            
+                            return fileModule.write(entry.path, JSON.stringify(gameObject));
                         });
                 })
                 .then(function(result){
-
+                    
                     //TODO: inject gameover css
                     LOG.d("result last operation:save meta.json", result);
-                    LOG.d("InjectScripts in game:", gameObject.id, wwwDir);
-                    return [
-                            gameObject.id,
-                            injectScripts(gameObject.id, [
+                    LOG.d("InjectScripts in game:", gameObject.id, wwwDir);                    
+                    return injectScripts(gameObject.id, [
+                                constants.GAMEOVER_RELATIVE_DIR + "gameover.css",
                                 constants.SDK_RELATIVE_DIR + "cordova.js",
                                 constants.SDK_RELATIVE_DIR + "cordova_plugins.js",
                                 constants.SDK_RELATIVE_DIR + "gfsdk.min.js",
                                 constants.SDK_RELATIVE_DIR + "stargate.js"
-                            ])
-                        ];
+                            ]);
+                }).then(function(results){
+                    LOG.d("injectScripts result", results);
+                    _onEnd({type:"download"});
+                    return gameObject.id;
                 });
         }
 
@@ -319,10 +333,18 @@
             "style-src * cdvfile: http: https: 'unsafe-inline';";
         dom.head.appendChild(metaTag);
         for(var i = 0;i < _sources.length;i++){
-            //TODO: better perfomance with document fragment?
-            temp = document.createElement("script");
-            temp.src = _sources[i];
-            dom.head.appendChild(temp);
+            if(_sources[i].endsWith(".css")){
+                LOG.d("css inject:",_sources[i]);
+                var css = dom.createElement("link");
+                css.rel = "stylesheet";
+                css.href = _sources[i];
+                dom.head.appendChild(css);
+            }else{
+                //TODO: better perfomance with document fragment?
+                temp = document.createElement("script");
+                temp.src = _sources[i];
+                dom.head.appendChild(temp);     
+            }           
         }
         LOG.d("Cleaned dom:",dom);
         return dom;
@@ -341,7 +363,7 @@
         return _getIndexHtmlById(gameID)
             .then(function(entry){
                 indexPath = entry[0].path;
-                LOG.d("injectScripts", indexPath);
+                //LOG.d("injectScripts", indexPath);
 
                 return fileModule.readFileAsHTML(entry[0].path);
             })
@@ -416,7 +438,8 @@
     Game.prototype.list = function(){
         return fileModule.readDir(constants.GAMES_DIR)
             .then(function(entries){
-                return entries.map(function(entry){
+                var _entries = Array.isArray(entries) ? entries : [entries];
+                return _entries.map(function(entry){
                     //get the ids careful: there's / at the end
                     return entry.path;
                 });
@@ -431,11 +454,40 @@
                 });
             });
     };
-
-    Game.prototype.buildGameOver = function(datas){
-        return "<div>"+datas.score+"</div>";
-    };
-
+    
+    /**
+     * buildGameOver
+     * 
+     * @param {Object} datas - the data score, start, duration
+     * @param datas.score
+     * @param datas.start
+     * @param datas.duration
+     * @param datas.content_id
+     * @returns {Promise} - The promise will be filled with the gameover html {String}     
+     */
+    Game.prototype.buildGameOver = function(datas){                 
+        var metaJsonPath = constants.GAMES_DIR + datas.content_id + "/meta.json";
+        /** Check if content_id is here */
+        if(!datas.hasOwnProperty("content_id")){ return Promise.reject("Missing content_id key!");}
+        
+        LOG.d("Read meta.json:", metaJsonPath);
+        LOG.d("GAMEOVER_TEMPLATE path", constants.GAMEOVER_DIR + "gameover.html");
+        
+        return Promise.all([
+            fileModule.readFileAsJSON(metaJsonPath),
+            fileModule.readFile(constants.GAMEOVER_DIR + "gameover.html")
+        ]).then(function(results){
+                var htmlString = results[1];
+                var metaJson = results[0];                
+                return htmlString
+                    .replace("{{score}}", datas.score)
+                    .replace("{{url_share}}", metaJson.url_share)
+                    .replace("{{url_cover}}", metaJson.url_cover)                    
+                    .replace("{{startpage_url}}", constants.WWW_DIR + "startpage.html");              
+        });
+                  
+    };    
+    
     var _protected = {};
     _protected.initialize = initialize;
     _modules.game = {

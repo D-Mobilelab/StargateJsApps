@@ -180,25 +180,27 @@ var GamifiveInfo = {"label":"it_igames",
     }
 };
 
+function removeFolders(paths){
+        return new Promise(function(resolve, reject){
+            
+            var counter = 0;
+            for(var i = 0; i < paths.length;i++){
+                console.log("Deleting...", paths[i]);
+                window.resolveLocalFileSystemURL(paths[i], function(entry){
+                    entry.removeRecursively(function(result){
+                        console.log("Cleaned", result);
+                        counter += 1;
+                        if(counter == paths.length){
+                            console.log("Now i'm finished");
+                            resolve(paths);
+                        }
+                    },reject);
+                }, reject);
+            }
+        });        
+}
 describe("Game module tests", function() {
-    function removeFolders(names, done){
-        var counter = 0;
-        for(var i = 0; i < names.length;i++){
-            window.resolveLocalFileSystemURL(STORAGE_DIR + names[i], function(entry){
-                entry.removeRecursively(function(result){
-                    counter += 1;
-                    if(counter == names.length){
-                        done();
-                    }
-                },function(){
-                    done();
-                });
-
-            }, function(){
-                done();
-            });
-        }
-    }
+    
     var game = stargateModules.game._public;
     game.initialize = stargateModules.game._protected.initialize;
     var TEST_FOLDER_DIR,
@@ -211,90 +213,26 @@ describe("Game module tests", function() {
         document.addEventListener("deviceready", function(readyEvent){
             STORAGE_DIR = cordova.file.applicationStorageDirectory;
             if(isRunningOnIos()){ STORAGE_DIR += "Documents/"; }
-            GAMES_DIR = STORAGE_DIR + "gfsdk/";
-            SDK_DIR = STORAGE_DIR + "games/";
+            SDK_DIR = STORAGE_DIR + "scripts/";
+            GAMES_DIR = STORAGE_DIR + "games/";
             done();
         });
     });
 
-    beforeEach(function(done) {
-        done();
+    beforeEach(function() {
+       console.log("beforeEach");
     });
 
     afterEach(function(done){
-        removeFolders(["gfsdk", "games"], done);
+        /** removeFolders([SDK_DIR, GAMES_DIR]).then(function(results){
+            console.log("afterEach:", results);
+            done();
+        }).catch(function(){done();});*/
     });
 
-    it("Game should exists", function(done) {
-        expect(game).toBeDefined();
-        done();
+    it("Game should exists", function() {
+        expect(game).toBeDefined();        
     });
-
-    it("Game folders should exists after initialize", function(done) {
-        game.initialize(GamifiveInfo.user)
-            .then(function(results){
-                console.log("game init results:", results[0][0], results[1][0]);
-                var secondResult = results[1][0];
-                var firstResult = results[0][0];
-                return Promise.all([fileExists(secondResult.path),dirExists(firstResult.path)]);
-            })
-            .then(function(res){
-                expect(res[0]).toEqual(true);
-                expect(res[1]).toEqual(true);
-                done();
-            })
-            .catch(function(err){
-                console.error("game init err", err);
-                done();
-            });
-    });
-
-/*    it("SDK should not be downloaded if already there", function(done) {
-        var SDK_URL = "http://s.motime.com/js/wl/webstore_html5game/gfsdk/dist/gfsdk.min.js";
-        //var originalDownload = stargateProtected.file.download;
-        //var originalFileExists = stargateProtected.file.fileExists;
-        //var originalDirExists = stargateProtected.file.dirExists;
-
-        //MOCK DOWNLOAD
-        //stargateProtected.file.download = mock_file_download_success;
-
-        //spyOn(stargateProtected.file, "download");
-
-        var firstInit = game.initialize(GamifiveInfo.user)
-            .then(function(results){
-                console.log(results[0][0]);
-                console.log(results[1][0]);
-
-                expect(results[1][0].path).toEqual(GAMES_DIR);
-                expect(results[0][0].path).toEqual(SDK_DIR);
-            }).then(function(){
-
-                //MOCK FILE EXISTS AND DIREXISTS
-                //stargateProtected.fileExists = promResolvedWith(true);
-                //stargateProtected.dirExists = promResolvedWith(true);
-                return game.initialize(GamifiveInfo.user);
-            })
-            .then(function(results){
-                expect(results).toBeDefined();
-
-                //if returns true the file/dirs already exists
-                expect(results[0]).toBe(true);
-                expect(results[1]).toBe(true);
-
-                //restore original reference
-                //stargateProtected.file.download = originalDownload;
-                //stargateProtected.fileExists = originalFileExists;
-                //stargateProtected.dirExists = originalDirExists;
-                done();
-            })
-            .catch(function(err){
-                console.error("game init err", err);
-                //stargateProtected.file.download = originalDownload;
-                //stargateProtected.fileExists = originalFileExists;
-                //stargateProtected.dirExists = originalDirExists;
-                done();
-            });
-    });*/
 
     it("Test abortDownload", function(done){
 
@@ -336,38 +274,30 @@ describe("Game module tests", function() {
                 done();
             });
     });
-
-    it("Test simple game download(save meta.json)", function(done){
-
-        var cbks = {
-            onEnd:function(e){console.log(e);},
-            onStart:function(e){console.log(e);},
-            onProgress:function(e){console.log(e);}
-        };
-
+  
+    fit("Gameover template test", function(done){
         game.initialize()
             .then(function(results){
-                console.log("Initialize results", results);
-                return game.download(gameObject, cbks);
+                console.log("Initialize test results", results);
+                return game.download(gameObject, 
+                    {
+                        onEnd:function(e){
+                            console.log(e);
+                        }
+                    });
             })
             .then(function(results){
-                console.log("AAAAAAAAAAAAAAA", results);
+                console.log("Download results", results);
+                return game.buildGameOver(
+                    {   score:50, 
+                        start:0, 
+                        duration:0,
+                        content_id:gameObject.id
+                    });
+            })
+            .then(function(result){
+                expect(result).toContain(50);
                 done();
             });
-
     });
-
- //   it("Should download the game, and modify the index.html with local sdk",function(done){
- //       game.initialize()
- //           .then(function(){
- //               return game.download(gameObject, {onEnd:function(e){console.log("DONE",e.type);}});
- //           })
- //           .then(function(result){
- //               expect(result).toBeDefined();
- //               var gamePath = GAMES_DIR + gameObject.id;
- //               done();
- //           }).catch(function(reason){
- //               console.error(reason);
- //           });
- //   });
 });
