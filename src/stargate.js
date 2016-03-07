@@ -1,4 +1,4 @@
-
+/* globals SpinnerDialog */
 
 /***
 * 
@@ -6,7 +6,8 @@
 * 
 */
 
-// current stargateVersion 
+// current stargateVersion used by webapp to understand
+//  the version to load based on cookie or localstorage
 var stargateVersion = "2";
 
 // logger function
@@ -135,6 +136,16 @@ var setIsHybrid = function() {
     }
 };
 
+var hydeSplashAndLoaders = function() {
+    
+    navigator.splashscreen.hide();
+    setBusy(false);
+    
+    if (typeof SpinnerDialog !== "undefined") {
+        SpinnerDialog.hide();
+    }
+};
+
 var onPluginReady = function (resolve, reject) {
     
     // FIXME: this is needed ??
@@ -167,10 +178,6 @@ var onPluginReady = function (resolve, reject) {
         );
     }
 
-    
-    navigator.splashscreen.hide();
-    setBusy(false);
-
     // initialize all modules
 
     // In-app purchase initialization
@@ -193,14 +200,17 @@ var onPluginReady = function (resolve, reject) {
         );
     }
     
+    
+    // wait for all module initializations before calling the webapp
     Promise.all(
             modulePromises
         )
         .then(function() {
+            hydeSplashAndLoaders();
             
             // initialize finished
             isStargateOpen = true;
-
+            
             log("version "+stargatePackageVersion+" ready; "+
                 "loaded from server version: v"+stargateVersion+
                 " running in package version: "+appVersion);
