@@ -6513,11 +6513,16 @@ return Q;
 
                     var src = "";
                     LOG.d("Get the right index folder of the game",folders);
-                    for(var i = 0; i < folders.length;i++){
-                        if(isIndexHtml(folders[i])){
-                            src = constants.TEMP_DIR + [saveAsName, folders[i - 1]].join("/");
-                        }
+
+                    // In this case i have another folder before index.html
+                    if(folders.length > 2 && isIndexHtml(folders[folders.length - 1])){
+                        src = constants.TEMP_DIR + [saveAsName, folders[folders.length - 2]].join("/");
+                        LOG.d("More than one level folders before index.html",folders, src);
+                    }else{
+                        src = constants.TEMP_DIR + saveAsName;
+                        LOG.d("One level folder before index.html",folders, src);
                     }
+
                     LOG.d("Copy game folder in games/", src, constants.GAMES_DIR + saveAsName);                    
                     return fileModule.moveDir(src, constants.GAMES_DIR + saveAsName);                   
                 })

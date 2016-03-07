@@ -224,10 +224,10 @@ describe("Game module tests", function() {
     });
 
     afterEach(function(done){
-        /** removeFolders([SDK_DIR, GAMES_DIR]).then(function(results){
+        removeFolders([SDK_DIR, GAMES_DIR]).then(function(results){
             console.log("afterEach:", results);
             done();
-        }).catch(function(){done();});*/
+        }).catch(function(){done();});
     });
 
     it("Game should exists", function() {
@@ -274,8 +274,17 @@ describe("Game module tests", function() {
                 done();
             });
     });
-  
-    fit("Gameover template test", function(done){
+
+    fit("Game folders test",function(done){
+        game.initialize().then(function(){
+            return game.download(gameObject);
+        }).then(function(gameID){
+            expect(gameID).toEqual(gameObject.id);
+            done();
+        });
+    });
+
+    it("Gameover template test", function(done){
         game.initialize()
             .then(function(results){
                 console.log("Initialize test results", results);
