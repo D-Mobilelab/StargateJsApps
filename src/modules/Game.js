@@ -209,6 +209,7 @@
                                 constants.SDK_RELATIVE_DIR + "stargate.js"
                             ]);
                 }).then(function(results){
+                    LOG.d("injectScripts result", results);
                     _onEnd({type:"download"});
                     return gameObject.id;
                 });
