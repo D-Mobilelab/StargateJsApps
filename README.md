@@ -5,6 +5,8 @@
 
 # StargateJsApps
 
+[![Join the chat at https://gitter.im/BuongiornoMIP/StargateJsApps](https://badges.gitter.im/BuongiornoMIP/StargateJsApps.svg)](https://gitter.im/BuongiornoMIP/StargateJsApps?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 StargateJS hybridization library for HTML5 apps
 
 # Introduction
