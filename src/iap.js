@@ -10,12 +10,17 @@ var IAP = {
     returnUrl: '',
     callbackSuccess: function(){log("[IAP] Undefined callbackSuccess");},
     callbackError: function(){log("[IAP] Undefined callbackError");},
+    callbackListingSuccess: function(){log("[IAP] Undefined callbackListingSuccess");},
+    callbackListingError: function(){log("[IAP] Undefined callbackListingError");},
+    requestedListingProductId: '',
     refreshDone: false,
     lastCreateuserUrl: '',
     lastCreateuserData: '',
     createUserAttempt: 0,
     maxCreateUserAttempt: 6,
-	
+    
+    productsInfo: {},
+    
 	initialize: function () {
         if (!window.store) {
             err('Store not available');
@@ -71,11 +76,32 @@ var IAP = {
 		window.store.when(IAP.alias).error(function(errorPar){IAP.error(JSON.stringify(errorPar));});
         window.store.ready(function(){ IAP.onStoreReady();});
         window.store.when("order "+IAP.id).approved(function(order){IAP.onOrderApproved(order);});
-
-
+        
+        // When any product gets updated, refresh the HTML.
+        window.store.when("product").updated(function(p){ IAP.saveProductInfo(p); });
         
     },
-
+    
+    saveProductInfo: function(params) {
+        if (typeof params !== "object") {
+            err("[IAP] saveProductInfo() got invalid data");
+            return;
+        }
+        
+        if ("id" in params) {
+            IAP.productsInfo[params.id] = params;
+            
+        } else {
+            err("[IAP] saveProductInfo() got invalid data, id undefined");
+            return;
+        }
+        
+        if (IAP.requestedListingProductId === params.id) {
+                
+            IAP.callbackListingSuccess(params);
+        }
+    },
+    
     doRefresh: function(force) {
         if (!IAP.refreshDone || force) {
             window.store.refresh();
@@ -354,4 +380,30 @@ stargatePublic.inAppRestore = function(callbackSuccess, callbackError, subscript
     IAP.doRefresh(true);
 };
 
+/**
+ * Call callbacks with information about a product got from store
+ * @param {string} productId - product id about to query for information on store
+ * @param {function} callbackSuccess - a function that will be called when information are ready
+ * @param {function} callbackError - a function that will be called in case of error
+ * @returns {void}
+ * */
+stargatePublic.inAppProductInfo = function(productId, callbackSuccess, callbackError) {
 
+    if (!isStargateInitialized) {
+        return callbackError("Stargate not initialized, call Stargate.initialize first!");
+    }
+    
+    if (! productId) {
+        productId = IAP.id;
+    }
+    
+    if (IAP.productsInfo[productId]) {
+        callbackSuccess(IAP.productsInfo[productId]);
+        return;
+    }
+    
+    IAP.callbackListingSuccess = callbackSuccess;
+    IAP.callbackListingError = callbackError;
+
+    IAP.doRefresh(true);    
+};
