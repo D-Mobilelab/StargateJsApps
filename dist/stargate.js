@@ -2660,1911 +2660,6 @@
   return URITemplate;
 }));
 
-// vim:ts=4:sts=4:sw=4:
-/*!
- *
- * Copyright 2009-2012 Kris Kowal under the terms of the MIT
- * license found at http://github.com/kriskowal/q/raw/master/LICENSE
- *
- * With parts by Tyler Close
- * Copyright 2007-2009 Tyler Close under the terms of the MIT X license found
- * at http://www.opensource.org/licenses/mit-license.html
- * Forked at ref_send.js version: 2009-05-11
- *
- * With parts by Mark Miller
- * Copyright (C) 2011 Google Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
-
-(function (definition) {
-    // Turn off strict mode for this function so we can assign to global.Q
-    /* jshint strict: false */
-
-    // This file will function properly as a <script> tag, or a module
-    // using CommonJS and NodeJS or RequireJS module formats.  In
-    // Common/Node/RequireJS, the module exports the Q API and when
-    // executed as a simple <script>, it creates a Q global instead.
-
-    // Montage Require
-    if (typeof bootstrap === "function") {
-        bootstrap("promise", definition);
-
-    // CommonJS
-    } else if (typeof exports === "object") {
-        module.exports = definition();
-
-    // RequireJS
-    } else if (typeof define === "function" && define.amd) {
-        define(definition);
-
-    // SES (Secure EcmaScript)
-    } else if (typeof ses !== "undefined") {
-        if (!ses.ok()) {
-            return;
-        } else {
-            ses.makeQ = definition;
-        }
-
-    // <script>
-    } else {
-        Q = definition();
-    }
-
-})(function () {
-"use strict";
-
-var hasStacks = false;
-try {
-    throw new Error();
-} catch (e) {
-    hasStacks = !!e.stack;
-}
-
-// All code after this point will be filtered from stack traces reported
-// by Q.
-var qStartingLine = captureLine();
-var qFileName;
-
-// shims
-
-// used for fallback in "allResolved"
-var noop = function () {};
-
-// Use the fastest possible means to execute a task in a future turn
-// of the event loop.
-var nextTick =(function () {
-    // linked list of tasks (single, with head node)
-    var head = {task: void 0, next: null};
-    var tail = head;
-    var flushing = false;
-    var requestTick = void 0;
-    var isNodeJS = false;
-
-    function flush() {
-        /* jshint loopfunc: true */
-
-        while (head.next) {
-            head = head.next;
-            var task = head.task;
-            head.task = void 0;
-            var domain = head.domain;
-
-            if (domain) {
-                head.domain = void 0;
-                domain.enter();
-            }
-
-            try {
-                task();
-
-            } catch (e) {
-                if (isNodeJS) {
-                    // In node, uncaught exceptions are considered fatal errors.
-                    // Re-throw them synchronously to interrupt flushing!
-
-                    // Ensure continuation if the uncaught exception is suppressed
-                    // listening "uncaughtException" events (as domains does).
-                    // Continue in next event to avoid tick recursion.
-                    if (domain) {
-                        domain.exit();
-                    }
-                    setTimeout(flush, 0);
-                    if (domain) {
-                        domain.enter();
-                    }
-
-                    throw e;
-
-                } else {
-                    // In browsers, uncaught exceptions are not fatal.
-                    // Re-throw them asynchronously to avoid slow-downs.
-                    setTimeout(function() {
-                       throw e;
-                    }, 0);
-                }
-            }
-
-            if (domain) {
-                domain.exit();
-            }
-        }
-
-        flushing = false;
-    }
-
-    nextTick = function (task) {
-        tail = tail.next = {
-            task: task,
-            domain: isNodeJS && process.domain,
-            next: null
-        };
-
-        if (!flushing) {
-            flushing = true;
-            requestTick();
-        }
-    };
-
-    if (typeof process !== "undefined" && process.nextTick) {
-        // Node.js before 0.9. Note that some fake-Node environments, like the
-        // Mocha test runner, introduce a `process` global without a `nextTick`.
-        isNodeJS = true;
-
-        requestTick = function () {
-            process.nextTick(flush);
-        };
-
-    } else if (typeof setImmediate === "function") {
-        // In IE10, Node.js 0.9+, or https://github.com/NobleJS/setImmediate
-        if (typeof window !== "undefined") {
-            requestTick = setImmediate.bind(window, flush);
-        } else {
-            requestTick = function () {
-                setImmediate(flush);
-            };
-        }
-
-    } else if (typeof MessageChannel !== "undefined") {
-        // modern browsers
-        // http://www.nonblocking.io/2011/06/windownexttick.html
-        var channel = new MessageChannel();
-        // At least Safari Version 6.0.5 (8536.30.1) intermittently cannot create
-        // working message ports the first time a page loads.
-        channel.port1.onmessage = function () {
-            requestTick = requestPortTick;
-            channel.port1.onmessage = flush;
-            flush();
-        };
-        var requestPortTick = function () {
-            // Opera requires us to provide a message payload, regardless of
-            // whether we use it.
-            channel.port2.postMessage(0);
-        };
-        requestTick = function () {
-            setTimeout(flush, 0);
-            requestPortTick();
-        };
-
-    } else {
-        // old browsers
-        requestTick = function () {
-            setTimeout(flush, 0);
-        };
-    }
-
-    return nextTick;
-})();
-
-// Attempt to make generics safe in the face of downstream
-// modifications.
-// There is no situation where this is necessary.
-// If you need a security guarantee, these primordials need to be
-// deeply frozen anyway, and if you don’t need a security guarantee,
-// this is just plain paranoid.
-// However, this **might** have the nice side-effect of reducing the size of
-// the minified code by reducing x.call() to merely x()
-// See Mark Miller’s explanation of what this does.
-// http://wiki.ecmascript.org/doku.php?id=conventions:safe_meta_programming
-var call = Function.call;
-function uncurryThis(f) {
-    return function () {
-        return call.apply(f, arguments);
-    };
-}
-// This is equivalent, but slower:
-// uncurryThis = Function_bind.bind(Function_bind.call);
-// http://jsperf.com/uncurrythis
-
-var array_slice = uncurryThis(Array.prototype.slice);
-
-var array_reduce = uncurryThis(
-    Array.prototype.reduce || function (callback, basis) {
-        var index = 0,
-            length = this.length;
-        // concerning the initial value, if one is not provided
-        if (arguments.length === 1) {
-            // seek to the first value in the array, accounting
-            // for the possibility that is is a sparse array
-            do {
-                if (index in this) {
-                    basis = this[index++];
-                    break;
-                }
-                if (++index >= length) {
-                    throw new TypeError();
-                }
-            } while (1);
-        }
-        // reduce
-        for (; index < length; index++) {
-            // account for the possibility that the array is sparse
-            if (index in this) {
-                basis = callback(basis, this[index], index);
-            }
-        }
-        return basis;
-    }
-);
-
-var array_indexOf = uncurryThis(
-    Array.prototype.indexOf || function (value) {
-        // not a very good shim, but good enough for our one use of it
-        for (var i = 0; i < this.length; i++) {
-            if (this[i] === value) {
-                return i;
-            }
-        }
-        return -1;
-    }
-);
-
-var array_map = uncurryThis(
-    Array.prototype.map || function (callback, thisp) {
-        var self = this;
-        var collect = [];
-        array_reduce(self, function (undefined, value, index) {
-            collect.push(callback.call(thisp, value, index, self));
-        }, void 0);
-        return collect;
-    }
-);
-
-var object_create = Object.create || function (prototype) {
-    function Type() { }
-    Type.prototype = prototype;
-    return new Type();
-};
-
-var object_hasOwnProperty = uncurryThis(Object.prototype.hasOwnProperty);
-
-var object_keys = Object.keys || function (object) {
-    var keys = [];
-    for (var key in object) {
-        if (object_hasOwnProperty(object, key)) {
-            keys.push(key);
-        }
-    }
-    return keys;
-};
-
-var object_toString = uncurryThis(Object.prototype.toString);
-
-function isObject(value) {
-    return value === Object(value);
-}
-
-// generator related shims
-
-// FIXME: Remove this function once ES6 generators are in SpiderMonkey.
-function isStopIteration(exception) {
-    return (
-        object_toString(exception) === "[object StopIteration]" ||
-        exception instanceof QReturnValue
-    );
-}
-
-// FIXME: Remove this helper and Q.return once ES6 generators are in
-// SpiderMonkey.
-var QReturnValue;
-if (typeof ReturnValue !== "undefined") {
-    QReturnValue = ReturnValue;
-} else {
-    QReturnValue = function (value) {
-        this.value = value;
-    };
-}
-
-// long stack traces
-
-var STACK_JUMP_SEPARATOR = "From previous event:";
-
-function makeStackTraceLong(error, promise) {
-    // If possible, transform the error stack trace by removing Node and Q
-    // cruft, then concatenating with the stack trace of `promise`. See #57.
-    if (hasStacks &&
-        promise.stack &&
-        typeof error === "object" &&
-        error !== null &&
-        error.stack &&
-        error.stack.indexOf(STACK_JUMP_SEPARATOR) === -1
-    ) {
-        var stacks = [];
-        for (var p = promise; !!p; p = p.source) {
-            if (p.stack) {
-                stacks.unshift(p.stack);
-            }
-        }
-        stacks.unshift(error.stack);
-
-        var concatedStacks = stacks.join("\n" + STACK_JUMP_SEPARATOR + "\n");
-        error.stack = filterStackString(concatedStacks);
-    }
-}
-
-function filterStackString(stackString) {
-    var lines = stackString.split("\n");
-    var desiredLines = [];
-    for (var i = 0; i < lines.length; ++i) {
-        var line = lines[i];
-
-        if (!isInternalFrame(line) && !isNodeFrame(line) && line) {
-            desiredLines.push(line);
-        }
-    }
-    return desiredLines.join("\n");
-}
-
-function isNodeFrame(stackLine) {
-    return stackLine.indexOf("(module.js:") !== -1 ||
-           stackLine.indexOf("(node.js:") !== -1;
-}
-
-function getFileNameAndLineNumber(stackLine) {
-    // Named functions: "at functionName (filename:lineNumber:columnNumber)"
-    // In IE10 function name can have spaces ("Anonymous function") O_o
-    var attempt1 = /at .+ \((.+):(\d+):(?:\d+)\)$/.exec(stackLine);
-    if (attempt1) {
-        return [attempt1[1], Number(attempt1[2])];
-    }
-
-    // Anonymous functions: "at filename:lineNumber:columnNumber"
-    var attempt2 = /at ([^ ]+):(\d+):(?:\d+)$/.exec(stackLine);
-    if (attempt2) {
-        return [attempt2[1], Number(attempt2[2])];
-    }
-
-    // Firefox style: "function@filename:lineNumber or @filename:lineNumber"
-    var attempt3 = /.*@(.+):(\d+)$/.exec(stackLine);
-    if (attempt3) {
-        return [attempt3[1], Number(attempt3[2])];
-    }
-}
-
-function isInternalFrame(stackLine) {
-    var fileNameAndLineNumber = getFileNameAndLineNumber(stackLine);
-
-    if (!fileNameAndLineNumber) {
-        return false;
-    }
-
-    var fileName = fileNameAndLineNumber[0];
-    var lineNumber = fileNameAndLineNumber[1];
-
-    return fileName === qFileName &&
-        lineNumber >= qStartingLine &&
-        lineNumber <= qEndingLine;
-}
-
-// discover own file name and line number range for filtering stack
-// traces
-function captureLine() {
-    if (!hasStacks) {
-        return;
-    }
-
-    try {
-        throw new Error();
-    } catch (e) {
-        var lines = e.stack.split("\n");
-        var firstLine = lines[0].indexOf("@") > 0 ? lines[1] : lines[2];
-        var fileNameAndLineNumber = getFileNameAndLineNumber(firstLine);
-        if (!fileNameAndLineNumber) {
-            return;
-        }
-
-        qFileName = fileNameAndLineNumber[0];
-        return fileNameAndLineNumber[1];
-    }
-}
-
-function deprecate(callback, name, alternative) {
-    return function () {
-        if (typeof console !== "undefined" &&
-            typeof console.warn === "function") {
-            console.warn(name + " is deprecated, use " + alternative +
-                         " instead.", new Error("").stack);
-        }
-        return callback.apply(callback, arguments);
-    };
-}
-
-// end of shims
-// beginning of real work
-
-/**
- * Constructs a promise for an immediate reference, passes promises through, or
- * coerces promises from different systems.
- * @param value immediate reference or promise
- */
-function Q(value) {
-    // If the object is already a Promise, return it directly.  This enables
-    // the resolve function to both be used to created references from objects,
-    // but to tolerably coerce non-promises to promises.
-    if (isPromise(value)) {
-        return value;
-    }
-
-    // assimilate thenables
-    if (isPromiseAlike(value)) {
-        return coerce(value);
-    } else {
-        return fulfill(value);
-    }
-}
-Q.resolve = Q;
-
-/**
- * Performs a task in a future turn of the event loop.
- * @param {Function} task
- */
-Q.nextTick = nextTick;
-
-/**
- * Controls whether or not long stack traces will be on
- */
-Q.longStackSupport = false;
-
-/**
- * Constructs a {promise, resolve, reject} object.
- *
- * `resolve` is a callback to invoke with a more resolved value for the
- * promise. To fulfill the promise, invoke `resolve` with any value that is
- * not a thenable. To reject the promise, invoke `resolve` with a rejected
- * thenable, or invoke `reject` with the reason directly. To resolve the
- * promise to another thenable, thus putting it in the same state, invoke
- * `resolve` with that other thenable.
- */
-Q.defer = defer;
-function defer() {
-    // if "messages" is an "Array", that indicates that the promise has not yet
-    // been resolved.  If it is "undefined", it has been resolved.  Each
-    // element of the messages array is itself an array of complete arguments to
-    // forward to the resolved promise.  We coerce the resolution value to a
-    // promise using the `resolve` function because it handles both fully
-    // non-thenable values and other thenables gracefully.
-    var messages = [], progressListeners = [], resolvedPromise;
-
-    var deferred = object_create(defer.prototype);
-    var promise = object_create(Promise.prototype);
-
-    promise.promiseDispatch = function (resolve, op, operands) {
-        var args = array_slice(arguments);
-        if (messages) {
-            messages.push(args);
-            if (op === "when" && operands[1]) { // progress operand
-                progressListeners.push(operands[1]);
-            }
-        } else {
-            nextTick(function () {
-                resolvedPromise.promiseDispatch.apply(resolvedPromise, args);
-            });
-        }
-    };
-
-    // XXX deprecated
-    promise.valueOf = function () {
-        if (messages) {
-            return promise;
-        }
-        var nearerValue = nearer(resolvedPromise);
-        if (isPromise(nearerValue)) {
-            resolvedPromise = nearerValue; // shorten chain
-        }
-        return nearerValue;
-    };
-
-    promise.inspect = function () {
-        if (!resolvedPromise) {
-            return { state: "pending" };
-        }
-        return resolvedPromise.inspect();
-    };
-
-    if (Q.longStackSupport && hasStacks) {
-        try {
-            throw new Error();
-        } catch (e) {
-            // NOTE: don't try to use `Error.captureStackTrace` or transfer the
-            // accessor around; that causes memory leaks as per GH-111. Just
-            // reify the stack trace as a string ASAP.
-            //
-            // At the same time, cut off the first line; it's always just
-            // "[object Promise]\n", as per the `toString`.
-            promise.stack = e.stack.substring(e.stack.indexOf("\n") + 1);
-        }
-    }
-
-    // NOTE: we do the checks for `resolvedPromise` in each method, instead of
-    // consolidating them into `become`, since otherwise we'd create new
-    // promises with the lines `become(whatever(value))`. See e.g. GH-252.
-
-    function become(newPromise) {
-        resolvedPromise = newPromise;
-        promise.source = newPromise;
-
-        array_reduce(messages, function (undefined, message) {
-            nextTick(function () {
-                newPromise.promiseDispatch.apply(newPromise, message);
-            });
-        }, void 0);
-
-        messages = void 0;
-        progressListeners = void 0;
-    }
-
-    deferred.promise = promise;
-    deferred.resolve = function (value) {
-        if (resolvedPromise) {
-            return;
-        }
-
-        become(Q(value));
-    };
-
-    deferred.fulfill = function (value) {
-        if (resolvedPromise) {
-            return;
-        }
-
-        become(fulfill(value));
-    };
-    deferred.reject = function (reason) {
-        if (resolvedPromise) {
-            return;
-        }
-
-        become(reject(reason));
-    };
-    deferred.notify = function (progress) {
-        if (resolvedPromise) {
-            return;
-        }
-
-        array_reduce(progressListeners, function (undefined, progressListener) {
-            nextTick(function () {
-                progressListener(progress);
-            });
-        }, void 0);
-    };
-
-    return deferred;
-}
-
-/**
- * Creates a Node-style callback that will resolve or reject the deferred
- * promise.
- * @returns a nodeback
- */
-defer.prototype.makeNodeResolver = function () {
-    var self = this;
-    return function (error, value) {
-        if (error) {
-            self.reject(error);
-        } else if (arguments.length > 2) {
-            self.resolve(array_slice(arguments, 1));
-        } else {
-            self.resolve(value);
-        }
-    };
-};
-
-/**
- * @param resolver {Function} a function that returns nothing and accepts
- * the resolve, reject, and notify functions for a deferred.
- * @returns a promise that may be resolved with the given resolve and reject
- * functions, or rejected by a thrown exception in resolver
- */
-Q.Promise = promise; // ES6
-Q.promise = promise;
-function promise(resolver) {
-    if (typeof resolver !== "function") {
-        throw new TypeError("resolver must be a function.");
-    }
-    var deferred = defer();
-    try {
-        resolver(deferred.resolve, deferred.reject, deferred.notify);
-    } catch (reason) {
-        deferred.reject(reason);
-    }
-    return deferred.promise;
-}
-
-promise.race = race; // ES6
-promise.all = all; // ES6
-promise.reject = reject; // ES6
-promise.resolve = Q; // ES6
-
-// XXX experimental.  This method is a way to denote that a local value is
-// serializable and should be immediately dispatched to a remote upon request,
-// instead of passing a reference.
-Q.passByCopy = function (object) {
-    //freeze(object);
-    //passByCopies.set(object, true);
-    return object;
-};
-
-Promise.prototype.passByCopy = function () {
-    //freeze(object);
-    //passByCopies.set(object, true);
-    return this;
-};
-
-/**
- * If two promises eventually fulfill to the same value, promises that value,
- * but otherwise rejects.
- * @param x {Any*}
- * @param y {Any*}
- * @returns {Any*} a promise for x and y if they are the same, but a rejection
- * otherwise.
- *
- */
-Q.join = function (x, y) {
-    return Q(x).join(y);
-};
-
-Promise.prototype.join = function (that) {
-    return Q([this, that]).spread(function (x, y) {
-        if (x === y) {
-            // TODO: "===" should be Object.is or equiv
-            return x;
-        } else {
-            throw new Error("Can't join: not the same: " + x + " " + y);
-        }
-    });
-};
-
-/**
- * Returns a promise for the first of an array of promises to become fulfilled.
- * @param answers {Array[Any*]} promises to race
- * @returns {Any*} the first promise to be fulfilled
- */
-Q.race = race;
-function race(answerPs) {
-    return promise(function(resolve, reject) {
-        // Switch to this once we can assume at least ES5
-        // answerPs.forEach(function(answerP) {
-        //     Q(answerP).then(resolve, reject);
-        // });
-        // Use this in the meantime
-        for (var i = 0, len = answerPs.length; i < len; i++) {
-            Q(answerPs[i]).then(resolve, reject);
-        }
-    });
-}
-
-Promise.prototype.race = function () {
-    return this.then(Q.race);
-};
-
-/**
- * Constructs a Promise with a promise descriptor object and optional fallback
- * function.  The descriptor contains methods like when(rejected), get(name),
- * set(name, value), post(name, args), and delete(name), which all
- * return either a value, a promise for a value, or a rejection.  The fallback
- * accepts the operation name, a resolver, and any further arguments that would
- * have been forwarded to the appropriate method above had a method been
- * provided with the proper name.  The API makes no guarantees about the nature
- * of the returned object, apart from that it is usable whereever promises are
- * bought and sold.
- */
-Q.makePromise = Promise;
-function Promise(descriptor, fallback, inspect) {
-    if (fallback === void 0) {
-        fallback = function (op) {
-            return reject(new Error(
-                "Promise does not support operation: " + op
-            ));
-        };
-    }
-    if (inspect === void 0) {
-        inspect = function () {
-            return {state: "unknown"};
-        };
-    }
-
-    var promise = object_create(Promise.prototype);
-
-    promise.promiseDispatch = function (resolve, op, args) {
-        var result;
-        try {
-            if (descriptor[op]) {
-                result = descriptor[op].apply(promise, args);
-            } else {
-                result = fallback.call(promise, op, args);
-            }
-        } catch (exception) {
-            result = reject(exception);
-        }
-        if (resolve) {
-            resolve(result);
-        }
-    };
-
-    promise.inspect = inspect;
-
-    // XXX deprecated `valueOf` and `exception` support
-    if (inspect) {
-        var inspected = inspect();
-        if (inspected.state === "rejected") {
-            promise.exception = inspected.reason;
-        }
-
-        promise.valueOf = function () {
-            var inspected = inspect();
-            if (inspected.state === "pending" ||
-                inspected.state === "rejected") {
-                return promise;
-            }
-            return inspected.value;
-        };
-    }
-
-    return promise;
-}
-
-Promise.prototype.toString = function () {
-    return "[object Promise]";
-};
-
-Promise.prototype.then = function (fulfilled, rejected, progressed) {
-    var self = this;
-    var deferred = defer();
-    var done = false;   // ensure the untrusted promise makes at most a
-                        // single call to one of the callbacks
-
-    function _fulfilled(value) {
-        try {
-            return typeof fulfilled === "function" ? fulfilled(value) : value;
-        } catch (exception) {
-            return reject(exception);
-        }
-    }
-
-    function _rejected(exception) {
-        if (typeof rejected === "function") {
-            makeStackTraceLong(exception, self);
-            try {
-                return rejected(exception);
-            } catch (newException) {
-                return reject(newException);
-            }
-        }
-        return reject(exception);
-    }
-
-    function _progressed(value) {
-        return typeof progressed === "function" ? progressed(value) : value;
-    }
-
-    nextTick(function () {
-        self.promiseDispatch(function (value) {
-            if (done) {
-                return;
-            }
-            done = true;
-
-            deferred.resolve(_fulfilled(value));
-        }, "when", [function (exception) {
-            if (done) {
-                return;
-            }
-            done = true;
-
-            deferred.resolve(_rejected(exception));
-        }]);
-    });
-
-    // Progress propagator need to be attached in the current tick.
-    self.promiseDispatch(void 0, "when", [void 0, function (value) {
-        var newValue;
-        var threw = false;
-        try {
-            newValue = _progressed(value);
-        } catch (e) {
-            threw = true;
-            if (Q.onerror) {
-                Q.onerror(e);
-            } else {
-                throw e;
-            }
-        }
-
-        if (!threw) {
-            deferred.notify(newValue);
-        }
-    }]);
-
-    return deferred.promise;
-};
-
-/**
- * Registers an observer on a promise.
- *
- * Guarantees:
- *
- * 1. that fulfilled and rejected will be called only once.
- * 2. that either the fulfilled callback or the rejected callback will be
- *    called, but not both.
- * 3. that fulfilled and rejected will not be called in this turn.
- *
- * @param value      promise or immediate reference to observe
- * @param fulfilled  function to be called with the fulfilled value
- * @param rejected   function to be called with the rejection exception
- * @param progressed function to be called on any progress notifications
- * @return promise for the return value from the invoked callback
- */
-Q.when = when;
-function when(value, fulfilled, rejected, progressed) {
-    return Q(value).then(fulfilled, rejected, progressed);
-}
-
-Promise.prototype.thenResolve = function (value) {
-    return this.then(function () { return value; });
-};
-
-Q.thenResolve = function (promise, value) {
-    return Q(promise).thenResolve(value);
-};
-
-Promise.prototype.thenReject = function (reason) {
-    return this.then(function () { throw reason; });
-};
-
-Q.thenReject = function (promise, reason) {
-    return Q(promise).thenReject(reason);
-};
-
-/**
- * If an object is not a promise, it is as "near" as possible.
- * If a promise is rejected, it is as "near" as possible too.
- * If it’s a fulfilled promise, the fulfillment value is nearer.
- * If it’s a deferred promise and the deferred has been resolved, the
- * resolution is "nearer".
- * @param object
- * @returns most resolved (nearest) form of the object
- */
-
-// XXX should we re-do this?
-Q.nearer = nearer;
-function nearer(value) {
-    if (isPromise(value)) {
-        var inspected = value.inspect();
-        if (inspected.state === "fulfilled") {
-            return inspected.value;
-        }
-    }
-    return value;
-}
-
-/**
- * @returns whether the given object is a promise.
- * Otherwise it is a fulfilled value.
- */
-Q.isPromise = isPromise;
-function isPromise(object) {
-    return isObject(object) &&
-        typeof object.promiseDispatch === "function" &&
-        typeof object.inspect === "function";
-}
-
-Q.isPromiseAlike = isPromiseAlike;
-function isPromiseAlike(object) {
-    return isObject(object) && typeof object.then === "function";
-}
-
-/**
- * @returns whether the given object is a pending promise, meaning not
- * fulfilled or rejected.
- */
-Q.isPending = isPending;
-function isPending(object) {
-    return isPromise(object) && object.inspect().state === "pending";
-}
-
-Promise.prototype.isPending = function () {
-    return this.inspect().state === "pending";
-};
-
-/**
- * @returns whether the given object is a value or fulfilled
- * promise.
- */
-Q.isFulfilled = isFulfilled;
-function isFulfilled(object) {
-    return !isPromise(object) || object.inspect().state === "fulfilled";
-}
-
-Promise.prototype.isFulfilled = function () {
-    return this.inspect().state === "fulfilled";
-};
-
-/**
- * @returns whether the given object is a rejected promise.
- */
-Q.isRejected = isRejected;
-function isRejected(object) {
-    return isPromise(object) && object.inspect().state === "rejected";
-}
-
-Promise.prototype.isRejected = function () {
-    return this.inspect().state === "rejected";
-};
-
-//// BEGIN UNHANDLED REJECTION TRACKING
-
-// This promise library consumes exceptions thrown in handlers so they can be
-// handled by a subsequent promise.  The exceptions get added to this array when
-// they are created, and removed when they are handled.  Note that in ES6 or
-// shimmed environments, this would naturally be a `Set`.
-var unhandledReasons = [];
-var unhandledRejections = [];
-var trackUnhandledRejections = true;
-
-function resetUnhandledRejections() {
-    unhandledReasons.length = 0;
-    unhandledRejections.length = 0;
-
-    if (!trackUnhandledRejections) {
-        trackUnhandledRejections = true;
-    }
-}
-
-function trackRejection(promise, reason) {
-    if (!trackUnhandledRejections) {
-        return;
-    }
-
-    unhandledRejections.push(promise);
-    if (reason && typeof reason.stack !== "undefined") {
-        unhandledReasons.push(reason.stack);
-    } else {
-        unhandledReasons.push("(no stack) " + reason);
-    }
-}
-
-function untrackRejection(promise) {
-    if (!trackUnhandledRejections) {
-        return;
-    }
-
-    var at = array_indexOf(unhandledRejections, promise);
-    if (at !== -1) {
-        unhandledRejections.splice(at, 1);
-        unhandledReasons.splice(at, 1);
-    }
-}
-
-Q.resetUnhandledRejections = resetUnhandledRejections;
-
-Q.getUnhandledReasons = function () {
-    // Make a copy so that consumers can't interfere with our internal state.
-    return unhandledReasons.slice();
-};
-
-Q.stopUnhandledRejectionTracking = function () {
-    resetUnhandledRejections();
-    trackUnhandledRejections = false;
-};
-
-resetUnhandledRejections();
-
-//// END UNHANDLED REJECTION TRACKING
-
-/**
- * Constructs a rejected promise.
- * @param reason value describing the failure
- */
-Q.reject = reject;
-function reject(reason) {
-    var rejection = Promise({
-        "when": function (rejected) {
-            // note that the error has been handled
-            if (rejected) {
-                untrackRejection(this);
-            }
-            return rejected ? rejected(reason) : this;
-        }
-    }, function fallback() {
-        return this;
-    }, function inspect() {
-        return { state: "rejected", reason: reason };
-    });
-
-    // Note that the reason has not been handled.
-    trackRejection(rejection, reason);
-
-    return rejection;
-}
-
-/**
- * Constructs a fulfilled promise for an immediate reference.
- * @param value immediate reference
- */
-Q.fulfill = fulfill;
-function fulfill(value) {
-    return Promise({
-        "when": function () {
-            return value;
-        },
-        "get": function (name) {
-            return value[name];
-        },
-        "set": function (name, rhs) {
-            value[name] = rhs;
-        },
-        "delete": function (name) {
-            delete value[name];
-        },
-        "post": function (name, args) {
-            // Mark Miller proposes that post with no name should apply a
-            // promised function.
-            if (name === null || name === void 0) {
-                return value.apply(void 0, args);
-            } else {
-                return value[name].apply(value, args);
-            }
-        },
-        "apply": function (thisp, args) {
-            return value.apply(thisp, args);
-        },
-        "keys": function () {
-            return object_keys(value);
-        }
-    }, void 0, function inspect() {
-        return { state: "fulfilled", value: value };
-    });
-}
-
-/**
- * Converts thenables to Q promises.
- * @param promise thenable promise
- * @returns a Q promise
- */
-function coerce(promise) {
-    var deferred = defer();
-    nextTick(function () {
-        try {
-            promise.then(deferred.resolve, deferred.reject, deferred.notify);
-        } catch (exception) {
-            deferred.reject(exception);
-        }
-    });
-    return deferred.promise;
-}
-
-/**
- * Annotates an object such that it will never be
- * transferred away from this process over any promise
- * communication channel.
- * @param object
- * @returns promise a wrapping of that object that
- * additionally responds to the "isDef" message
- * without a rejection.
- */
-Q.master = master;
-function master(object) {
-    return Promise({
-        "isDef": function () {}
-    }, function fallback(op, args) {
-        return dispatch(object, op, args);
-    }, function () {
-        return Q(object).inspect();
-    });
-}
-
-/**
- * Spreads the values of a promised array of arguments into the
- * fulfillment callback.
- * @param fulfilled callback that receives variadic arguments from the
- * promised array
- * @param rejected callback that receives the exception if the promise
- * is rejected.
- * @returns a promise for the return value or thrown exception of
- * either callback.
- */
-Q.spread = spread;
-function spread(value, fulfilled, rejected) {
-    return Q(value).spread(fulfilled, rejected);
-}
-
-Promise.prototype.spread = function (fulfilled, rejected) {
-    return this.all().then(function (array) {
-        return fulfilled.apply(void 0, array);
-    }, rejected);
-};
-
-/**
- * The async function is a decorator for generator functions, turning
- * them into asynchronous generators.  Although generators are only part
- * of the newest ECMAScript 6 drafts, this code does not cause syntax
- * errors in older engines.  This code should continue to work and will
- * in fact improve over time as the language improves.
- *
- * ES6 generators are currently part of V8 version 3.19 with the
- * --harmony-generators runtime flag enabled.  SpiderMonkey has had them
- * for longer, but under an older Python-inspired form.  This function
- * works on both kinds of generators.
- *
- * Decorates a generator function such that:
- *  - it may yield promises
- *  - execution will continue when that promise is fulfilled
- *  - the value of the yield expression will be the fulfilled value
- *  - it returns a promise for the return value (when the generator
- *    stops iterating)
- *  - the decorated function returns a promise for the return value
- *    of the generator or the first rejected promise among those
- *    yielded.
- *  - if an error is thrown in the generator, it propagates through
- *    every following yield until it is caught, or until it escapes
- *    the generator function altogether, and is translated into a
- *    rejection for the promise returned by the decorated generator.
- */
-Q.async = async;
-function async(makeGenerator) {
-    return function () {
-        // when verb is "send", arg is a value
-        // when verb is "throw", arg is an exception
-        function continuer(verb, arg) {
-            var result;
-
-            // Until V8 3.19 / Chromium 29 is released, SpiderMonkey is the only
-            // engine that has a deployed base of browsers that support generators.
-            // However, SM's generators use the Python-inspired semantics of
-            // outdated ES6 drafts.  We would like to support ES6, but we'd also
-            // like to make it possible to use generators in deployed browsers, so
-            // we also support Python-style generators.  At some point we can remove
-            // this block.
-
-            if (typeof StopIteration === "undefined") {
-                // ES6 Generators
-                try {
-                    result = generator[verb](arg);
-                } catch (exception) {
-                    return reject(exception);
-                }
-                if (result.done) {
-                    return result.value;
-                } else {
-                    return when(result.value, callback, errback);
-                }
-            } else {
-                // SpiderMonkey Generators
-                // FIXME: Remove this case when SM does ES6 generators.
-                try {
-                    result = generator[verb](arg);
-                } catch (exception) {
-                    if (isStopIteration(exception)) {
-                        return exception.value;
-                    } else {
-                        return reject(exception);
-                    }
-                }
-                return when(result, callback, errback);
-            }
-        }
-        var generator = makeGenerator.apply(this, arguments);
-        var callback = continuer.bind(continuer, "next");
-        var errback = continuer.bind(continuer, "throw");
-        return callback();
-    };
-}
-
-/**
- * The spawn function is a small wrapper around async that immediately
- * calls the generator and also ends the promise chain, so that any
- * unhandled errors are thrown instead of forwarded to the error
- * handler. This is useful because it's extremely common to run
- * generators at the top-level to work with libraries.
- */
-Q.spawn = spawn;
-function spawn(makeGenerator) {
-    Q.done(Q.async(makeGenerator)());
-}
-
-// FIXME: Remove this interface once ES6 generators are in SpiderMonkey.
-/**
- * Throws a ReturnValue exception to stop an asynchronous generator.
- *
- * This interface is a stop-gap measure to support generator return
- * values in older Firefox/SpiderMonkey.  In browsers that support ES6
- * generators like Chromium 29, just use "return" in your generator
- * functions.
- *
- * @param value the return value for the surrounding generator
- * @throws ReturnValue exception with the value.
- * @example
- * // ES6 style
- * Q.async(function* () {
- *      var foo = yield getFooPromise();
- *      var bar = yield getBarPromise();
- *      return foo + bar;
- * })
- * // Older SpiderMonkey style
- * Q.async(function () {
- *      var foo = yield getFooPromise();
- *      var bar = yield getBarPromise();
- *      Q.return(foo + bar);
- * })
- */
-Q["return"] = _return;
-function _return(value) {
-    throw new QReturnValue(value);
-}
-
-/**
- * The promised function decorator ensures that any promise arguments
- * are settled and passed as values (`this` is also settled and passed
- * as a value).  It will also ensure that the result of a function is
- * always a promise.
- *
- * @example
- * var add = Q.promised(function (a, b) {
- *     return a + b;
- * });
- * add(Q(a), Q(B));
- *
- * @param {function} callback The function to decorate
- * @returns {function} a function that has been decorated.
- */
-Q.promised = promised;
-function promised(callback) {
-    return function () {
-        return spread([this, all(arguments)], function (self, args) {
-            return callback.apply(self, args);
-        });
-    };
-}
-
-/**
- * sends a message to a value in a future turn
- * @param object* the recipient
- * @param op the name of the message operation, e.g., "when",
- * @param args further arguments to be forwarded to the operation
- * @returns result {Promise} a promise for the result of the operation
- */
-Q.dispatch = dispatch;
-function dispatch(object, op, args) {
-    return Q(object).dispatch(op, args);
-}
-
-Promise.prototype.dispatch = function (op, args) {
-    var self = this;
-    var deferred = defer();
-    nextTick(function () {
-        self.promiseDispatch(deferred.resolve, op, args);
-    });
-    return deferred.promise;
-};
-
-/**
- * Gets the value of a property in a future turn.
- * @param object    promise or immediate reference for target object
- * @param name      name of property to get
- * @return promise for the property value
- */
-Q.get = function (object, key) {
-    return Q(object).dispatch("get", [key]);
-};
-
-Promise.prototype.get = function (key) {
-    return this.dispatch("get", [key]);
-};
-
-/**
- * Sets the value of a property in a future turn.
- * @param object    promise or immediate reference for object object
- * @param name      name of property to set
- * @param value     new value of property
- * @return promise for the return value
- */
-Q.set = function (object, key, value) {
-    return Q(object).dispatch("set", [key, value]);
-};
-
-Promise.prototype.set = function (key, value) {
-    return this.dispatch("set", [key, value]);
-};
-
-/**
- * Deletes a property in a future turn.
- * @param object    promise or immediate reference for target object
- * @param name      name of property to delete
- * @return promise for the return value
- */
-Q.del = // XXX legacy
-Q["delete"] = function (object, key) {
-    return Q(object).dispatch("delete", [key]);
-};
-
-Promise.prototype.del = // XXX legacy
-Promise.prototype["delete"] = function (key) {
-    return this.dispatch("delete", [key]);
-};
-
-/**
- * Invokes a method in a future turn.
- * @param object    promise or immediate reference for target object
- * @param name      name of method to invoke
- * @param value     a value to post, typically an array of
- *                  invocation arguments for promises that
- *                  are ultimately backed with `resolve` values,
- *                  as opposed to those backed with URLs
- *                  wherein the posted value can be any
- *                  JSON serializable object.
- * @return promise for the return value
- */
-// bound locally because it is used by other methods
-Q.mapply = // XXX As proposed by "Redsandro"
-Q.post = function (object, name, args) {
-    return Q(object).dispatch("post", [name, args]);
-};
-
-Promise.prototype.mapply = // XXX As proposed by "Redsandro"
-Promise.prototype.post = function (name, args) {
-    return this.dispatch("post", [name, args]);
-};
-
-/**
- * Invokes a method in a future turn.
- * @param object    promise or immediate reference for target object
- * @param name      name of method to invoke
- * @param ...args   array of invocation arguments
- * @return promise for the return value
- */
-Q.send = // XXX Mark Miller's proposed parlance
-Q.mcall = // XXX As proposed by "Redsandro"
-Q.invoke = function (object, name /*...args*/) {
-    return Q(object).dispatch("post", [name, array_slice(arguments, 2)]);
-};
-
-Promise.prototype.send = // XXX Mark Miller's proposed parlance
-Promise.prototype.mcall = // XXX As proposed by "Redsandro"
-Promise.prototype.invoke = function (name /*...args*/) {
-    return this.dispatch("post", [name, array_slice(arguments, 1)]);
-};
-
-/**
- * Applies the promised function in a future turn.
- * @param object    promise or immediate reference for target function
- * @param args      array of application arguments
- */
-Q.fapply = function (object, args) {
-    return Q(object).dispatch("apply", [void 0, args]);
-};
-
-Promise.prototype.fapply = function (args) {
-    return this.dispatch("apply", [void 0, args]);
-};
-
-/**
- * Calls the promised function in a future turn.
- * @param object    promise or immediate reference for target function
- * @param ...args   array of application arguments
- */
-Q["try"] =
-Q.fcall = function (object /* ...args*/) {
-    return Q(object).dispatch("apply", [void 0, array_slice(arguments, 1)]);
-};
-
-Promise.prototype.fcall = function (/*...args*/) {
-    return this.dispatch("apply", [void 0, array_slice(arguments)]);
-};
-
-/**
- * Binds the promised function, transforming return values into a fulfilled
- * promise and thrown errors into a rejected one.
- * @param object    promise or immediate reference for target function
- * @param ...args   array of application arguments
- */
-Q.fbind = function (object /*...args*/) {
-    var promise = Q(object);
-    var args = array_slice(arguments, 1);
-    return function fbound() {
-        return promise.dispatch("apply", [
-            this,
-            args.concat(array_slice(arguments))
-        ]);
-    };
-};
-Promise.prototype.fbind = function (/*...args*/) {
-    var promise = this;
-    var args = array_slice(arguments);
-    return function fbound() {
-        return promise.dispatch("apply", [
-            this,
-            args.concat(array_slice(arguments))
-        ]);
-    };
-};
-
-/**
- * Requests the names of the owned properties of a promised
- * object in a future turn.
- * @param object    promise or immediate reference for target object
- * @return promise for the keys of the eventually settled object
- */
-Q.keys = function (object) {
-    return Q(object).dispatch("keys", []);
-};
-
-Promise.prototype.keys = function () {
-    return this.dispatch("keys", []);
-};
-
-/**
- * Turns an array of promises into a promise for an array.  If any of
- * the promises gets rejected, the whole array is rejected immediately.
- * @param {Array*} an array (or promise for an array) of values (or
- * promises for values)
- * @returns a promise for an array of the corresponding values
- */
-// By Mark Miller
-// http://wiki.ecmascript.org/doku.php?id=strawman:concurrency&rev=1308776521#allfulfilled
-Q.all = all;
-function all(promises) {
-    return when(promises, function (promises) {
-        var countDown = 0;
-        var deferred = defer();
-        array_reduce(promises, function (undefined, promise, index) {
-            var snapshot;
-            if (
-                isPromise(promise) &&
-                (snapshot = promise.inspect()).state === "fulfilled"
-            ) {
-                promises[index] = snapshot.value;
-            } else {
-                ++countDown;
-                when(
-                    promise,
-                    function (value) {
-                        promises[index] = value;
-                        if (--countDown === 0) {
-                            deferred.resolve(promises);
-                        }
-                    },
-                    deferred.reject,
-                    function (progress) {
-                        deferred.notify({ index: index, value: progress });
-                    }
-                );
-            }
-        }, void 0);
-        if (countDown === 0) {
-            deferred.resolve(promises);
-        }
-        return deferred.promise;
-    });
-}
-
-Promise.prototype.all = function () {
-    return all(this);
-};
-
-/**
- * Waits for all promises to be settled, either fulfilled or
- * rejected.  This is distinct from `all` since that would stop
- * waiting at the first rejection.  The promise returned by
- * `allResolved` will never be rejected.
- * @param promises a promise for an array (or an array) of promises
- * (or values)
- * @return a promise for an array of promises
- */
-Q.allResolved = deprecate(allResolved, "allResolved", "allSettled");
-function allResolved(promises) {
-    return when(promises, function (promises) {
-        promises = array_map(promises, Q);
-        return when(all(array_map(promises, function (promise) {
-            return when(promise, noop, noop);
-        })), function () {
-            return promises;
-        });
-    });
-}
-
-Promise.prototype.allResolved = function () {
-    return allResolved(this);
-};
-
-/**
- * @see Promise#allSettled
- */
-Q.allSettled = allSettled;
-function allSettled(promises) {
-    return Q(promises).allSettled();
-}
-
-/**
- * Turns an array of promises into a promise for an array of their states (as
- * returned by `inspect`) when they have all settled.
- * @param {Array[Any*]} values an array (or promise for an array) of values (or
- * promises for values)
- * @returns {Array[State]} an array of states for the respective values.
- */
-Promise.prototype.allSettled = function () {
-    return this.then(function (promises) {
-        return all(array_map(promises, function (promise) {
-            promise = Q(promise);
-            function regardless() {
-                return promise.inspect();
-            }
-            return promise.then(regardless, regardless);
-        }));
-    });
-};
-
-/**
- * Captures the failure of a promise, giving an oportunity to recover
- * with a callback.  If the given promise is fulfilled, the returned
- * promise is fulfilled.
- * @param {Any*} promise for something
- * @param {Function} callback to fulfill the returned promise if the
- * given promise is rejected
- * @returns a promise for the return value of the callback
- */
-Q.fail = // XXX legacy
-Q["catch"] = function (object, rejected) {
-    return Q(object).then(void 0, rejected);
-};
-
-Promise.prototype.fail = // XXX legacy
-Promise.prototype["catch"] = function (rejected) {
-    return this.then(void 0, rejected);
-};
-
-/**
- * Attaches a listener that can respond to progress notifications from a
- * promise's originating deferred. This listener receives the exact arguments
- * passed to ``deferred.notify``.
- * @param {Any*} promise for something
- * @param {Function} callback to receive any progress notifications
- * @returns the given promise, unchanged
- */
-Q.progress = progress;
-function progress(object, progressed) {
-    return Q(object).then(void 0, void 0, progressed);
-}
-
-Promise.prototype.progress = function (progressed) {
-    return this.then(void 0, void 0, progressed);
-};
-
-/**
- * Provides an opportunity to observe the settling of a promise,
- * regardless of whether the promise is fulfilled or rejected.  Forwards
- * the resolution to the returned promise when the callback is done.
- * The callback can return a promise to defer completion.
- * @param {Any*} promise
- * @param {Function} callback to observe the resolution of the given
- * promise, takes no arguments.
- * @returns a promise for the resolution of the given promise when
- * ``fin`` is done.
- */
-Q.fin = // XXX legacy
-Q["finally"] = function (object, callback) {
-    return Q(object)["finally"](callback);
-};
-
-Promise.prototype.fin = // XXX legacy
-Promise.prototype["finally"] = function (callback) {
-    callback = Q(callback);
-    return this.then(function (value) {
-        return callback.fcall().then(function () {
-            return value;
-        });
-    }, function (reason) {
-        // TODO attempt to recycle the rejection with "this".
-        return callback.fcall().then(function () {
-            throw reason;
-        });
-    });
-};
-
-/**
- * Terminates a chain of promises, forcing rejections to be
- * thrown as exceptions.
- * @param {Any*} promise at the end of a chain of promises
- * @returns nothing
- */
-Q.done = function (object, fulfilled, rejected, progress) {
-    return Q(object).done(fulfilled, rejected, progress);
-};
-
-Promise.prototype.done = function (fulfilled, rejected, progress) {
-    var onUnhandledError = function (error) {
-        // forward to a future turn so that ``when``
-        // does not catch it and turn it into a rejection.
-        nextTick(function () {
-            makeStackTraceLong(error, promise);
-            if (Q.onerror) {
-                Q.onerror(error);
-            } else {
-                throw error;
-            }
-        });
-    };
-
-    // Avoid unnecessary `nextTick`ing via an unnecessary `when`.
-    var promise = fulfilled || rejected || progress ?
-        this.then(fulfilled, rejected, progress) :
-        this;
-
-    if (typeof process === "object" && process && process.domain) {
-        onUnhandledError = process.domain.bind(onUnhandledError);
-    }
-
-    promise.then(void 0, onUnhandledError);
-};
-
-/**
- * Causes a promise to be rejected if it does not get fulfilled before
- * some milliseconds time out.
- * @param {Any*} promise
- * @param {Number} milliseconds timeout
- * @param {String} custom error message (optional)
- * @returns a promise for the resolution of the given promise if it is
- * fulfilled before the timeout, otherwise rejected.
- */
-Q.timeout = function (object, ms, message) {
-    return Q(object).timeout(ms, message);
-};
-
-Promise.prototype.timeout = function (ms, message) {
-    var deferred = defer();
-    var timeoutId = setTimeout(function () {
-        deferred.reject(new Error(message || "Timed out after " + ms + " ms"));
-    }, ms);
-
-    this.then(function (value) {
-        clearTimeout(timeoutId);
-        deferred.resolve(value);
-    }, function (exception) {
-        clearTimeout(timeoutId);
-        deferred.reject(exception);
-    }, deferred.notify);
-
-    return deferred.promise;
-};
-
-/**
- * Returns a promise for the given value (or promised value), some
- * milliseconds after it resolved. Passes rejections immediately.
- * @param {Any*} promise
- * @param {Number} milliseconds
- * @returns a promise for the resolution of the given promise after milliseconds
- * time has elapsed since the resolution of the given promise.
- * If the given promise rejects, that is passed immediately.
- */
-Q.delay = function (object, timeout) {
-    if (timeout === void 0) {
-        timeout = object;
-        object = void 0;
-    }
-    return Q(object).delay(timeout);
-};
-
-Promise.prototype.delay = function (timeout) {
-    return this.then(function (value) {
-        var deferred = defer();
-        setTimeout(function () {
-            deferred.resolve(value);
-        }, timeout);
-        return deferred.promise;
-    });
-};
-
-/**
- * Passes a continuation to a Node function, which is called with the given
- * arguments provided as an array, and returns a promise.
- *
- *      Q.nfapply(FS.readFile, [__filename])
- *      .then(function (content) {
- *      })
- *
- */
-Q.nfapply = function (callback, args) {
-    return Q(callback).nfapply(args);
-};
-
-Promise.prototype.nfapply = function (args) {
-    var deferred = defer();
-    var nodeArgs = array_slice(args);
-    nodeArgs.push(deferred.makeNodeResolver());
-    this.fapply(nodeArgs).fail(deferred.reject);
-    return deferred.promise;
-};
-
-/**
- * Passes a continuation to a Node function, which is called with the given
- * arguments provided individually, and returns a promise.
- * @example
- * Q.nfcall(FS.readFile, __filename)
- * .then(function (content) {
- * })
- *
- */
-Q.nfcall = function (callback /*...args*/) {
-    var args = array_slice(arguments, 1);
-    return Q(callback).nfapply(args);
-};
-
-Promise.prototype.nfcall = function (/*...args*/) {
-    var nodeArgs = array_slice(arguments);
-    var deferred = defer();
-    nodeArgs.push(deferred.makeNodeResolver());
-    this.fapply(nodeArgs).fail(deferred.reject);
-    return deferred.promise;
-};
-
-/**
- * Wraps a NodeJS continuation passing function and returns an equivalent
- * version that returns a promise.
- * @example
- * Q.nfbind(FS.readFile, __filename)("utf-8")
- * .then(console.log)
- * .done()
- */
-Q.nfbind =
-Q.denodeify = function (callback /*...args*/) {
-    var baseArgs = array_slice(arguments, 1);
-    return function () {
-        var nodeArgs = baseArgs.concat(array_slice(arguments));
-        var deferred = defer();
-        nodeArgs.push(deferred.makeNodeResolver());
-        Q(callback).fapply(nodeArgs).fail(deferred.reject);
-        return deferred.promise;
-    };
-};
-
-Promise.prototype.nfbind =
-Promise.prototype.denodeify = function (/*...args*/) {
-    var args = array_slice(arguments);
-    args.unshift(this);
-    return Q.denodeify.apply(void 0, args);
-};
-
-Q.nbind = function (callback, thisp /*...args*/) {
-    var baseArgs = array_slice(arguments, 2);
-    return function () {
-        var nodeArgs = baseArgs.concat(array_slice(arguments));
-        var deferred = defer();
-        nodeArgs.push(deferred.makeNodeResolver());
-        function bound() {
-            return callback.apply(thisp, arguments);
-        }
-        Q(bound).fapply(nodeArgs).fail(deferred.reject);
-        return deferred.promise;
-    };
-};
-
-Promise.prototype.nbind = function (/*thisp, ...args*/) {
-    var args = array_slice(arguments, 0);
-    args.unshift(this);
-    return Q.nbind.apply(void 0, args);
-};
-
-/**
- * Calls a method of a Node-style object that accepts a Node-style
- * callback with a given array of arguments, plus a provided callback.
- * @param object an object that has the named method
- * @param {String} name name of the method of object
- * @param {Array} args arguments to pass to the method; the callback
- * will be provided by Q and appended to these arguments.
- * @returns a promise for the value or error
- */
-Q.nmapply = // XXX As proposed by "Redsandro"
-Q.npost = function (object, name, args) {
-    return Q(object).npost(name, args);
-};
-
-Promise.prototype.nmapply = // XXX As proposed by "Redsandro"
-Promise.prototype.npost = function (name, args) {
-    var nodeArgs = array_slice(args || []);
-    var deferred = defer();
-    nodeArgs.push(deferred.makeNodeResolver());
-    this.dispatch("post", [name, nodeArgs]).fail(deferred.reject);
-    return deferred.promise;
-};
-
-/**
- * Calls a method of a Node-style object that accepts a Node-style
- * callback, forwarding the given variadic arguments, plus a provided
- * callback argument.
- * @param object an object that has the named method
- * @param {String} name name of the method of object
- * @param ...args arguments to pass to the method; the callback will
- * be provided by Q and appended to these arguments.
- * @returns a promise for the value or error
- */
-Q.nsend = // XXX Based on Mark Miller's proposed "send"
-Q.nmcall = // XXX Based on "Redsandro's" proposal
-Q.ninvoke = function (object, name /*...args*/) {
-    var nodeArgs = array_slice(arguments, 2);
-    var deferred = defer();
-    nodeArgs.push(deferred.makeNodeResolver());
-    Q(object).dispatch("post", [name, nodeArgs]).fail(deferred.reject);
-    return deferred.promise;
-};
-
-Promise.prototype.nsend = // XXX Based on Mark Miller's proposed "send"
-Promise.prototype.nmcall = // XXX Based on "Redsandro's" proposal
-Promise.prototype.ninvoke = function (name /*...args*/) {
-    var nodeArgs = array_slice(arguments, 1);
-    var deferred = defer();
-    nodeArgs.push(deferred.makeNodeResolver());
-    this.dispatch("post", [name, nodeArgs]).fail(deferred.reject);
-    return deferred.promise;
-};
-
-/**
- * If a function would like to support both Node continuation-passing-style and
- * promise-returning-style, it can end its internal promise chain with
- * `nodeify(nodeback)`, forwarding the optional nodeback argument.  If the user
- * elects to use a nodeback, the result will be sent there.  If they do not
- * pass a nodeback, they will receive the result promise.
- * @param object a result (or a promise for a result)
- * @param {Function} nodeback a Node.js-style callback
- * @returns either the promise or nothing
- */
-Q.nodeify = nodeify;
-function nodeify(object, nodeback) {
-    return Q(object).nodeify(nodeback);
-}
-
-Promise.prototype.nodeify = function (nodeback) {
-    if (nodeback) {
-        this.then(function (value) {
-            nextTick(function () {
-                nodeback(null, value);
-            });
-        }, function (error) {
-            nextTick(function () {
-                nodeback(error);
-            });
-        });
-    } else {
-        return this;
-    }
-};
-
-// All code before this point will be filtered from stack traces.
-var qEndingLine = captureLine();
-
-return Q;
-
-});
-
 /**
  * Aja.js
  * Ajax without XML : Asynchronous Javascript and JavaScript/JSON(P)
@@ -5436,6 +3531,201 @@ return Q;
 
 }());
 
+(function(root) {
+
+	// Store setTimeout reference so promise-polyfill will be unaffected by
+	// other code modifying setTimeout (like sinon.useFakeTimers())
+	var setTimeoutFunc = setTimeout;
+
+	// Use polyfill for setImmediate for performance gains
+	var asap = (typeof setImmediate === 'function' && setImmediate) ||
+		function(fn) { setTimeoutFunc(fn, 1); };
+
+	// Polyfill for Function.prototype.bind
+	function bind(fn, thisArg) {
+		return function() {
+			fn.apply(thisArg, arguments);
+		}
+	}
+
+	var isArray = Array.isArray || function(value) { return Object.prototype.toString.call(value) === "[object Array]" };
+
+	function Promise(fn) {
+		if (typeof this !== 'object') throw new TypeError('Promises must be constructed via new');
+		if (typeof fn !== 'function') throw new TypeError('not a function');
+		this._state = null;
+		this._value = null;
+		this._deferreds = []
+
+		doResolve(fn, bind(resolve, this), bind(reject, this))
+	}
+
+	function handle(deferred) {
+		var me = this;
+		if (this._state === null) {
+			this._deferreds.push(deferred);
+			return
+		}
+		asap(function() {
+			var cb = me._state ? deferred.onFulfilled : deferred.onRejected
+			if (cb === null) {
+				(me._state ? deferred.resolve : deferred.reject)(me._value);
+				return;
+			}
+			var ret;
+			try {
+				ret = cb(me._value);
+			}
+			catch (e) {
+				deferred.reject(e);
+				return;
+			}
+			deferred.resolve(ret);
+		})
+	}
+
+	function resolve(newValue) {
+		try { //Promise Resolution Procedure: https://github.com/promises-aplus/promises-spec#the-promise-resolution-procedure
+			if (newValue === this) throw new TypeError('A promise cannot be resolved with itself.');
+			if (newValue && (typeof newValue === 'object' || typeof newValue === 'function')) {
+				var then = newValue.then;
+				if (typeof then === 'function') {
+					doResolve(bind(then, newValue), bind(resolve, this), bind(reject, this));
+					return;
+				}
+			}
+			this._state = true;
+			this._value = newValue;
+			finale.call(this);
+		} catch (e) { reject.call(this, e); }
+	}
+
+	function reject(newValue) {
+		this._state = false;
+		this._value = newValue;
+		finale.call(this);
+	}
+
+	function finale() {
+		for (var i = 0, len = this._deferreds.length; i < len; i++) {
+			handle.call(this, this._deferreds[i]);
+		}
+		this._deferreds = null;
+	}
+
+	function Handler(onFulfilled, onRejected, resolve, reject){
+		this.onFulfilled = typeof onFulfilled === 'function' ? onFulfilled : null;
+		this.onRejected = typeof onRejected === 'function' ? onRejected : null;
+		this.resolve = resolve;
+		this.reject = reject;
+	}
+
+	/**
+	 * Take a potentially misbehaving resolver function and make sure
+	 * onFulfilled and onRejected are only called once.
+	 *
+	 * Makes no guarantees about asynchrony.
+	 */
+	function doResolve(fn, onFulfilled, onRejected) {
+		var done = false;
+		try {
+			fn(function (value) {
+				if (done) return;
+				done = true;
+				onFulfilled(value);
+			}, function (reason) {
+				if (done) return;
+				done = true;
+				onRejected(reason);
+			})
+		} catch (ex) {
+			if (done) return;
+			done = true;
+			onRejected(ex);
+		}
+	}
+
+	Promise.prototype['catch'] = function (onRejected) {
+		return this.then(null, onRejected);
+	};
+
+	Promise.prototype.then = function(onFulfilled, onRejected) {
+		var me = this;
+		return new Promise(function(resolve, reject) {
+			handle.call(me, new Handler(onFulfilled, onRejected, resolve, reject));
+		})
+	};
+
+	Promise.all = function () {
+		var args = Array.prototype.slice.call(arguments.length === 1 && isArray(arguments[0]) ? arguments[0] : arguments);
+
+		return new Promise(function (resolve, reject) {
+			if (args.length === 0) return resolve([]);
+			var remaining = args.length;
+			function res(i, val) {
+				try {
+					if (val && (typeof val === 'object' || typeof val === 'function')) {
+						var then = val.then;
+						if (typeof then === 'function') {
+							then.call(val, function (val) { res(i, val) }, reject);
+							return;
+						}
+					}
+					args[i] = val;
+					if (--remaining === 0) {
+						resolve(args);
+					}
+				} catch (ex) {
+					reject(ex);
+				}
+			}
+			for (var i = 0; i < args.length; i++) {
+				res(i, args[i]);
+			}
+		});
+	};
+
+	Promise.resolve = function (value) {
+		if (value && typeof value === 'object' && value.constructor === Promise) {
+			return value;
+		}
+
+		return new Promise(function (resolve) {
+			resolve(value);
+		});
+	};
+
+	Promise.reject = function (value) {
+		return new Promise(function (resolve, reject) {
+			reject(value);
+		});
+	};
+
+	Promise.race = function (values) {
+		return new Promise(function (resolve, reject) {
+			for(var i = 0, len = values.length; i < len; i++) {
+				values[i].then(resolve, reject);
+			}
+		});
+	};
+
+	/**
+	 * Set the immediate function to execute callbacks
+	 * @param fn {function} Function to execute
+	 * @private
+	 */
+	Promise._setImmediateFn = function _setImmediateFn(fn) {
+		asap = fn;
+	};
+
+	if (typeof module !== 'undefined' && module.exports) {
+		module.exports = Promise;
+	} else if (!root.Promise) {
+		root.Promise = Promise;
+	}
+
+})(this);
+
 /*
  * Cookies.js - 1.2.2
  * https://github.com/ScottHamper/Cookies
@@ -5628,1105 +3918,3179 @@ return Q;
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.1.8";
+    var stargatePackageVersion = "0.2.1";
     var stargatePublic = {};
-    /* global cordova */
+    
+    var stargateModules = {};       
+    /* globals cordova, Promise */
 
 
-/* globals AdMob, MoPub */
-
-var AdManager = {
-
-	AdMobSupport: false,
-	MoPubSupport: false,
-	AdPosition: {
-		NO_CHANGE: 0,
-		TOP_LEFT: 1,
-		TOP_CENTER: 2,
-		TOP_RIGHT: 3,
-		LEFT: 4,
-		CENTER: 5,
-		RIGHT: 6,
-		BOTTOM_LEFT: 7,
-		BOTTOM_CENTER: 8,
-		BOTTOM_RIGHT: 9,
-		POS_XY: 10
-	},
-	AdSize: {
-		SMART_BANNER: 'SMART_BANNER',
-		BANNER: 'BANNER',
-		MEDIUM_RECTANGLE: 'MEDIUM_RECTANGLE',
-		FULL_BANNER: 'FULL_BANNER',
-		LEADERBOARD: 'LEADERBOARD',
-		SKYSCRAPER: 'SKYSCRAPER'
-	},
-	DefaultOptions : null,
-		
-	initialize: function (options, success, fail) {
-		if(options)
-			AdManager.DefaultOptions = options;
-			
-		if (AdMob) { 
-			AdManager.AdMobSupport = true;
-			AdManager.initAdMob(options, success, fail);
-		}
-		
-		if (MoPub) { 
-			AdManager.MoPubSupport = true;
-		}	
-		
-		return true;
-	},
-	
-	isAdMobSupported: function(){
-		return AdManager.AdMobSupport;
-	},
-	
-	isMoPubSupported: function(){
-		return AdManager.MoPubSupport;
-	},
-	
-	getUserAgent: function(){
-		if( /(android)/i.test(navigator.userAgent) ) {
-			return "android";
-		} else if(/(ipod|iphone|ipad)/i.test(navigator.userAgent)) {
-			return "ios";
-		} else {
-			return "other";
-		}
-	},
-	
-	/* setOptions(options, success, fail); */
-	initAdMob: function(options, success, fail){
-	
-		var defaultOptions = {
-			//bannerId: AdManager.AdMobID[userAgent].banner,
-			//interstitialId: AdManager.AdMobID[userAgent].interstitial,
-			adSize: 'BANNER',
-			// width: integer, // valid when set adSize 'CUSTOM'
-			// height: integer, // valid when set adSize 'CUSTOM'
-			position: 8,
-			// offsetTopBar: false, // avoid overlapped by status bar, for iOS7+
-			bgColor: 'black', // color name, or '#RRGGBB'
-			// x: integer, // valid when set position to 0 / POS_XY
-			// y: integer, // valid when set position to 0 / POS_XY
-			isTesting: false, // set to true, to receiving test ad for testing purpose
-			autoShow: true // auto show interstitial ad when loaded, set to false if prepare/show
-		};
-		AdMob.setOptions(defaultOptions, success, fail);
-		
-	},
-	
-	/* TODO if needed */
-	//initMoPub: function(options, success, fail){
-	//
-	//},	
-	
-	registerAdEvents: function(eventManager) {
-		document.addEventListener('onAdFailLoad', eventManager);
-		document.addEventListener('onAdLoaded', eventManager);
-		document.addEventListener('onAdPresent', eventManager);
-		document.addEventListener('onAdLeaveApp', eventManager);
-		document.addEventListener('onAdDismiss', eventManager);
-	},
-	
-	manageAdEvents: function(data) {
-	
-		console.log('error: ' + data.error +
-			', reason: ' + data.reason +
-			', adNetwork:' + data.adNetwork +
-			', adType:' + data.adType +
-			', adEvent:' + data.adEvent); 
-	},
-	
-	/*
-	createBanner(data, success, fail);
-	data could be an object (one network) or an array of network info
-	each network is an object with position, autoShow, banner, full_banner, leaderboard, ecc
-	data = [{network: "dfp", device: "android", position: "BOTTOM_CENTER", banner: "/1017836/320x50_Radio_Leaderboard", autoShow: true},
-			{network: "mopub", device: "ios", position: "BOTTOM_CENTER", banner: "agltb3B1Yi1pbmNyDAsSBFNpdGUY8fgRDA", autoShow: true}];
-	*/
-	createBanner: function(data, success, fail) {
-		var options = {};
-		var opt = [];
-		var userAgent = AdManager.getUserAgent();
-		
-		/* no data, we use DefaultOptions */
-		if(!data){
-			if(!AdManager.isObjEmpty(AdManager.DefaultOptions)){
-				data = AdManager.DefaultOptions;
-			}		
-		}
-		
-		if(!Array.isArray(data)){
-			opt.push(data);
-		}
-		else {
-			opt = data;
-		}
-		
-		opt.forEach(function(entry) {
-            if(entry.device == 'default' || entry.device == userAgent){
-			
-				var adId = AdManager.getAdSize().toLowerCase();					
-			
-				if(entry.overlap) options.overlap = entry.overlap;
-				if(entry.offsetTopBar) options.offsetTopBar = entry.offsetTopBar;
-				options.adSize = AdManager.getAdSize();
-				if(adId) options.adId = entry[adId];
-				if(entry.position) options.position = AdManager.AdPosition[entry.position];
-				if(entry.width) options.width = entry.width;
-				if(entry.height) options.height = entry.height;
-				if(entry.autoShow) options.autoShow = entry.autoShow;
-				
-				if(entry.network.toLowerCase() == 'admob' || entry.network.toLowerCase() == 'dfp'){
-					if(entry.width && entry.height){
-						options.adSize = 'CUSTOM';
-					}
-					AdMob.createBanner(options, success, fail);
-				}
-				else if(entry.network.toLowerCase().toLowerCase() == 'mopub'){
-					MoPub.createBanner(options, success, fail);
-				}			
-			}
-		});
-	},
-	
-	/*
-	data could be an object (one network) or an array of network info
-	each entry is an object with position, device and network properties
-	data = [{network: "dfp", device: "android", position: "BOTTOM_CENTER"},
-			{network: "mopub", device: "ios", position: "BOTTOM_CENTER"}];
-	data.network could be admob, mopub, dfp
-	data.position could be: NO_CHANGE, TOP_LEFT, TOP_CENTER, TOP_RIGHT, LEFT, CENTER, RIGHT, BOTTOM_LEFT, BOTTOM_CENTER, BOTTOM_RIGHT, POS_XY
-	*/
-	showBannerAtSelectedPosition: function(data) {
-	
-		var opt = [];
-		var userAgent = AdManager.getUserAgent();
-		
-		/* no data, we use DefaultOptions */
-		if(!data){
-			if(!AdManager.isObjEmpty(AdManager.DefaultOptions)){
-				data = AdManager.DefaultOptions;
-			}		
-		}
-		
-		if(!Array.isArray(data)){
-			opt.push(data);
-		}
-		else {
-			opt = data;
-		}
-		
-		opt.forEach(function(entry) {
-            if(entry.device == 'default' || entry.device == userAgent){
-			
-				if(entry.network.toLowerCase() == 'admob' || entry.network.toLowerCase() == 'dfp'){
-					AdMob.showBanner(entry.position);
-				}
-				else if(entry.network.toLowerCase().toLowerCase() == 'mopub'){
-					MoPub.showBanner(entry.position);
-				}	
-			
-			}
-		});
-	},
-	
-	/*
-	data could be an object (one network) or an array of network info
-	each entry is an object with position, device and network properties
-	data = [{network: "dfp", device: "android", x: "", y: ""},
-			{network: "mopub", device: "ios", x: "", y: ""}];
-	data.network could be admob, mopub, dfp
-	*/
-	showBannerAtGivenXY: function(data) {
-	
-		var opt = [];
-		var userAgent = AdManager.getUserAgent();
-		
-		/* no data, we use DefaultOptions */
-		if(!data){
-			if(!AdManager.isObjEmpty(AdManager.DefaultOptions)){
-				data = AdManager.DefaultOptions;
-			}		
-		}
-		
-		if(!Array.isArray(data)){
-			opt.push(data);
-		}
-		else {
-			opt = data;
-		}
-		
-		opt.forEach(function(entry) {
-            if(entry.device == 'default' || entry.device == userAgent){
-			
-				if(entry.network.toLowerCase() == 'admob' || entry.network.toLowerCase() == 'dfp'){
-					AdMob.showBannerAtXY(entry.x, entry.y);
-				}
-				else if(entry.network.toLowerCase().toLowerCase() == 'mopub'){
-					MoPub.showBannerAtXY(entry.x, entry.y);
-				}	
-			
-			}
-		});
-	},
-	
-	/*
-	data could be an object (one network) or an array of network info
-	each entry is an object with position, device and network properties
-	data = [{network: "dfp", device: "android"},
-			{network: "mopub", device: "ios"}];
-	*/
-	hideBanner: function(data) {
-	
-		var opt = [];
-		var userAgent = AdManager.getUserAgent();
-		
-		/* no data, we use DefaultOptions */
-		if(!data){
-			if(!AdManager.isObjEmpty(AdManager.DefaultOptions)){
-				data = AdManager.DefaultOptions;
-			}		
-		}
-		
-		if(!Array.isArray(data)){
-			opt.push(data);
-		}
-		else {
-			opt = data;
-		}
-		
-		opt.forEach(function(entry) {
-            if(entry.device == 'default' || entry.device == userAgent){
-			
-				if(entry.network.toLowerCase() == 'admob' || entry.network.toLowerCase() == 'dfp'){
-					AdMob.hideBanner();
-				}
-				else if(entry.network.toLowerCase().toLowerCase() == 'mopub'){
-					MoPub.hideBanner();
-				}	
-			
-			}
-		});
-	},
-	
-	/*
-	data could be an object (one network) or an array of network info
-	each entry is an object with position, device and network properties
-	data = [{network: "dfp", device: "android"},
-			{network: "mopub", device: "ios"}];
-	*/
-	removeBanner: function(data) {
-	
-		var opt = [];
-		var userAgent = AdManager.getUserAgent();
-		
-		/* no data, we use DefaultOptions */
-		if(!data){
-			if(!AdManager.isObjEmpty(AdManager.DefaultOptions)){
-				data = AdManager.DefaultOptions;
-			}		
-		}
-		
-		if(!Array.isArray(data)){
-			opt.push(data);
-		}
-		else {
-			opt = data;
-		}
-		
-		opt.forEach(function(entry) {
-            if(entry.device == 'default' || entry.device == userAgent){
-			
-				if(entry.network.toLowerCase() == 'admob' || entry.network.toLowerCase() == 'dfp'){
-					AdMob.removeBanner();
-				}
-				else if(entry.network.toLowerCase().toLowerCase() == 'mopub'){
-					MoPub.removeBanner();
-				}	
-			
-			}
-		});
-	},
-	
-	/*
-	data could be an object (one network) or an array of network info
-	each entry is an object with position, device and network properties
-	data = [{network: "dfp", device: "android", interstitial: ""},
-			{network: "mopub", device: "ios", interstitial: ""}];
-	*/
-	prepareInterstitial: function(data, success, fail) {
-	
-		var options = {};
-		var opt = [];
-		var userAgent = AdManager.getUserAgent();
-		
-		/* no data, we use DefaultOptions */
-		if(!data){
-			if(!AdManager.isObjEmpty(AdManager.DefaultOptions)){
-				data = AdManager.DefaultOptions;
-			}		
-		}
-		
-		if(!Array.isArray(data)){
-			opt.push(data);
-		}
-		else {
-			opt = data;
-		}
-		
-		opt.forEach(function(entry) {
-            if(entry.device == 'default' || entry.device == userAgent){				
-			
-				if(entry.interstitial) options.adId = entry.interstitial;
-				if(entry.autoShow) options.autoShow = entry.autoShow;
-				
-				if(entry.network.toLowerCase() == 'admob' || entry.network.toLowerCase() == 'dfp'){
-					AdMob.prepareInterstitial(options);
-				}
-				else if(entry.network.toLowerCase() == 'mopub'){
-					MoPub.prepareInterstitial(options, success, fail);
-				}
-			}
-		});
-	},
-	
-	/*
-	data could be an object (one network) or an array of network info
-	each entry is an object with position, device and network properties
-	data = [{network: "dfp", device: "android", interstitial: ""},
-			{network: "mopub", device: "ios", interstitial: ""}];
-	*/
-	showInterstitial: function(data) {
-	
-		var opt = [];
-		var userAgent = AdManager.getUserAgent();
-		
-		/* no data, we use DefaultOptions */
-		if(!data){
-			if(!AdManager.isObjEmpty(AdManager.DefaultOptions)){
-				data = AdManager.DefaultOptions;
-			}		
-		}
-		
-		if(!Array.isArray(data)){
-			opt.push(data);
-		}
-		else {
-			opt = data;
-		}
-		
-		opt.forEach(function(entry) {
-            if(entry.device == 'default' || entry.device == userAgent){
-			
-				if(entry.network.toLowerCase() == 'admob' || entry.network.toLowerCase() == 'dfp'){
-					AdMob.showInterstitial();
-				}
-				else if(entry.network.toLowerCase().toLowerCase() == 'mopub'){
-					MoPub.showInterstitial();
-				}	
-			
-			}
-		});
-	},
-	
-	isObjEmpty: function(obj) {
-		return Object.keys(obj).length === 0;
-	},
-	
-	getAdSize: function(){
-	
-		var height = screen.height;
-		var width = screen.width;
-	
-		if(width >= 728 && height >= 90 ) {
-			return AdManager.AdSize.LEADERBOARD;
-		} else if (width >= 468 && height >= 60 ) {
-			//return AdManager.AdSize.FULL_BANNER;
-			return AdManager.AdSize.BANNER;
-		} else if (width >= 320 && height >= 50 ) {
-			return AdManager.AdSize.BANNER;
-			
-		}
-	}
-	
-	
-};
-/*! AdStargate.JS - v0.0.1 - 2015-XX-XX
- *
+/**
+ * Logger module
+ * @module src/modules/Logger
+ * @type {Object}
  */
-function AdStargate() {
+(function(stargateModules){
 
+    /**
+     * @constructor
+     * @alias module:src/modules/Logger
+     * @param {String} label - OFF|DEBUG|INFO|WARN|ERROR|ALL
+     * @param {String} tag - a tag to identify a log group. it will be prepended to any log function
+     * @example
+     * var myLogger = new Logger("ALL", "TAG");
+     * myLogger.i("Somenthing", 1); // output will be > ["TAG"], "Somenthing", 1
+     * myLogger.setLevel("off") // other values OFF|DEBUG|INFO|WARN|ERROR|ALL
+     * */
+    function Logger(label, tag){
+        this.level = Logger.levels[label.toUpperCase()];
+        this.tag = tag;
+    }
 
-
-    this.initialize = function(data, callbackSuccess, callbackError){
-        err("unimplemented");
-        callbackError("unimplemented");
+    //Logger.prototype.group
+    //OFF < DEBUG < INFO < WARN < ERROR < ALL
+    // 0  < 1  < 2 < 3 < 4 < 5
+    Logger.levels = {
+        ALL:5,
+        ERROR:4,
+        WARN:3,
+        INFO:2,
+        DEBUG:1,
+        OFF:0
     };
 
-    this.createBanner = function(data, callbackSuccess, callbackError){
-    	err("unimplemented");
-        callbackError("unimplemented");
+    /**
+     * Error Logging
+     * @param {*} [arguments]
+     * */
+    Logger.prototype.e = function(){
+        var _arguments = Array.prototype.slice.call(arguments);
+        _arguments.unshift(this.tag);
+
+        if(this.level !== 0 && this.level >= Logger.levels.ERROR){
+            window.console.error.apply(console, _arguments);
+        }
     };
 
-    this.hideBanner = function(data, callbackSuccess, callbackError){
-    	err("unimplemented");
-        callbackError("unimplemented");
+    /**
+     * Info Logging
+     * @param {*} [arguments]
+     * */
+    Logger.prototype.i = function(){
+        var _arguments = Array.prototype.slice.call(arguments);
+        _arguments.unshift(this.tag);
+
+        if(this.level !== 0 && this.level >= Logger.levels.WARN){
+            window.console.info.apply(console, _arguments);
+        }
     };
 
-    this.removeBanner = function(data, callbackSuccess, callbackError){
-    	err("unimplemented");
-        callbackError("unimplemented");
+    /**
+     * Warn Logging
+     * @param {*} [arguments]
+     * */
+    Logger.prototype.w = function(){
+        var _arguments = Array.prototype.slice.call(arguments);
+        _arguments.unshift(this.tag);
+
+        if(this.level !== 0 && this.level >= Logger.levels.INFO){
+            window.console.warn.apply(console, _arguments);
+        }
     };
 
-    this.showBannerAtSelectedPosition = function(data, callbackSuccess, callbackError){
-    	err("unimplemented");
-        callbackError("unimplemented");
+    /**
+     * Debug Logging
+     * @param {*} [arguments]
+     * */
+    Logger.prototype.d = function(){
+        var _arguments = Array.prototype.slice.call(arguments);
+        _arguments.unshift(this.tag);
+
+        if(this.level !== 0 && this.level >= Logger.levels.DEBUG){
+            window.console.log.apply(console, _arguments);
+        }
     };
 
-    this.showBannerAtGivenXY = function(data, callbackSuccess, callbackError){
-    	err("unimplemented");
-        callbackError("unimplemented");
+    /**
+     * Set the level of the logger
+     * @param {String} label - OFF|DEBUG|INFO|WARN|ERROR|ALL
+     * */
+    Logger.prototype.setLevel = function(label){
+        this.level = Logger.levels[label];
     };
 
-    this.registerAdEvents = function(eventManager, callbackSuccess, callbackError){
-    	err("unimplemented");
-        callbackError("unimplemented");
+
+    /**
+     * A module representing a Logger class
+     * @exports Logger
+     */
+    if (stargateModules) {
+        stargateModules.Logger = Logger;
+    } else {
+        window.Logger = Logger;
+    }
+})(stargateModules);
+/**
+ * File module
+ * @module src/modules/File
+ * @type {Object}
+ * @see cordova.file
+ * @requires ./Logger.js
+ */
+(function(_modules, Logger){
+
+    var File = {};
+    var LOG;
+    File.LOG = LOG = new Logger("ALL", "[File - module]");
+    /**
+     * ERROR_MAP
+     * File.ERROR_MAP
+     * */
+    File.ERROR_MAP = {
+        1:"NOT_FOUND_ERR",
+        2:"SECURITY_ERR",
+        3:"ABORT_ERR",
+        4:"NOT_READABLE_ERR",
+        5:"ENCODING_ERR",
+        6:"NO_MODIFICATION_ALLOWED_ERR",
+        7:"INVALID_STATE_ERR",
+        8:"SYNTAX_ERR",
+        9:"INVALID_MODIFICATION_ERR",
+        10:"QUOTA_EXCEEDED_ERR",
+        11:"TYPE_MISMATCH_ERR",
+        12:"PATH_EXISTS_ERR"
     };
 
-    this.prepareInterstitial = function(data, callbackSuccess, callbackError){
-    	err("unimplemented");
-        callbackError("unimplemented");
+    File.currentFileTransfer = null;
+    /**
+     * stargateProtected.file.resolveFS
+     *
+     * @param {String} url - the path to load see cordova.file.*
+     * @returns {Promise<Entry|FileError>}
+     * */
+    File.resolveFS = function(url){
+        return new Promise(function(resolve, reject){
+            window.resolveLocalFileSystemURL(url, resolve, reject);
+        });
     };
 
-    this.showInterstitial = function(data, callbackSuccess, callbackError){
-    	err("unimplemented");
-        callbackError("unimplemented");
+    /**
+     * File.appendToFile
+     *
+     * @param {String} filePath - the filepath file:// url like
+     * @param {String} data - the string to write into the file
+     * @param {string} [overwrite=false] - overwrite
+     * @returns {Promise<String|FileError>} where string is a filepath
+     */
+    File.appendToFile = function(filePath, data, overwrite){
+        //Default
+        overwrite = arguments[2] === undefined ? false : arguments[2];
+        return File.resolveFS(filePath)
+            .then(function(fileEntry){
+
+                return new Promise(function(resolve, reject){
+                    fileEntry.createWriter(function(fileWriter) {
+                        if(!overwrite){
+                            fileWriter.seek(fileWriter.length);
+                        }
+                        var blob = new Blob([data], {type:'text/plain'});
+                        fileWriter.write(blob);
+                        fileWriter.onerror = reject;
+                        fileWriter.onabort = reject;
+                        fileWriter.onwriteend = function(){
+                            resolve(__transform([fileEntry]));
+                        };
+                    }, reject);
+                });
+
+            });
+    };
+
+    /**
+     * File.readFileAsHTML
+     * @param {String} indexPath - the path to the file to read
+     * @returns {Promise<DOM|FileError>}
+     */
+    File.readFileAsHTML = function(indexPath){
+
+        return File.readFile(indexPath)
+            .then(function(documentAsString){
+                return new window.DOMParser().parseFromString(documentAsString, "text/html");
+            });
+    };
+
+    /**
+     * File.readFileAsJSON
+     * @param {String} indexPath - the path to the file to read
+     * @returns {Promise<Object|FileError>}
+     */
+    File.readFileAsJSON = function(indexPath){
+        return File.readFile(indexPath)
+            .then(function(documentAsString){
+                try{
+                    return Promise.resolve(window.JSON.parse(documentAsString));
+                }catch(e){
+                    return Promise.reject(e);
+                }
+            });
+    };
+
+    /**
+     *  File.removeFile
+     *
+     *  @param {String} filePath - file://
+     *  @returns {Promise<String|FileError>}
+     * */
+    File.removeFile = function(filePath){
+        return File.resolveFS(filePath)
+            .then(function(fileEntry){
+                return new Promise(function(resolve,reject){
+                    fileEntry.remove(function(result){
+                        resolve(result === null || result === "OK");
+                    }, reject);
+                });
+            });
+    };
+
+    /**
+     *  File.removeDir
+     *
+     *  @param {String} dirpath - the directory entry to remove recursively
+     *  @returns Promise<void|FileError>
+     * */
+    File.removeDir = function(dirpath){
+        return File.resolveFS(dirpath)
+            .then(function(dirEntry){
+                return new Promise(function(resolve, reject){
+                    dirEntry.removeRecursively(function(result){
+                        resolve(result === null || result === "OK");
+                    }, reject);
+                });
+            });
+    };
+
+    /**
+     *  File._promiseZip
+     *
+     *  @private
+     *  @param {String} zipPath - the file to unpack
+     *  @param {String} outFolder - the folder where to unpack
+     *  @param {Function} _onProgress - the callback called with the percentage of unzip progress
+     *  @returns Promise<boolean>
+     * */
+    File._promiseZip = function(zipPath, outFolder, _onProgress){
+
+        LOG.d("PROMISEZIP:", arguments);
+        return new Promise(function(resolve,reject){
+            window.zip.unzip(zipPath, outFolder, function(result){
+                if(result === 0){
+                    resolve(true);
+                }else{
+                    reject(result);
+                }
+            }, _onProgress);
+        });
+    };
+
+    /**
+     * File.download
+     *
+     * @param {String} url - the URL of the resource to download
+     * @param {String} filepath - a directory entry type object where to save the file
+     * @param {String} saveAsName - the name with the resource will be saved
+     * @param {Function} _onProgress - a progress callback function filled with the percentage from 0 to 100
+     * @returns {Promise}
+     * */
+    File.download = function(url, filepath, saveAsName, _onProgress){
+        // one download at time for now
+        var ft = new window.FileTransfer();
+        ft.onprogress = _onProgress;
+        File.currentFileTransfer = ft;
+
+        return new Promise(function(resolve, reject){
+            ft.download(window.encodeURI(url), filepath + saveAsName,
+                function(entry){
+                    resolve(__transform([entry]));
+                    File.currentFileTransfer = null;
+                },
+                function(reason){
+                    reject(reason);
+                    File.currentFileTransfer = null;
+                },
+                true //trustAllHosts
+            );
+        });
+    };
+
+    /**
+     * File.createDir
+     *
+     * @param {String} dirPath - a file:// like path
+     * @param {String} subFolderName
+     * @returns {Promise<String|FileError>} - return the filepath created
+     * */
+    File.createDir = function(dirPath, subFolderName){
+        return File.resolveFS(dirPath)
+            .then(function(dirEntry){
+                return new Promise(function(resolve, reject){
+                    dirEntry.getDirectory(subFolderName, {create:true}, function(entry){
+                        resolve(__transform([entry]));
+                    }, reject);
+                });
+            });
+    };
+
+    /**
+     *  File.fileExists
+     *
+     *  @param {String} url - the toURL path to check
+     *  @returns {Promise<boolean|void>}
+     * */
+    File.fileExists = function(url){
+        return new Promise(function(resolve){
+            window.resolveLocalFileSystemURL(url, function(entry){
+
+                resolve(entry.isFile);
+
+            }, function(fileError){
+                resolve(fileError.code !== 1);
+            });
+        });
+    };
+
+    /**
+     *  File.dirExists
+     *
+     *  @param {String} url - the toURL path to check
+     *  @returns {Promise<boolean|void>}
+     * */
+    File.dirExists = function(url){
+        return new Promise(function(resolve){
+            window.resolveLocalFileSystemURL(url, function(entry){
+
+                resolve(entry.isDirectory);
+
+            }, function(fileError){
+
+                resolve(fileError.code != 1);
+            });
+        });
+    };
+
+    /**
+     * File.requestFileSystem
+     *
+     * @param {int} TYPE - 0 == window.LocalFileSystem.TEMPORARY or 1 == window.LocalFileSystem.PERSISTENT
+     * @param {int} size - The size in bytes for example 5*1024*1024 == 5MB
+     * @returns {Promise}
+     * */
+    File.requestFileSystem = function(TYPE, size) {
+        return new Promise(function (resolve, reject) {
+            window.requestFileSystem(TYPE, size, resolve, reject);
+        });
+    };
+
+    /**
+     * File.readDir
+     *
+     * @param {String} dirPath - a directory path to read
+     * @returns {Promise<Array>} - returns an array of Object files
+     * */
+    File.readDir = function(dirPath){
+        return File.resolveFS(dirPath)
+            .then(function(dirEntry){
+                return new Promise(function(resolve, reject){
+                    var reader = dirEntry.createReader();
+                    reader.readEntries(function(entries){
+                        resolve(__transform(entries));
+                    }, reject);
+                });
+            });
+    };
+
+    /**
+     * File.readFile
+     * @param {String} filePath - the file entry to readAsText
+     * @returns {Promise<String|FileError>}
+     */
+    File.readFile = function(filePath) {
+
+        return File.resolveFS(filePath)
+            .then(function(fileEntry){
+                return new Promise(function(resolve, reject){
+                    fileEntry.file(function(file) {
+                        var reader = new FileReader();
+                        reader.onerror = reject;
+                        reader.onabort = reject;
+
+                        reader.onloadend = function() {
+                            var textToParse = this.result;
+                            resolve(textToParse);
+                        };
+                        reader.readAsText(file);
+                        //readAsDataURL
+                        //readAsBinaryString
+                        //readAsArrayBuffer
+                    });
+                });
+            });
+    };
+
+    /**
+     * File.createFile
+     *
+     * @param {String} directory - filepath file:// like string
+     * @param {String} filename - the filename including the .txt
+     * @returns {Promise.<FileEntry|FileError>}
+     * */
+    File.createFile = function(directory, filename){
+        return File.resolveFS(directory)
+            .then(function(dirEntry){
+                return new Promise(function(resolve, reject){
+                    dirEntry.getFile(filename, {create:true}, function(entry){
+                        resolve(__transform([entry]));
+                    }, reject);
+                });
+            });
+    };
+
+    /**
+     * */
+    File.write = function(filepath, content){
+        return File.appendToFile(filepath, content, true);
+    };
+
+    /**
+     * */
+    File.moveDir = function(source, destination){
+        var newFolderName = destination.substring(destination.lastIndexOf('/')+1);
+        var parent = destination.replace(newFolderName, "");
+
+        return Promise.all([File.resolveFS(source), File.resolveFS(parent)])
+            .then(function(entries){
+                console.log("DirEntry resolved",entries);
+                return new Promise(function(resolve, reject){
+                    entries[0].moveTo(entries[1], newFolderName, resolve, reject);
+                });
+            });
+    };
+
+    /**
+     * */
+    File.copyFile = function(source, destination){
+        var newFilename = destination.substring(destination.lastIndexOf('/')+1);
+        var parent = destination.replace(newFilename, "");
+
+        return Promise.all([File.resolveFS(source), File.resolveFS(parent)])
+            .then(function(entries){
+                //TODO: check if are really files
+                LOG.d("copyFileTo", entries);
+                return new Promise(function(resolve, reject){
+                    entries[0].copyTo(entries[1], newFilename, resolve, reject);
+                });
+            });
+    };
+
+    /**
+     * */
+    File.copyDir = function(source, destination){
+        var newFolderName = destination.substring(destination.lastIndexOf('/')+1);
+        var parent = destination.replace(newFolderName, "");
+
+        return Promise.all([File.resolveFS(source), File.resolveFS(parent)])
+            .then(function(entries){
+                console.log("copyDir",source, "in",destination);
+                return new Promise(function(resolve, reject){
+                    entries[0].copyTo(entries[1], newFolderName, resolve, reject);
+                });
+            });
+    };
+
+
+    /**
+     * __transform utils function
+     * @private
+     * @param {Array} entries - an array of Entry type object
+     * @returns {Array.<Object>} - an array of Object
+     * */
+    function __transform(entries){
+        return entries.map(function(entry){
+            return {
+                fullPath:entry.fullPath,
+                path:entry.toURL(),
+                internalURL:entry.toInternalURL(),
+                isFile:entry.isFile,
+                isDirectory:entry.isDirectory
+            };
+        });
+    }
+    _modules.file = File;
+    return File;
+
+})(stargateModules, stargateModules.Logger);
+/**globals Promise, cordova **/
+/**
+ * Game module
+ * @module src/modules/Game
+ * @type {Object}
+ * @requires ./Logger.js,./File.js
+ */
+(function(fileModule, Logger, _modules){
+    "use strict";
+    var baseDir,
+        cacheDir,
+        tempDirectory,
+        constants = {},
+        wwwDir,
+        dataDir,
+        stargatejsDir;
+
+    var LOG = new Logger("ALL", "[Game - module]");
+
+    /**
+     * @constructor
+     * @alias module:src/modules/Game
+     * @example
+     * Stargate.game.download(gameObject, {onStart:function(){},onEnd:function(){},onProgress:function(){}})
+     * .then(function(results){
+     *  Stargate.game.play(results[0]) // and you leave this planet
+     * });
+     * */
+    function Game(){}
+
+    /**
+     * Init must be called after the 'deviceready' event
+     * @returns {Promise<Array<boolean>>}
+     * */
+     function initialize(conf){
+        LOG.d("Initialized called with:", conf);
+        if(!fileModule){return Promise.reject("Missing file module!");}
+
+
+        try{
+            baseDir = window.cordova.file.applicationStorageDirectory;
+            cacheDir = window.cordova.file.cacheDirectory;
+            tempDirectory = window.cordova.file.tempDirectory;
+            wwwDir = window.cordova.file.applicationDirectory + "www/";
+            stargatejsDir = window.cordova.file.applicationDirectory + "www/js/stargate.js";
+            dataDir = window.cordova.file.dataDirectory;
+        }catch(reason){
+            LOG.e(reason);
+            return Promise.reject(reason);
+        }
+
+
+        LOG.i("cordova JS dir to include", constants.CORDOVAJS);
+        /**
+         * Putting games under Documents r/w. ApplicationStorage is read only
+         * on android ApplicationStorage is r/w
+         */
+        if(window.device.platform.toLowerCase() == "ios"){baseDir += "Documents/";}
+        if(window.device.platform.toLowerCase() == "android"){tempDirectory = cacheDir;}
+
+        constants.SDK_DIR = baseDir + "scripts/";
+        constants.SDK_RELATIVE_DIR = "../../scripts/";
+        constants.GAMES_DIR = baseDir + "games/";
+        constants.BASE_DIR = baseDir;
+        constants.CACHE_DIR = cacheDir;
+        constants.TEMP_DIR = tempDirectory;
+        constants.CORDOVAJS = wwwDir + "cordova.js";
+        constants.CORDOVA_PLUGINS_JS = wwwDir + "cordova_plugins.js";
+        constants.STARGATEJS = wwwDir + "js/stargate.js";
+        constants.DATA_DIR = dataDir;
+
+        //Object.freeze(constants);
+
+        var SDK_URL = "http://s.motime.com/js/wl/webstore_html5game/gfsdk/dist/gfsdk.min.js";
+
+        var gamesDirTaskExists = fileModule.dirExists(constants.GAMES_DIR);
+        var SDKExists = fileModule.fileExists(constants.SDK_DIR + "gfsdk.min.js");
+
+        /**
+         * Create directories
+         * */
+        var dirGames = gamesDirTaskExists.then(function(exists){
+            if(!exists){
+                return fileModule.createDir(constants.BASE_DIR, "games");
+            }else{
+                return exists;
+            }
+        });
+
+        var getSDK = SDKExists.then(function(exists){
+            if(!exists){
+                LOG.d("Getting SDK from:", SDK_URL);
+                return fileModule.download(SDK_URL, constants.SDK_DIR, "gfsdk.min.js");
+            }else{
+                LOG.d("SDK already downloaded");
+                return exists;
+            }
+        });
+
+        //TODO: check if scripts folder already exists
+        return Promise.all([dirGames, getSDK]).then(function(results){
+            LOG.d("games dir created:",results[0]);
+            LOG.d("getSDK:", results[1]);
+            return Promise.all([
+                fileModule.copyDir(wwwDir + "plugins", constants.SDK_DIR + "plugins"),
+                fileModule.copyFile(constants.CORDOVAJS, constants.SDK_DIR + "cordova.js"),
+                fileModule.copyFile(constants.CORDOVA_PLUGINS_JS, constants.SDK_DIR + "cordova_plugins.js"),
+                fileModule.copyFile(constants.STARGATEJS, constants.SDK_DIR + "stargate.js")
+            ]);
+        });
+    }
+
+    /**
+     * download the game and unzip it
+     *
+     * @param {object} gameObject - The gameObject with the url of the html5game's zip
+     * @param {object} [callbacks={}] - an object with start-end-progress callbacks
+     * @param [callbacks.onProgress=function(){}] - a progress function filled with the percentage
+     * @param [callbacks.onStart=function(){}] - called on on start
+     * @param [callbacks.onEnd=function(){}] - called when unzipped is done
+     * @returns {Promise<boolean|FileError|Number>} - true if all has gone good, 403 if unathorized, FileError in case can write in the folder
+     * */
+    Game.prototype.download = function(gameObject, callbacks){
+        if(this.isDownloading()){ return Promise.reject(["Downloading...try later", fileModule.currentFileTransfer]);}
+        var alreadyExists = fileModule.dirExists(constants.GAMES_DIR + gameObject.id);
+
+        // Defaults
+        callbacks = callbacks ? callbacks : {};
+        var _onProgress = callbacks.onProgress ? callbacks.onProgress : function(){};
+        var _onStart = callbacks.onStart ? callbacks.onStart : function(){};
+        var _onEnd = callbacks.onEnd ? callbacks.onEnd : function(){};
+
+        /**
+         * Decorate progress function with percentage and type operation
+         */
+        function wrapProgress(type){
+            return function(progressEvent){
+                //LOG.d(progressEvent);
+                var percentage = Math.round((progressEvent.loaded / progressEvent.total) * 100);
+                _onProgress({percentage:percentage,type:type});
+            };
+        }
+
+        var saveAsName = gameObject.id;
+        function start(){
+            _onStart({type:"download"});
+            LOG.d("Download:", gameObject.id, gameObject.response_api_dld.binary_url);
+            return fileModule.download(gameObject.response_api_dld.binary_url, constants.TEMP_DIR, saveAsName + ".zip", wrapProgress("download"))
+                .then(function(entriesTransformed){
+                    //Unpack
+                    _onStart({type:"unzip"});
+                    LOG.d("unzip:", gameObject.id, constants.TEMP_DIR + saveAsName);
+                    return fileModule._promiseZip(entriesTransformed[0].path, constants.TEMP_DIR + saveAsName, wrapProgress("unzip"));
+                })
+                .then(function(result){
+                    //Notify on end unzip
+                    LOG.d("Unzip ended", result);
+                    _onEnd({type:"unzip"});
+
+                    /** check levels of folders before index **/
+                    var str = gameObject.response_api_dld.url_download;
+                    var folders = str.substring(str.lastIndexOf("game"), str.length).split("/");
+
+                    var src = "";
+                    LOG.d("Get the right index folder of the game");
+                    for(var i = 0; i < folders.length;i++){
+                        if(isIndexHtml(folders[i])){
+                            src = constants.TEMP_DIR + [saveAsName, folders[i - 1]].join("/");
+                        }
+                    }
+                    LOG.d("Source folder in zip game",src, constants.GAMES_DIR + saveAsName);
+                    return fileModule.moveDir(src, constants.GAMES_DIR + saveAsName);
+                })
+                .then(function(result){
+                    //Remove the zip in the temp directory
+                    LOG.d("Remove zip from:", constants.TEMP_DIR + saveAsName + ".zip", "last operation result", result);
+                    return fileModule.removeFile(constants.TEMP_DIR + saveAsName + ".zip");
+                })
+                .then(function(){
+                    LOG.d("Save meta.json for:", gameObject.id);
+                    return fileModule.createFile(constants.GAMES_DIR + saveAsName, "meta.json")
+                        .then(function(entries){
+                            var info = entries[0];
+                            return fileModule.write(info.path, JSON.stringify(gameObject));
+                        });
+                })
+                .then(function(result){
+
+                    //TODO: inject gameover css
+                    LOG.d("result last operation:save meta.json", result);
+                    LOG.d("InjectScripts in game:", gameObject.id, wwwDir);
+                    return [
+                            gameObject.id,
+                            injectScripts(gameObject.id, [
+                                constants.SDK_RELATIVE_DIR + "cordova.js",
+                                constants.SDK_RELATIVE_DIR + "cordova_plugins.js",
+                                constants.SDK_RELATIVE_DIR + "gfsdk.min.js",
+                                constants.SDK_RELATIVE_DIR + "stargate.js"
+                            ])
+                        ];
+                });
+        }
+
+        return alreadyExists.then(function(exists){
+            LOG.d("Exists", exists);
+            if(exists){
+                return Promise.reject({12:"AlreadyExists",gameID:gameObject.id});
+            }else{
+                return start();
+            }
+        });
+
+    };
+
+    /**
+     * play
+     *
+     * @param {String} gameID - the game path in gamesDir where to look for. Note:the game is launched in the same webview
+     * @returns {Promise}
+     * */
+    Game.prototype.play = function(gameID){
+        LOG.d("Play", gameID);
+        /*
+         * TODO: check if games built with Construct2 has orientation issue
+         * attach this to orientationchange in the game index.html
+         * if(cr._sizeCanvas) window.cr_sizeCanvas(window.innerWidth, window.innerHeight)
+         */
+        var gamedir = constants.GAMES_DIR + gameID;
+        return fileModule.readDir(gamedir)
+            .then(function(entries){
+
+                //Search for an /index.html$/
+                return entries.filter(function(entry){
+                    var isIndex = new RegExp(/index\.html$/i);
+                    return isIndex.test(entry.path);
+                });
+            })
+            .then(function(entry){
+                LOG.d(entry);
+                var address = entry[0].internalURL;
+                if(window.device.platform.toLowerCase() == "ios"){
+                    LOG.d("Play ios", address);
+                    window.location.href = address;
+                }else{
+                    LOG.d("Play android", address);
+                    //window.location.href = entry[0].path;
+                    window.navigator.app.loadUrl(encodeURI(address));
+                }
+            });
+    };
+
+    /**
+     * Returns an Array of entries that match /index\.html$/i should be only one in the game directory
+     * @private
+     * @param {String} gameID
+     * @returns {Promise<Array|FileError>}
+     * */
+    function _getIndexHtmlById(gameID){
+        LOG.d("_getIndexHtmlById", constants.GAMES_DIR + gameID);
+        return fileModule.readDir(constants.GAMES_DIR + gameID)
+            .then(function(entries){
+                LOG.d("_getIndexHtmlById readDir", entries);
+                return entries.filter(function(entry){
+                    var isIndex = new RegExp(/index\.html$/i);
+                    return isIndex.test(entry.path);
+                });
+            });
+    }
+
+    /**
+     * removeRemoteSDK from game's dom
+     *
+     * @private
+     * @param {Document} dom - the document object
+     * @returns {Document} the cleaned document element
+     * */
+    function _removeRemoteSDK(dom){
+        LOG.d("_removeRemoteSDK");
+        var scripts = dom.querySelectorAll("script");
+        var scriptTagSdk;
+        for(var i = 0;i < scripts.length;i++){
+            if(scripts[i].src.indexOf("gfsdk") !== -1){
+                scriptTagSdk = scripts[i];
+                LOG.d("_removeRemoteSDK", scriptTagSdk);
+                scriptTagSdk.parentNode.removeChild(scriptTagSdk);
+                break;
+            }
+        }
+        return dom;
+    }
+
+    /**
+     * _injectScriptsInDom
+     *
+     * @private
+     * @param {Document} dom - the document where to inject scripts
+     * @param {Array|String} sources - the src tag string or array of strings
+     * */
+    function _injectScriptsInDom(dom, sources){
+        dom = _removeRemoteSDK(dom);
+        var _sources = Array.isArray(sources) === false ? [sources] : sources;
+        var temp;
+        LOG.d("injectScripts", _sources);
+        // Allow scripts to load from local cdvfile protocol
+        // default-src * data: cdvfile://* content://* file:///*;
+        var metaTag = document.createElement("meta");
+        metaTag.httpEquiv = "Content-Security-Policy";
+        metaTag.content = "default-src * " +
+            "data: " +
+            "content: " +
+            "cdvfile: " +
+            "file: " +
+            "http: " +
+            "https: " +
+            "gap: " +
+            "https://ssl.gstatic.com " +
+            "'unsafe-inline' " +
+            "'unsafe-eval';" +
+            "style-src * cdvfile: http: https: 'unsafe-inline';";
+        dom.head.appendChild(metaTag);
+        for(var i = 0;i < _sources.length;i++){
+            //TODO: better perfomance with document fragment?
+            temp = document.createElement("script");
+            temp.src = _sources[i];
+            dom.head.appendChild(temp);
+        }
+        LOG.d("Cleaned dom:",dom);
+        return dom;
+    }
+
+    /**
+     * injectScripts in game index
+     *
+     * @private
+     * @param {String} gameID
+     * @param {Array} sources - array of src'string
+     * @returns {Promise<Object|FileError>}
+     * */
+    function injectScripts(gameID, sources){
+        var indexPath;
+        return _getIndexHtmlById(gameID)
+            .then(function(entry){
+                indexPath = entry[0].path;
+                LOG.d("injectScripts", indexPath);
+
+                return fileModule.readFileAsHTML(entry[0].path);
+            })
+            .then(function(dom){
+                // TODO: injectLocalSDK and other scripts with one call
+
+                LOG.d("_injectScripts"); LOG.d(dom);
+                return _injectScriptsInDom(dom, sources);
+
+            })
+            .then(function(dom){
+                LOG.d("Serialize dom");
+                var result = new XMLSerializer().serializeToString(dom);
+                var toReplace = "<html xmlns=\"http:\/\/www.w3.org\/1999\/xhtml\"";
+                result = result.replace(toReplace, "<html");
+                return result;
+            })
+            .then(function(htmlAsString){
+                LOG.d("Write dom:",indexPath,htmlAsString);
+                return fileModule.write(indexPath, htmlAsString);
+            });
+    }
+
+    function isIndexHtml(theString){
+        var isIndex = new RegExp(/index\.html$/i);
+        return isIndex.test(theString);
+    }
+
+    /**
+     * remove the game directory
+     *
+     * @public
+     * @param {string} gameID - the game id to delete on filesystem
+     * @returns {Promise<boolean|FileError>}
+     * */
+    Game.prototype.remove = function(gameID){
+        return fileModule.removeDir(constants.GAMES_DIR + gameID);
+    };
+
+    /**
+     * isDownloading
+     *
+     * @public
+     * @returns {boolean}
+     * */
+    Game.prototype.isDownloading = function(){
+        return (fileModule.currentFileTransfer !== null || fileModule.currentFileTransfer === undefined);
+    };
+
+    /**
+     * abortDownload
+     *
+     * @public
+     * @returns {boolean}
+     * */
+    Game.prototype.abortDownload = function(){
+        if(this.isDownloading()){
+            fileModule.currentFileTransfer.abort();
+            fileModule.currentFileTransfer = null;
+            return true;
+        }
+        LOG.w("There's not a download operation to abort");
+        return false;
+    };
+
+    /**
+     * list
+     *
+     * @public
+     * @returns {Array<Object>} - Returns an array of metainfo game object
+     * */
+    Game.prototype.list = function(){
+        return fileModule.readDir(constants.GAMES_DIR)
+            .then(function(entries){
+                return entries.map(function(entry){
+                    //get the ids careful: there's / at the end
+                    return entry.path;
+                });
+            }).then(function(ids){
+
+                var jsons = ids.map(function(id){
+                    return fileModule.readFileAsJSON(id + "meta.json");
+                });
+
+                return Promise.all(jsons).then(function(results){
+                    return results;
+                });
+            });
+    };
+
+    Game.prototype.buildGameOver = function(datas){
+        return "<div>"+datas.score+"</div>";
+    };
+
+    var _protected = {};
+    _protected.initialize = initialize;
+    _modules.game = {
+        _protected:_protected,
+        _public:new Game()
+    };
+
+})(stargateModules.file, stargateModules.Logger, stargateModules);
+/**
+ * Logger module
+ * @module src/modules/Logger
+ * @type {Object}
+ */
+(function(stargateModules){
+
+    /**
+     * @constructor
+     * @alias module:src/modules/Logger
+     * @param {String} label - OFF|DEBUG|INFO|WARN|ERROR|ALL
+     * @param {String} tag - a tag to identify a log group. it will be prepended to any log function
+     * @example
+     * var myLogger = new Logger("ALL", "TAG");
+     * myLogger.i("Somenthing", 1); // output will be > ["TAG"], "Somenthing", 1
+     * myLogger.setLevel("off") // other values OFF|DEBUG|INFO|WARN|ERROR|ALL
+     * */
+    function Logger(label, tag){
+        this.level = Logger.levels[label.toUpperCase()];
+        this.tag = tag;
+    }
+
+    //Logger.prototype.group
+    //OFF < DEBUG < INFO < WARN < ERROR < ALL
+    // 0  < 1  < 2 < 3 < 4 < 5
+    Logger.levels = {
+        ALL:5,
+        ERROR:4,
+        WARN:3,
+        INFO:2,
+        DEBUG:1,
+        OFF:0
+    };
+
+    /**
+     * Error Logging
+     * @param {*} [arguments]
+     * */
+    Logger.prototype.e = function(){
+        var _arguments = Array.prototype.slice.call(arguments);
+        _arguments.unshift(this.tag);
+
+        if(this.level !== 0 && this.level >= Logger.levels.ERROR){
+            window.console.error.apply(console, _arguments);
+        }
+    };
+
+    /**
+     * Info Logging
+     * @param {*} [arguments]
+     * */
+    Logger.prototype.i = function(){
+        var _arguments = Array.prototype.slice.call(arguments);
+        _arguments.unshift(this.tag);
+
+        if(this.level !== 0 && this.level >= Logger.levels.WARN){
+            window.console.info.apply(console, _arguments);
+        }
+    };
+
+    /**
+     * Warn Logging
+     * @param {*} [arguments]
+     * */
+    Logger.prototype.w = function(){
+        var _arguments = Array.prototype.slice.call(arguments);
+        _arguments.unshift(this.tag);
+
+        if(this.level !== 0 && this.level >= Logger.levels.INFO){
+            window.console.warn.apply(console, _arguments);
+        }
+    };
+
+    /**
+     * Debug Logging
+     * @param {*} [arguments]
+     * */
+    Logger.prototype.d = function(){
+        var _arguments = Array.prototype.slice.call(arguments);
+        _arguments.unshift(this.tag);
+
+        if(this.level !== 0 && this.level >= Logger.levels.DEBUG){
+            window.console.log.apply(console, _arguments);
+        }
+    };
+
+    /**
+     * Set the level of the logger
+     * @param {String} label - OFF|DEBUG|INFO|WARN|ERROR|ALL
+     * */
+    Logger.prototype.setLevel = function(label){
+        this.level = Logger.levels[label];
+    };
+
+
+    /**
+     * A module representing a Logger class
+     * @exports Logger
+     */
+    if (stargateModules) {
+        stargateModules.Logger = Logger;
+    } else {
+        window.Logger = Logger;
+    }
+})(stargateModules);
+/**
+ * File module
+ * @module src/modules/File
+ * @type {Object}
+ * @see cordova.file
+ * @requires ./Logger.js
+ */
+(function(_modules, Logger){
+
+    var File = {};
+    var LOG;
+    File.LOG = LOG = new Logger("ALL", "[File - module]");
+    /**
+     * ERROR_MAP
+     * File.ERROR_MAP
+     * */
+    File.ERROR_MAP = {
+        1:"NOT_FOUND_ERR",
+        2:"SECURITY_ERR",
+        3:"ABORT_ERR",
+        4:"NOT_READABLE_ERR",
+        5:"ENCODING_ERR",
+        6:"NO_MODIFICATION_ALLOWED_ERR",
+        7:"INVALID_STATE_ERR",
+        8:"SYNTAX_ERR",
+        9:"INVALID_MODIFICATION_ERR",
+        10:"QUOTA_EXCEEDED_ERR",
+        11:"TYPE_MISMATCH_ERR",
+        12:"PATH_EXISTS_ERR"
+    };
+
+    File.currentFileTransfer = null;
+    /**
+     * stargateProtected.file.resolveFS
+     *
+     * @param {String} url - the path to load see cordova.file.*
+     * @returns {Promise<Entry|FileError>}
+     * */
+    File.resolveFS = function(url){
+        return new Promise(function(resolve, reject){
+            window.resolveLocalFileSystemURL(url, resolve, reject);
+        });
+    };
+
+    /**
+     * File.appendToFile
+     *
+     * @param {String} filePath - the filepath file:// url like
+     * @param {String} data - the string to write into the file
+     * @param {string} [overwrite=false] - overwrite
+     * @returns {Promise<String|FileError>} where string is a filepath
+     */
+    File.appendToFile = function(filePath, data, overwrite){
+        //Default
+        overwrite = arguments[2] === undefined ? false : arguments[2];
+        return File.resolveFS(filePath)
+            .then(function(fileEntry){
+
+                return new Promise(function(resolve, reject){
+                    fileEntry.createWriter(function(fileWriter) {
+                        if(!overwrite){
+                            fileWriter.seek(fileWriter.length);
+                        }
+                        var blob = new Blob([data], {type:'text/plain'});
+                        fileWriter.write(blob);
+                        fileWriter.onerror = reject;
+                        fileWriter.onabort = reject;
+                        fileWriter.onwriteend = function(){
+                            resolve(__transform([fileEntry]));
+                        };
+                    }, reject);
+                });
+
+            });
+    };
+
+    /**
+     * File.readFileAsHTML
+     * @param {String} indexPath - the path to the file to read
+     * @returns {Promise<DOM|FileError>}
+     */
+    File.readFileAsHTML = function(indexPath){
+
+        return File.readFile(indexPath)
+            .then(function(documentAsString){
+                return new window.DOMParser().parseFromString(documentAsString, "text/html");
+            });
+    };
+
+    /**
+     * File.readFileAsJSON
+     * @param {String} indexPath - the path to the file to read
+     * @returns {Promise<Object|FileError>}
+     */
+    File.readFileAsJSON = function(indexPath){
+        return File.readFile(indexPath)
+            .then(function(documentAsString){
+                try{
+                    return Promise.resolve(window.JSON.parse(documentAsString));
+                }catch(e){
+                    return Promise.reject(e);
+                }
+            });
+    };
+
+    /**
+     *  File.removeFile
+     *
+     *  @param {String} filePath - file://
+     *  @returns {Promise<String|FileError>}
+     * */
+    File.removeFile = function(filePath){
+        return File.resolveFS(filePath)
+            .then(function(fileEntry){
+                return new Promise(function(resolve,reject){
+                    fileEntry.remove(function(result){
+                        resolve(result === null || result === "OK");
+                    }, reject);
+                });
+            });
+    };
+
+    /**
+     *  File.removeDir
+     *
+     *  @param {String} dirpath - the directory entry to remove recursively
+     *  @returns Promise<void|FileError>
+     * */
+    File.removeDir = function(dirpath){
+        return File.resolveFS(dirpath)
+            .then(function(dirEntry){
+                return new Promise(function(resolve, reject){
+                    dirEntry.removeRecursively(function(result){
+                        resolve(result === null || result === "OK");
+                    }, reject);
+                });
+            });
+    };
+
+    /**
+     *  File._promiseZip
+     *
+     *  @private
+     *  @param {String} zipPath - the file to unpack
+     *  @param {String} outFolder - the folder where to unpack
+     *  @param {Function} _onProgress - the callback called with the percentage of unzip progress
+     *  @returns Promise<boolean>
+     * */
+    File._promiseZip = function(zipPath, outFolder, _onProgress){
+
+        LOG.d("PROMISEZIP:", arguments);
+        return new Promise(function(resolve,reject){
+            window.zip.unzip(zipPath, outFolder, function(result){
+                if(result === 0){
+                    resolve(true);
+                }else{
+                    reject(result);
+                }
+            }, _onProgress);
+        });
+    };
+
+    /**
+     * File.download
+     *
+     * @param {String} url - the URL of the resource to download
+     * @param {String} filepath - a directory entry type object where to save the file
+     * @param {String} saveAsName - the name with the resource will be saved
+     * @param {Function} _onProgress - a progress callback function filled with the percentage from 0 to 100
+     * @returns {Promise}
+     * */
+    File.download = function(url, filepath, saveAsName, _onProgress){
+        // one download at time for now
+        var ft = new window.FileTransfer();
+        ft.onprogress = _onProgress;
+        File.currentFileTransfer = ft;
+
+        return new Promise(function(resolve, reject){
+            ft.download(window.encodeURI(url), filepath + saveAsName,
+                function(entry){
+                    resolve(__transform([entry]));
+                    File.currentFileTransfer = null;
+                },
+                function(reason){
+                    reject(reason);
+                    File.currentFileTransfer = null;
+                },
+                true //trustAllHosts
+            );
+        });
+    };
+
+    /**
+     * File.createDir
+     *
+     * @param {String} dirPath - a file:// like path
+     * @param {String} subFolderName
+     * @returns {Promise<String|FileError>} - return the filepath created
+     * */
+    File.createDir = function(dirPath, subFolderName){
+        return File.resolveFS(dirPath)
+            .then(function(dirEntry){
+                return new Promise(function(resolve, reject){
+                    dirEntry.getDirectory(subFolderName, {create:true}, function(entry){
+                        resolve(__transform([entry]));
+                    }, reject);
+                });
+            });
+    };
+
+    /**
+     *  File.fileExists
+     *
+     *  @param {String} url - the toURL path to check
+     *  @returns {Promise<boolean|void>}
+     * */
+    File.fileExists = function(url){
+        return new Promise(function(resolve){
+            window.resolveLocalFileSystemURL(url, function(entry){
+
+                resolve(entry.isFile);
+
+            }, function(fileError){
+                resolve(fileError.code !== 1);
+            });
+        });
+    };
+
+    /**
+     *  File.dirExists
+     *
+     *  @param {String} url - the toURL path to check
+     *  @returns {Promise<boolean|void>}
+     * */
+    File.dirExists = function(url){
+        return new Promise(function(resolve){
+            window.resolveLocalFileSystemURL(url, function(entry){
+
+                resolve(entry.isDirectory);
+
+            }, function(fileError){
+
+                resolve(fileError.code != 1);
+            });
+        });
+    };
+
+    /**
+     * File.requestFileSystem
+     *
+     * @param {int} TYPE - 0 == window.LocalFileSystem.TEMPORARY or 1 == window.LocalFileSystem.PERSISTENT
+     * @param {int} size - The size in bytes for example 5*1024*1024 == 5MB
+     * @returns {Promise}
+     * */
+    File.requestFileSystem = function(TYPE, size) {
+        return new Promise(function (resolve, reject) {
+            window.requestFileSystem(TYPE, size, resolve, reject);
+        });
+    };
+
+    /**
+     * File.readDir
+     *
+     * @param {String} dirPath - a directory path to read
+     * @returns {Promise<Array>} - returns an array of Object files
+     * */
+    File.readDir = function(dirPath){
+        return File.resolveFS(dirPath)
+            .then(function(dirEntry){
+                return new Promise(function(resolve, reject){
+                    var reader = dirEntry.createReader();
+                    reader.readEntries(function(entries){
+                        resolve(__transform(entries));
+                    }, reject);
+                });
+            });
+    };
+
+    /**
+     * File.readFile
+     * @param {String} filePath - the file entry to readAsText
+     * @returns {Promise<String|FileError>}
+     */
+    File.readFile = function(filePath) {
+
+        return File.resolveFS(filePath)
+            .then(function(fileEntry){
+                return new Promise(function(resolve, reject){
+                    fileEntry.file(function(file) {
+                        var reader = new FileReader();
+                        reader.onerror = reject;
+                        reader.onabort = reject;
+
+                        reader.onloadend = function() {
+                            var textToParse = this.result;
+                            resolve(textToParse);
+                        };
+                        reader.readAsText(file);
+                        //readAsDataURL
+                        //readAsBinaryString
+                        //readAsArrayBuffer
+                    });
+                });
+            });
+    };
+
+    /**
+     * File.createFile
+     *
+     * @param {String} directory - filepath file:// like string
+     * @param {String} filename - the filename including the .txt
+     * @returns {Promise.<FileEntry|FileError>}
+     * */
+    File.createFile = function(directory, filename){
+        return File.resolveFS(directory)
+            .then(function(dirEntry){
+                return new Promise(function(resolve, reject){
+                    dirEntry.getFile(filename, {create:true}, function(entry){
+                        resolve(__transform([entry]));
+                    }, reject);
+                });
+            });
+    };
+
+    /**
+     * */
+    File.write = function(filepath, content){
+        return File.appendToFile(filepath, content, true);
+    };
+
+    /**
+     * */
+    File.moveDir = function(source, destination){
+        var newFolderName = destination.substring(destination.lastIndexOf('/')+1);
+        var parent = destination.replace(newFolderName, "");
+        
+        LOG.d("moveDir:", parent, newFolderName);
+        return Promise.all([File.resolveFS(source), File.resolveFS(parent)])
+            .then(function(entries){
+                LOG.d("moveDir: resolved entries", entries);
+                return new Promise(function(resolve, reject){
+                    entries[0].moveTo(entries[1], newFolderName, resolve, reject);
+                });
+            });
+    };
+
+    /**
+     * */
+    File.copyFile = function(source, destination){
+        var newFilename = destination.substring(destination.lastIndexOf('/')+1);
+        var parent = destination.replace(newFilename, "");
+
+        return Promise.all([File.resolveFS(source), File.resolveFS(parent)])
+            .then(function(entries){
+                //TODO: check if are really files
+                LOG.d("copyFileTo", entries);
+                return new Promise(function(resolve, reject){
+                    entries[0].copyTo(entries[1], newFilename, resolve, reject);
+                });
+            });
+    };
+
+    /**
+     * */
+    File.copyDir = function(source, destination){
+        var newFolderName = destination.substring(destination.lastIndexOf('/')+1);
+        var parent = destination.replace(newFolderName, "");
+
+        return Promise.all([File.resolveFS(source), File.resolveFS(parent)])
+            .then(function(entries){
+                LOG.d("copyDir", source, "in",destination);
+                return new Promise(function(resolve, reject){
+                    entries[0].copyTo(entries[1], newFolderName, resolve, reject);
+                });
+            });
+    };
+
+
+    /**
+     * __transform utils function
+     * @private
+     * @param {Array} entries - an array of Entry type object
+     * @returns {Array.<Object>} - an array of Object
+     * */
+    function __transform(entries){
+        var arr = entries.map(function(entry){
+            return {
+                fullPath:entry.fullPath,
+                path:entry.toURL(),
+                internalURL:entry.toInternalURL(),
+                isFile:entry.isFile,
+                isDirectory:entry.isDirectory
+            };
+        });
+        return (arr.length == 1) ? arr[0] : arr;
+    }
+    _modules.file = File;
+    return File;
+
+})(stargateModules, stargateModules.Logger);
+/**globals Promise, cordova **/
+/**
+ * Game module
+ * @module src/modules/Game
+ * @type {Object}
+ * @requires ./Logger.js,./File.js
+ */
+(function(fileModule, Logger, _modules){
+    "use strict";
+    var baseDir,
+        cacheDir,
+        tempDirectory,
+        constants = {},
+        wwwDir,
+        dataDir,
+        stargatejsDir,
+        SDK_URL = "http://s2.motime.com/js/wl/webstore_html5game/gfsdk/dist/gfsdk.js";
+    
+    // GAMEINFO object
+    //
+    // GET /gameplay?<content_id>
+    // fileModule.write(response)
+    // 
+    // inject in game fileModule.readFileAsJson(gameinfo.json)
+    var LOG = new Logger("ALL", "[Game - module]");
+
+    /**
+     * @constructor
+     * @alias module:src/modules/Game
+     * @example
+     * Stargate.game.download(gameObject, {onStart:function(){},onEnd:function(){},onProgress:function(){}})
+     * .then(function(results){
+     *  Stargate.game.play(results[0]) // and you leave this planet
+     * });
+     * */
+    function Game(){}
+
+    /**
+     * Init must be called after the 'deviceready' event
+     * @returns {Promise<Array<boolean>>}
+     * */
+     function initialize(conf){
+        LOG.d("Initialized called with:", conf);
+        if(!fileModule){return Promise.reject("Missing file module!");}
+
+
+        try{
+            baseDir = window.cordova.file.applicationStorageDirectory;
+            cacheDir = window.cordova.file.cacheDirectory;
+            tempDirectory = window.cordova.file.tempDirectory;
+            wwwDir = window.cordova.file.applicationDirectory + "www/";
+            stargatejsDir = window.cordova.file.applicationDirectory + "www/js/stargate.js";
+            dataDir = window.cordova.file.dataDirectory;
+        }catch(reason){
+            LOG.e(reason);
+            return Promise.reject(reason);
+        }
+
+
+        LOG.i("cordova JS dir to include", constants.CORDOVAJS);
+        /**
+         * Putting games under Documents r/w. ApplicationStorage is read only
+         * on android ApplicationStorage is r/w
+         */
+        if(window.device.platform.toLowerCase() == "ios"){baseDir += "Documents/";}
+        if(window.device.platform.toLowerCase() == "android"){tempDirectory = cacheDir;}
+
+        constants.SDK_DIR = baseDir + "scripts/";
+        constants.SDK_RELATIVE_DIR = "../../scripts/";
+        constants.GAMEOVER_RELATIVE_DIR = "../../gameover_template/";        
+        constants.GAMES_DIR = baseDir + "games/";
+        constants.BASE_DIR = baseDir;
+        constants.CACHE_DIR = cacheDir;
+        constants.TEMP_DIR = tempDirectory;
+        constants.CORDOVAJS = wwwDir + "cordova.js";
+        constants.CORDOVA_PLUGINS_JS = wwwDir + "cordova_plugins.js";
+        constants.STARGATEJS = wwwDir + "js/stargate.js";
+        constants.DATA_DIR = dataDir;
+        constants.GAMEOVER_DIR = constants.BASE_DIR + "gameover_template/";
+        constants.WWW_DIR = wwwDir;
+
+        /** expose games dir */
+        _modules.game.GAMES_DIR = constants.GAMES_DIR;
+        
+        function firstInit(){
+            /**
+             * Create directories
+             * */
+            var gamesDirTask = fileModule.createDir(constants.BASE_DIR, "games");
+            var scriptsDirTask = fileModule.createDir(constants.BASE_DIR, "scripts");
+        
+            return Promise.all([
+                    gamesDirTask, 
+                    scriptsDirTask
+                ]).then(function(results){
+                    LOG.d("GamesDir and ScriptsDir created", results);
+                    LOG.d("Getting SDK from:", SDK_URL);
+                    return Promise.all([
+                        fileModule.download(SDK_URL, results[1].path, "gfsdk.min.js"),
+                        fileModule.copyDir(constants.WWW_DIR + "gameover_template", constants.BASE_DIR + "gameover_template"),
+                        fileModule.copyDir(constants.WWW_DIR + "plugins", constants.SDK_DIR + "plugins"),
+                        fileModule.copyFile(constants.CORDOVAJS, constants.SDK_DIR + "cordova.js"),
+                        fileModule.copyFile(constants.CORDOVA_PLUGINS_JS, constants.SDK_DIR + "cordova_plugins.js"),
+                        fileModule.copyFile(constants.STARGATEJS, constants.SDK_DIR + "stargate.js")                    
+                    ]);                
+                });    
+        }
+
+        //Object.freeze(constants);
+
+        var gamesDirTaskExists = fileModule.dirExists(constants.GAMES_DIR);
+        var SDKExists = fileModule.fileExists(constants.SDK_DIR + "gfsdk.min.js");
+        
+        return Promise.all([
+                gamesDirTaskExists, 
+                SDKExists])
+            .then(function(results){
+                if(!results[0] && !results[1]){
+                    return firstInit();
+                }else{
+                    return Promise.resolve(true);
+                }
+            });       
+    }
+
+    /**
+     * download the game and unzip it
+     *
+     * @param {object} gameObject - The gameObject with the url of the html5game's zip
+     * @param {object} [callbacks={}] - an object with start-end-progress callbacks
+     * @param [callbacks.onProgress=function(){}] - a progress function filled with the percentage
+     * @param [callbacks.onStart=function(){}] - called on on start
+     * @param [callbacks.onEnd=function(){}] - called when unzipped is done
+     * @returns {Promise<boolean|FileError|Number>} - true if all has gone good, 403 if unathorized, FileError in case can write in the folder
+     * */
+    Game.prototype.download = function(gameObject, callbacks){
+        if(this.isDownloading()){ return Promise.reject(["Downloading...try later", fileModule.currentFileTransfer]);}
+        var alreadyExists = fileModule.dirExists(constants.GAMES_DIR + gameObject.id);
+
+        // Defaults
+        callbacks = callbacks ? callbacks : {};
+        var _onProgress = callbacks.onProgress ? callbacks.onProgress : function(){};
+        var _onStart = callbacks.onStart ? callbacks.onStart : function(){};
+        var _onEnd = callbacks.onEnd ? callbacks.onEnd : function(){};
+
+        /**
+         * Decorate progress function with percentage and type operation
+         */
+        function wrapProgress(type){
+            return function(progressEvent){
+                //LOG.d(progressEvent);
+                var percentage = Math.round((progressEvent.loaded / progressEvent.total) * 100);
+                _onProgress({percentage:percentage,type:type});
+            };
+        }
+
+        var saveAsName = gameObject.id;
+        function start(){
+            _onStart({type:"download"});
+            LOG.d("Download:", gameObject.id, gameObject.response_api_dld.binary_url);
+            return fileModule.download(gameObject.response_api_dld.binary_url, constants.TEMP_DIR, saveAsName + ".zip", wrapProgress("download"))
+                .then(function(entry){
+                    //Unpack
+                    _onStart({type:"unzip"});
+                    LOG.d("unzip:", gameObject.id, constants.TEMP_DIR + saveAsName);
+                    return fileModule._promiseZip(entry.path, constants.TEMP_DIR + saveAsName, wrapProgress("unzip"));
+                })
+                .then(function(result){
+                    //Notify on end unzip
+                    LOG.d("Unzip ended", result);
+                    _onEnd({type:"unzip"});
+
+                    /** check levels of folders before index **/
+                    var str = gameObject.response_api_dld.url_download;
+                    var folders = str.substring(str.lastIndexOf("game"), str.length).split("/");
+
+                    var src = "";
+                    LOG.d("Get the right index folder of the game",folders);
+
+                    // In this case i have another folder before index.html
+                    if(folders.length > 2 && isIndexHtml(folders[folders.length - 1])){
+                        src = constants.TEMP_DIR + [saveAsName, folders[folders.length - 2]].join("/");
+                        LOG.d("More than one level folders before index.html",folders, src);
+                    }else{
+                        src = constants.TEMP_DIR + saveAsName;
+                        LOG.d("One level folder before index.html",folders, src);
+                    }
+
+                    LOG.d("Copy game folder in games/", src, constants.GAMES_DIR + saveAsName);                    
+                    return fileModule.moveDir(src, constants.GAMES_DIR + saveAsName);                   
+                })
+                .then(function(result){
+                    //Remove the zip in the temp directory
+                    LOG.d("Remove zip from:", constants.TEMP_DIR + saveAsName + ".zip", "last operation result", result);
+                    return fileModule.removeFile(constants.TEMP_DIR + saveAsName + ".zip");
+                })
+                .then(function(){
+                    LOG.d("Save meta.json for:", gameObject.id);
+                    return fileModule.createFile(constants.GAMES_DIR + saveAsName, "meta.json")
+                        .then(function(entry){                            
+                            return fileModule.write(entry.path, JSON.stringify(gameObject));
+                        });
+                })
+                .then(function(result){
+                    
+                    //TODO: inject gameover css
+                    LOG.d("result last operation:save meta.json", result);
+                    LOG.d("InjectScripts in game:", gameObject.id, wwwDir);                    
+                    return injectScripts(gameObject.id, [
+                                constants.GAMEOVER_RELATIVE_DIR + "gameover.css",
+                                constants.SDK_RELATIVE_DIR + "cordova.js",
+                                constants.SDK_RELATIVE_DIR + "cordova_plugins.js",
+                                constants.SDK_RELATIVE_DIR + "gfsdk.min.js",
+                                constants.SDK_RELATIVE_DIR + "stargate.js"
+                            ]);
+                }).then(function(results){
+                    LOG.d("injectScripts result", results);
+                    _onEnd({type:"download"});
+                    return gameObject.id;
+                });
+        }
+
+        return alreadyExists.then(function(exists){
+            LOG.d("Exists", exists);
+            if(exists){
+                return Promise.reject({12:"AlreadyExists",gameID:gameObject.id});
+            }else{
+                return start();
+            }
+        });
+
+    };
+
+    /**
+     * play
+     *
+     * @param {String} gameID - the game path in gamesDir where to look for. Note:the game is launched in the same webview
+     * @returns {Promise}
+     * */
+    Game.prototype.play = function(gameID){
+        LOG.d("Play", gameID);
+        /*
+         * TODO: check if games built with Construct2 has orientation issue
+         * attach this to orientationchange in the game index.html
+         * if(cr._sizeCanvas) window.cr_sizeCanvas(window.innerWidth, window.innerHeight)
+         */
+        var gamedir = constants.GAMES_DIR + gameID;
+        return fileModule.readDir(gamedir)
+            .then(function(entries){
+
+                //Search for an /index.html$/
+                return entries.filter(function(entry){
+                    var isIndex = new RegExp(/index\.html$/i);
+                    return isIndex.test(entry.path);
+                });
+            })
+            .then(function(entry){
+                LOG.d(entry);
+                var address = entry[0].internalURL;
+                if(window.device.platform.toLowerCase() == "ios"){
+                    LOG.d("Play ios", address);
+                    window.location.href = address;
+                }else{
+                    LOG.d("Play android", address);
+                    //window.location.href = entry[0].path;
+                    window.navigator.app.loadUrl(encodeURI(address));
+                }
+            });
+    };
+
+    /**
+     * Returns an Array of entries that match /index\.html$/i should be only one in the game directory
+     * @private
+     * @param {String} gameID
+     * @returns {Promise<Array|FileError>}
+     * */
+    function _getIndexHtmlById(gameID){
+        LOG.d("_getIndexHtmlById", constants.GAMES_DIR + gameID);
+        return fileModule.readDir(constants.GAMES_DIR + gameID)
+            .then(function(entries){
+                LOG.d("_getIndexHtmlById readDir", entries);
+                return entries.filter(function(entry){
+                    var isIndex = new RegExp(/index\.html$/i);
+                    return isIndex.test(entry.path);
+                });
+            });
+    }
+
+    /**
+     * removeRemoteSDK from game's dom
+     *
+     * @private
+     * @param {Document} dom - the document object
+     * @returns {Document} the cleaned document element
+     * */
+    function _removeRemoteSDK(dom){
+        LOG.d("_removeRemoteSDK");
+        var scripts = dom.querySelectorAll("script");
+        var scriptTagSdk;
+        for(var i = 0;i < scripts.length;i++){
+            if(scripts[i].src.indexOf("gfsdk") !== -1){
+                scriptTagSdk = scripts[i];
+                LOG.d("_removeRemoteSDK", scriptTagSdk);
+                scriptTagSdk.parentNode.removeChild(scriptTagSdk);
+                break;
+            }
+        }
+        return dom;
+    }
+
+    /**
+     * _injectScriptsInDom
+     *
+     * @private
+     * @param {Document} dom - the document where to inject scripts
+     * @param {Array|String} sources - the src tag string or array of strings
+     * */
+    function _injectScriptsInDom(dom, sources){
+        dom = _removeRemoteSDK(dom);
+        var _sources = Array.isArray(sources) === false ? [sources] : sources;
+        var temp;
+        LOG.d("injectScripts", _sources);
+        // Allow scripts to load from local cdvfile protocol
+        // default-src * data: cdvfile://* content://* file:///*;
+        var metaTag = document.createElement("meta");
+        metaTag.httpEquiv = "Content-Security-Policy";
+        metaTag.content = "default-src * " +
+            "data: " +
+            "content: " +
+            "cdvfile: " +
+            "file: " +
+            "http: " +
+            "https: " +
+            "gap: " +
+            "https://ssl.gstatic.com " +
+            "'unsafe-inline' " +
+            "'unsafe-eval';" +
+            "style-src * cdvfile: http: https: 'unsafe-inline';";
+        dom.head.appendChild(metaTag);
+        for(var i = 0;i < _sources.length;i++){
+            if(_sources[i].endsWith(".css")){
+                LOG.d("css inject:",_sources[i]);
+                var css = dom.createElement("link");
+                css.rel = "stylesheet";
+                css.href = _sources[i];
+                dom.head.appendChild(css);
+            }else{
+                //TODO: better perfomance with document fragment?
+                temp = document.createElement("script");
+                temp.src = _sources[i];
+                dom.head.appendChild(temp);     
+            }           
+        }
+        LOG.d("Cleaned dom:",dom);
+        return dom;
+    }
+
+    /**
+     * injectScripts in game index
+     *
+     * @private
+     * @param {String} gameID
+     * @param {Array} sources - array of src'string
+     * @returns {Promise<Object|FileError>}
+     * */
+    function injectScripts(gameID, sources){
+        var indexPath;
+        return _getIndexHtmlById(gameID)
+            .then(function(entry){
+                indexPath = entry[0].path;
+                //LOG.d("injectScripts", indexPath);
+
+                return fileModule.readFileAsHTML(entry[0].path);
+            })
+            .then(function(dom){
+                // TODO: injectLocalSDK and other scripts with one call
+
+                LOG.d("_injectScripts"); LOG.d(dom);
+                return _injectScriptsInDom(dom, sources);
+
+            })
+            .then(function(dom){
+                LOG.d("Serialize dom");
+                var result = new XMLSerializer().serializeToString(dom);
+                var toReplace = "<html xmlns=\"http:\/\/www.w3.org\/1999\/xhtml\"";
+                result = result.replace(toReplace, "<html");
+                return result;
+            })
+            .then(function(htmlAsString){
+                LOG.d("Write dom:",indexPath,htmlAsString);
+                return fileModule.write(indexPath, htmlAsString);
+            });
+    }
+
+    function isIndexHtml(theString){
+        var isIndex = new RegExp(/index\.html$/i);
+        return isIndex.test(theString);
+    }
+
+    /**
+     * remove the game directory
+     *
+     * @public
+     * @param {string} gameID - the game id to delete on filesystem
+     * @returns {Promise<boolean|FileError>}
+     * */
+    Game.prototype.remove = function(gameID){
+        return fileModule.removeDir(constants.GAMES_DIR + gameID);
+    };
+
+    /**
+     * isDownloading
+     *
+     * @public
+     * @returns {boolean}
+     * */
+    Game.prototype.isDownloading = function(){
+        return (fileModule.currentFileTransfer !== null || fileModule.currentFileTransfer === undefined);
+    };
+
+    /**
+     * abortDownload
+     *
+     * @public
+     * @returns {boolean}
+     * */
+    Game.prototype.abortDownload = function(){
+        if(this.isDownloading()){
+            fileModule.currentFileTransfer.abort();
+            fileModule.currentFileTransfer = null;
+            return true;
+        }
+        LOG.w("There's not a download operation to abort");
+        return false;
+    };
+
+    /**
+     * list
+     *
+     * @public
+     * @returns {Array<Object>} - Returns an array of metainfo game object
+     * */
+    Game.prototype.list = function(){
+        return fileModule.readDir(constants.GAMES_DIR)
+            .then(function(entries){
+                var _entries = Array.isArray(entries) ? entries : [entries];
+                return _entries.map(function(entry){
+                    //get the ids careful: there's / at the end
+                    return entry.path;
+                });
+            }).then(function(ids){
+
+                var jsons = ids.map(function(id){
+                    return fileModule.readFileAsJSON(id + "meta.json");
+                });
+
+                return Promise.all(jsons).then(function(results){
+                    return results;
+                });
+            });
+    };
+    
+    /**
+     * buildGameOver
+     * 
+     * @param {Object} datas - the data score, start, duration
+     * @param datas.score
+     * @param datas.start
+     * @param datas.duration
+     * @param datas.content_id
+     * @returns {Promise} - The promise will be filled with the gameover html {String}     
+     */
+    Game.prototype.buildGameOver = function(datas){                 
+        var metaJsonPath = constants.GAMES_DIR + datas.content_id + "/meta.json";
+        /** Check if content_id is here */
+        if(!datas.hasOwnProperty("content_id")){ return Promise.reject("Missing content_id key!");}
+        
+        LOG.d("Read meta.json:", metaJsonPath);
+        LOG.d("GAMEOVER_TEMPLATE path", constants.GAMEOVER_DIR + "gameover.html");
+        
+        return Promise.all([
+            fileModule.readFileAsJSON(metaJsonPath),
+            fileModule.readFile(constants.GAMEOVER_DIR + "gameover.html")
+        ]).then(function(results){
+                var htmlString = results[1];
+                var metaJson = results[0];                
+                return htmlString
+                    .replace("{{score}}", datas.score)
+                    .replace("{{url_share}}", metaJson.url_share)
+                    .replace("{{url_cover}}", metaJson.url_cover)                    
+                    .replace("{{startpage_url}}", constants.WWW_DIR + "startpage.html");              
+        });
+                  
+    };    
+    
+    var _protected = {};
+    _protected.initialize = initialize;
+    _modules.game = {
+        _protected:_protected,
+        _public:new Game()
+    };
+
+})(stargateModules.file, stargateModules.Logger, stargateModules);
+
+var webappsFixes = (function() {
+
+
+	var waf = {};
+	var enabled = false;
+
+	waf.init = function() {
+		if (stargateConf.hasOwnProperty('webappsfixes') && 
+			typeof stargateConf.webappsfixes === 'object') {
+
+			enabled = true;
+
+			// execute all fixes found in conf
+			for (var fixName in stargateConf.webappsfixes) {
+				if (stargateConf.webappsfixes.hasOwnProperty(fixName)) {
+					
+
+					if (fixes.hasOwnProperty(fixName) && typeof fixes[fixName] === 'function') {
+
+						log("[webappsFixes] applying fix: "+fixName);
+						
+						var error = fixes[fixName](stargateConf.webappsfixes[fixName]);
+
+						if (error) {
+							err("[webappsFixes] fix '"+fixName+"' failed: "+error);
+						}
+					}
+					else {
+						err("[webappsFixes] fix implementation not found for: "+fixName);
+					}
+				}
+			}
+
+		}
+
+		return enabled;
+	};
+
+	// fixes function must return an empty string when result is ok and
+	//  a string describing the error when there is one error
+	var fixes = {};
+	fixes.gamifiveSearchBox = function(conf) {
+		// 
+
+		if (! window.cordova || ! window.cordova.plugins || ! window.cordova.plugins.Keyboard) {
+			return "missing ionic-plugin-keyboard";
+		}
+
+		if (conf.platforms) {
+			if (isRunningOnIos() && ! conf.platforms.ios) {
+				log('[webappsFixes] [gamifiveSearchBox] fix disabled on iOS');
+                return;
+			}
+			if (isRunningOnAndroid() && ! conf.platforms.android) {
+				log('[webappsFixes] [gamifiveSearchBox] fix disabled on Android');
+				return;
+			}
+		}
+
+		window.addEventListener(
+			'native.keyboardshow',
+			function(){
+				setTimeout(function() {
+					if (document.querySelectorAll('input:focus').length === 0) {
+						log('[webappsFixes] [gamifiveSearchBox] keyboard show on null input: hiding');
+						
+						cordova.plugins.Keyboard.close();
+					}
+				},
+				1);
+			},
+			false
+		);
+
+		log('[webappsFixes] [gamifiveSearchBox] listening on event native.keyboardshow');
+
+
+		return '';
+	};
+
+	//window.addEventListener('native.keyboardshow', function(){ console.log('keyboardshow start'); if($(':focus')===null){console.log('keyboard show on null input, hiding');cordova.plugins.Keyboard.close()} console.log('keyboardshow finish') }, false)
+
+	return waf;
+})();
+
+
+// FIXME
+//function reboot(){
+//    window.location.href = 'index.html';
+//}
+
+
+// - not used, enable if needed -
+//var utils = {
+//    elementHasClass: function (element, selector) {
+//        var className = " " + selector + " ",
+//            rclass = "/[\n\t\r]/g",
+//            i = 0;
+//        if ( (" " + element.className + " ").replace(rclass, " ").indexOf(className) >= 0 ) {
+//            return true;
+//        }
+//        return false;
+//    }
+//};
+
+
+// - not used, enable if needed -
+//function ab2str(buf) {
+//    return String.fromCharCode.apply(null, new Uint16Array(buf));
+//}
+
+// - not used, enable if needed -
+//function str2ab(str) {
+//    var buf = new ArrayBuffer(str.length * 2); // 2 bytes for each char
+//    var bufView = new Uint16Array(buf);
+//    for (var i=0; i < str.length; i++) {
+//        bufView[i] = str.charCodeAt(i);
+//    }
+//    return buf;
+//}
+
+
+// global variable used by old stargate client
+// @deprecated since v0.1.2
+window.pubKey = '';
+// @deprecated since v0.1.2
+window.forge = '';
+
+
+var initOfflinePromise;
+
+/**
+ * Initialize offline will be resolved at the deviceready event or rejected after a timeout
+ * @param {object} [options={}] - an object with offline initialization options
+ * @param [options.hideSplashScreen=true] - a boolean indicating to hide or not the splash screen
+ * @returns {Promise<boolean>}
+ * */
+stargatePublic.initializeOffline = function(options){
+
+    if(initOfflinePromise) {
+        return initOfflinePromise;
+    }
+    
+    // - start set default options -
+    if (typeof options !== "object") {
+        options = {};
+    }
+    if (! options.hasOwnProperty("hideSplashScreen")) {
+        options.hideSplashScreen = true;
+    }
+    // -- end set default options --
+    
+    isStargateInitialized = true;
+    initOfflinePromise = new Promise(function (initOfflineResolve) {
+        document.addEventListener("deviceready", function deviceReadyOffline() {
+
+            // device ready received so i'm sure to be hybrid
+            setIsHybrid();
+            
+            // get device information
+            initDevice();
+            
+            // get connection information
+            initializeConnectionStatus();
+
+            // request all asyncronous initialization to complete
+            Promise.all([
+                // include here all needed asyncronous initializazion
+                cordova.getAppVersion.getVersionNumber(),
+                getManifest()
+            ])
+            .then(function(results) {
+                // save async initialization result
+
+                appVersion = results[0];
+                
+                if (typeof results[1] !== 'object') {
+                    results[1] = JSON.parse(results[1]);
+                }
+
+                baseUrl = results[1].start_url;
+
+                stargateConf = results[1].stargateConf;
+                
+                if (options.hideSplashScreen) {
+                    navigator.splashscreen.hide();
+                    setBusy(false);                    
+                }
+
+                // initialize finished
+                isStargateOpen = true;
+
+                log("Stargate.initializeOffline() done");
+
+                initOfflineResolve(true);
+
+            })
+            .catch(function (error) {
+                err("initializeOffline() error: "+error);
+            });
+
+            
+        });
+    });
+    return initOfflinePromise;
+};
+
+
+/**
+ * Stargate application configuration getters namespace
+ */
+stargatePublic.conf = {};
+
+/**
+ * Get url of webapp starting page when hybrid 
+ * @returns {String}
+ */
+stargatePublic.conf.getWebappStartUrl = function() {
+    return stargateConf.webapp_start_url;
+};
+
+/**
+*
+* initialize(configurations, callback)
+* @deprecated initialize(configurations, pubKey, forge, callback)
+*/
+stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callback) {
+
+    // parameters checking to support both interfaces:
+    //    initialize(configurations, callback)
+    //    initialize(configurations, pubKey, forge, callback)
+    if (typeof pubKeyPar === 'function' &&
+        typeof forgePar === 'undefined' &&
+        typeof callback === 'undefined') {
+        // second parameter is the callback
+        callback = pubKeyPar;
+    }
+
+    // check callback type is function
+    // if not return a failing promise 
+    if (typeof callback !== 'function') {
+        err("Stargate.initialize() callback is not a function!");
+
+        return Promise.reject(new Error("Stargate.initialize() callback is not a function!"));
+    }
+
+    isStargateRunningInsideHybrid = isHybridEnvironment();
+
+    // if i'm already initialized just:
+    //  * execute the callback
+    //  * return a resolving promise
+    if (isStargateInitialized) {
+        err("Stargate.initialize() already called, executing callback.");
+        
+        if(callback){callback(isStargateRunningInsideHybrid);}
+
+        return Promise.resolve(isStargateRunningInsideHybrid);
+    }
+
+    isStargateInitialized = true;
+
+
+    if(configurations.country){
+        country = configurations.country;
+    }
+    
+    if(configurations.hybrid_conf){
+        if (typeof configurations.hybrid_conf === 'object') {
+            hybrid_conf = configurations.hybrid_conf;
+        } else {
+            hybrid_conf = JSON.parse(decodeURIComponent(configurations.hybrid_conf));
+        }
+    }
+
+    // if not running inside hybrid save the configuration then:
+    //  * call the callback and return a resolving promise
+    if (!isStargateRunningInsideHybrid) {
+
+        log("version "+stargatePackageVersion+" running outside hybrid; "+
+            "loaded from server version: v"+stargateVersion);
+
+        if(callback){callback(isStargateRunningInsideHybrid);}
+        
+        return Promise.resolve(isStargateRunningInsideHybrid);
+    }
+
+    log("initialize() starting up, configuration: ",hybrid_conf);
+
+    initializeCallback = callback;
+    
+    var initPromise = new Promise(function(resolve,reject){
+        
+        
+        // finish the initialization of cordova plugin when deviceReady is received
+        document.addEventListener('deviceready', function(){
+            
+            onDeviceReady(resolve, reject);
+            
+        }, false);
+    });
+
+    
+    
+    return initPromise;
+};
+
+stargatePublic.isInitialized = function() {
+    return isStargateInitialized;
+};
+
+stargatePublic.isOpen = function() {
+    return isStargateOpen;
+};
+
+stargatePublic.isHybrid = function() {
+    return isHybridEnvironment();
+};
+
+stargatePublic.openUrl = function(url) {
+
+	if (!isStargateInitialized) {
+		return err("Stargate not initialized, call Stargate.initialize first!");
+    }
+    // FIXME: check that inappbrowser plugin is installed otherwise retunr error
+
+    window.open(url, "_system");
+};
+
+stargatePublic.googleLogin = function(callbackSuccess, callbackError) {
+
+	if (!isStargateInitialized) {
+		return callbackError("Stargate not initialized, call Stargate.initialize first!");
+    }
+
+    // FIXME: implement it; get code from old stargate
+
+    err("unimplemented");
+    callbackError("unimplemented");
+};
+
+var connectionStatus = {
+    type: "unknown",
+    networkState: "unknown"
+};
+
+function updateConnectionStatus(theEvent){
+    connectionStatus.type = theEvent.type;
+    connectionStatus.networkState = navigator.connection.type;
+}
+
+window.addEventListener("online", updateConnectionStatus, false);
+window.addEventListener("offline", updateConnectionStatus, false);
+
+function initializeConnectionStatus() {
+    connectionStatus.networkState = navigator.connection.type;
+    
+    if (navigator.connection.type === "none") {
+        connectionStatus.type = "offline";
+    } else {
+        connectionStatus.type = "online";        
+    }
+}
+
+/**
+ * checkConnection function returns the updated state of the client connection
+ * @param {Function} [callbackSuccess=function(){}] - callback success filled with: {type:"online|offline",networkState:"wifi|3g|4g|none"}
+ * @param {Function} [callbackError=function(){}] - called if stargate is not initialize or cordova plugin missing
+ * @returns {Object|boolean} connection info {type:"online|offline",networkState:"wifi|3g|4g|none"}
+ * */
+stargatePublic.checkConnection = function() {
+
+    var callbackSuccess = arguments.length <= 0 || arguments[0] === undefined ? function(){} : arguments[0];
+    var callbackError = arguments.length <= 1 || arguments[1] === undefined ? function(){} : arguments[1];
+
+	if (!isStargateInitialized) {
+		callbackError("Stargate not initialized, call Stargate.initialize first!");
+        return false;
+    }
+
+    if(typeof navigator.connection.getInfo !== "function"){
+        callbackError("Missing cordova plugin");
+        console.warn("Cordova Network Information module missing");
+        return false;
+    }
+
+    callbackSuccess(connectionStatus);
+    return connectionStatus;
+};
+stargatePublic.getDeviceID = function(callbackSuccess, callbackError) {
+
+	if (!isStargateInitialized) {
+		return callbackError("Stargate not initialized, call Stargate.initialize first!");
+    }
+
+    // FIXME: check that device plugin is installed
+    // FIXME: integrate with other stargate device handling method
+
+    var deviceID = runningDevice.uuid;
+    callbackSuccess({'deviceID': deviceID});
+};
+
+stargatePublic.setStatusbarVisibility = function(visibility, callbackSuccess, callbackError) {
+
+    if (!isStargateInitialized) {
+        return callbackError("Stargate not initialized, call Stargate.initialize first!");
+    }
+
+    if (typeof window.StatusBar === "undefined") {
+        // missing cordova plugin
+        err("[StatusBar] missing cordova plugin");
+        return callbackError("missing cordova plugin");
+    }
+
+    if (visibility) {
+        window.StatusBar.show();
+        return callbackSuccess("statusbar shown");
+    }
+
+    window.StatusBar.hide();
+    return callbackSuccess("statusbar hided");
+};
+
+
+stargatePublic.getVersion = function() {
+    return stargatePackageVersion;
+};
+
+/**
+ * This is a decorator:
+ * before calling a module's function I check that stargate is initialized for each module
+ *
+ * @param {Object} context - context is the "this" of the method. usually the parent
+ * @param {Function} fn - fn is the function to decorate with isStargateInitialized
+ * @returns {Function} the function actually called
+ * */
+/*function decorateWithInitialized(context, fn){
+    return function(){
+        if(isStargateInitialized){
+            return fn.apply(context, arguments);
+        }
+        console.warn("[Stargate.js] - WARN! not initialize");
     };
 }
 
+// decorate the game modules: do it for all modules?
+for(var fn in _modules.game){
+    if(typeof _modules.game[fn] === "function"){
+        _modules.game[fn] = decorateWithInitialized(_modules.game, _modules.game[fn]);
+    }
+}*/
+
+/**  
+ *
+ *  stargatePublic.inApp* -> iap.js
+ *
+ */
+
+stargatePublic.ad = new AdStargate();
+/* globals SpinnerDialog */
+
+/***
+* 
+* 
+* 
+*/
+
+// current stargateVersion used by webapp to understand
+//  the version to load based on cookie or localstorage
+var stargateVersion = "2";
+
+// logger function
+var log = console.log.bind(window.console, "[Stargate] ");
+var err = console.error.bind(window.console, "[Stargate] ");
+
+
+
+// device informations   // examples
+var runningDevice = {
+    available: false,    // true
+    cordova: "",         // 4.1.1
+    manufacturer: "",    // samsung
+    model: "",           // GT-I9505
+    platform: "",        // Android
+    uuid: "",            // ac7245e38e3dfecb
+    version: ""          // 5.0.1
+};
+var isRunningOnAndroid = function() {
+    return runningDevice.platform == "Android";
+};
+var isRunningOnIos = function() {
+    return runningDevice.platform == "iOS";
+};
+// - not used, enable if needed -
+//var isRunningOnCordova = function () {
+//    return (typeof window.cordova !== "undefined");
+//};
+var initDevice = function() {
+    if (typeof window.device === 'undefined') {
+        return err("Missing cordova device plugin");
+    }
+    for (var key in runningDevice) {
+        if (window.device.hasOwnProperty(key)) {
+            runningDevice[key] = window.device[key];
+        }
+    }
+    return true;
+};
+
+
+
+function getManifest() {
+
+    return stargateModules.file.readFileAsJSON(cordova.file.applicationDirectory + "www/manifest.json");
+
+}
+
+var launchUrl = function (url) {
+    log("launchUrl: "+url);
+    document.location.href = url;
+};
+
+
+var isStargateRunningInsideHybrid = false;
+var isStargateInitialized = false;
+var isStargateOpen = false;
+var initializeCallback = null;
+
+var appVersion = '';
+
+/**
+ * 
+ * variables sent by server configuration
+ * 
+ */
+var country = '',
+    hybrid_conf = {};
+
+/**
+ * 
+ * this is got from manifest
+ * 
+ */
+var baseUrl;
+
+var updateStatusBar = function() {
+
+    if (typeof window.StatusBar === "undefined") {
+        // missing cordova plugin
+        return err("[StatusBar] missing cordova plugin");
+    }
+    if (typeof stargateConf.statusbar === "undefined") {
+        return;
+    }
+    if (typeof stargateConf.statusbar.hideOnUrlPattern !== "undefined" && 
+        stargateConf.statusbar.hideOnUrlPattern.constructor === Array) {
+
+        var currentLocation = document.location.href;
+        var hide = false;
+
+        for (var i=0; i<stargateConf.statusbar.hideOnUrlPattern.length; i++) {
+
+            var re = new RegExp(stargateConf.statusbar.hideOnUrlPattern[i]);
+            
+            if (re.test(currentLocation)) {
+                hide = true;
+                break;
+            }
+        }
+
+        if (hide) {
+            window.StatusBar.hide();
+        }
+        else {
+            window.StatusBar.show();
+        }
+    }
+};
+
+/**
+* Set on webapp that we are hybrid
+* (this will be called only after device ready is received and 
+*   we are sure to be inside cordova app)
+*/
+var setIsHybrid = function() {
+
+    window.Cookies.set("hybrid", "1");
+    window.Cookies.set("stargateVersion", stargateVersion);
+
+    if (!window.localStorage.getItem('hybrid')) {
+        window.localStorage.setItem('hybrid', 1);
+    }
+    if (!window.localStorage.getItem('stargateVersion')) {
+        window.localStorage.setItem('stargateVersion', stargateVersion);
+    }
+};
+
+var hydeSplashAndLoaders = function() {
+    
+    navigator.splashscreen.hide();
+    setBusy(false);
+    
+    if (typeof SpinnerDialog !== "undefined") {
+        SpinnerDialog.hide();
+    }
+};
+
+var onPluginReady = function (resolve, reject) {
+    
+    // FIXME: this is needed ??
+    document.title = stargateConf.title;
+    
+    // set back cordova bridge mode to IFRAME_NAV overriding manifold settings
+    if (isRunningOnIos() && (typeof window.cordova !== 'undefined') && cordova.require) {
+        var exec = cordova.require('cordova/exec');
+        exec.setJsToNativeBridgeMode(exec.jsToNativeModes.IFRAME_NAV);
+    }
+    
+
+    updateStatusBar();
+
+    
+    if (hasFeature('mfp')) {
+        MFP.check();
+    }
+    
+    if (hasFeature('deltadna')) {
+        window.deltadna.startSDK(
+            stargateConf.deltadna.environmentKey,
+            stargateConf.deltadna.collectApi,
+            stargateConf.deltadna.engageApi,
+
+            onDeltaDNAStartedSuccess,
+            onDeltaDNAStartedError,
+
+            stargateConf.deltadna.settings
+        );
+    }
+
+    // initialize all modules
+
+    // In-app purchase initialization
+    IAP.initialize();
+
+    // receive appsflyer conversion data event
+    if (hasFeature('appsflyer')) {
+        appsflyer.init();
+    }
+    
+    // apply webapp fixes
+    webappsFixes.init();
+    
+    var modulePromises = [];
+    
+    //Game Module Init
+    if (hasFeature('game') && stargateModules.game) {
+        modulePromises.push(
+            stargateModules.game._protected.initialize({})
+        );
+    }
+    
+    
+    // wait for all module initializations before calling the webapp
+    Promise.all(
+            modulePromises
+        )
+        .then(function() {
+            hydeSplashAndLoaders();
+            
+            // initialize finished
+            isStargateOpen = true;
+            
+            log("version "+stargatePackageVersion+" ready; "+
+                "loaded from server version: v"+stargateVersion+
+                " running in package version: "+appVersion);
+            
+            //execute callback
+            initializeCallback(true);
+
+            log("Stargate.initialize() done");
+            resolve(true);
+            
+        })
+        .catch(function (error) {
+            err("onPluginReady() error: "+error);
+            reject("onPluginReady() error: "+error);
+        });
+};
+
+var onDeviceReady = function (resolve, reject) {
+
+    // device ready received so i'm sure to be hybrid
+    setIsHybrid();
+    
+    // get device information
+    initDevice();
+    
+    // get connection information
+    initializeConnectionStatus();
+
+    // request all asyncronous initialization to complete
+    Promise.all([
+        // include here all needed asyncronous initializazion
+        cordova.getAppVersion.getVersionNumber(),
+        getManifest()
+    ])
+    .then(function(results) {
+        // save async initialization result
+
+        appVersion = results[0];
+		
+		if (typeof results[1] !== 'object') {
+			results[1] = JSON.parse(results[1]);
+		}
+
+        baseUrl = results[1].start_url;
+
+        stargateConf = results[1].stargateConf;
+
+        // execute remaining initialization
+        onPluginReady(resolve, reject);
+    })
+    .catch(function (error) {
+        err("onDeviceReady() error: "+error);
+        reject("onDeviceReady() error: "+error);
+    });
+};
+
+/**
+* Check if we are running inside hybrid environment,  
+* checking current url or cookies or localStorage
+*/
+var isHybridEnvironment = function() {
+
+    // check url for hybrid query param
+    var uri = window.URI(document.location.href);
+    if (uri.hasQuery('hybrid')) {
+        return true;
+    }
+
+    if (window.Cookies.get('hybrid')) {
+        return true;
+    }
+
+    if (window.localStorage.getItem('hybrid')) {
+        return true;
+    }
+
+    return false;
+};
+
+var stargateBusy = false;
+
+// - not used, enable if needed -
+//var isBusy = function() { return stargateBusy; };
+
+var setBusy = function(value) {
+    if (value) {
+        stargateBusy = true;
+        startLoading();
+    }
+    else {
+        stargateBusy = false;
+        stopLoading();
+    }
+};
+
+var stargateConf = {
+    features: {}
+};
+
+var hasFeature = function(feature) {
+    return (typeof stargateConf.features[feature] !== 'undefined' && stargateConf.features[feature]);
+};
+
+
+
+
+
+
+
+
+
+/* global URI, URITemplate  */
 
 /**
  * @namespace
  * @protected
- *
+ * 
  * @description
- * Analytics is a module to track events sending it to a webapp callback.
- * It's used internally in Stargate to track events like MFP get.
- * Before using it you need to set the callback calling {@link Stargate#setAnalyticsCallback}
+ * MFP is used to recognize user coming from webapp.
+ *
+ * For example an usual flow can be:
+ *  1. an user open the browser and go to our webapp;
+ *  2. then he's suggested to install the app
+ *  3. he's sent to the app store and install the app
+ *  4. our app with Stargate integrated is opened by our user
+ *  5. MFP module send an api request to the server and the user is recongized
+ *  6. the previous session is restored by the MobileFingerPrint.setSession
  * 
  */
-var analytics = (function(){
+var MFP = (function(){
 
-	var cb;
-	var ana = {};
-
-	/**
-     * @name analytics#track
-     * @memberof analytics
-     *
-     * @description Send an event to webapp analytics callback if it's defined
-     *
-     * @param {object} event
-     */
-	ana.track = function(trackedEvent) {
-
-		if (typeof cb !== 'function') {
-			return log("[analytics] callback not set!");
-		}
-
-		// send it
-		try {
-			cb(trackedEvent);
-		}
-		catch (error) {
-			err("[analytics] callback error: "+error, error);
-		}
-	};
+	// contains private module members
+	var MobileFingerPrint = {};
 
 	/**
-     * @name analytics#setCallback
-     * @memberof analytics
+     * @name MFP#check
+     * @memberof MFP
      *
-     * @description Save webapp analytics callback to be called when an event is tracked
+     * @description Start the MFP check to see if user has a session on the server
      *
-     * @param {function} callback
      */
-	ana.setCallback = function(callback) {
-		cb = callback;
+	MobileFingerPrint.check = function(){
+
+		//if (window.localStorage.getItem('mfpCheckDone')){
+		//	return;
+		//}
+
+		// country defined on main stargate.js
+		if (!country) {		
+			return err("Country not defined!");
+		}
+
+		MobileFingerPrint.get(country);
 	};
 
-	return ana;
-})();
-
-
-/**
- * @name Stargate#setAnalyticsCallback
- * @memberof Stargate
- *
- * @description Save webapp analytics callback to be called when an event inside Stargaed need to be tracked
- *
- * @param {function} callback
- */
-stargatePublic.setAnalyticsCallback = function(callback) {
-
-	analytics.setCallback(callback);
-};
-
-
-
-var appsflyer = (function(){
-
-	var af = {};
-	var cb;
-	
-	/*
-		https://support.appsflyer.com/hc/en-us/articles/207032126-AppsFlyer-SDK-Integration-Android
-		https://support.appsflyer.com/hc/en-us/articles/207032096-Accessing-AppsFlyer-Attribution-Conversion-Data-from-the-SDK-Deferred-Deeplinking-
-		{
-		"af_status": "Non-organic",
-		"media_source": "tapjoy_int",
-		"campaign": "July4-Campaign",
-		"agency": "starcomm",
-		"af_siteid": null,
-		"af_sub1": "subtext1",
-		"af_sub2": null,
-		"af_sub3": null,
-		"af_sub4": null,
-		"af_sub5": null,
-		"freehand-param": "somevalue",
-		"click_time": "2014-05-23 20:11:31",
-		"install_time": "2014-05-23 20:12:16.751"
-		}
-	*/
-	var conversionData = {};
-
-	af.init = function() {
-
-		if (!window.plugins || !window.plugins.appsFlyer) {
-
-			// plugin is not installed
-
-			return err("[appsflyer] missing cordova plugin");
-		}
-
-		if (typeof stargateConf.appstore_appid === "undefined") {
-			return err("[appsflyer] missing manifest configuration: appstore_appid");
-		}
-		if (typeof stargateConf.appsflyer_devkey === "undefined") {
-			return err("[appsflyer] missing manifest configuration: appsflyer_devkey");
+	MobileFingerPrint.getContents = function(country, namespace, label, extData){
+		var contents_inapp = {};
+	    contents_inapp.api_country = label;
+	    contents_inapp.country = country;
+	    contents_inapp.fpnamespace = namespace;
+	    if (extData){
+	        contents_inapp.extData = extData;
 	    }
-
-	    //
-	    // apInitArgs[0] => AppsFlyer Developer Key
-	    // apInitArgs[1] => iOS App Store Id
-	    //
-		var apInitArgs = [stargateConf.appsflyer_devkey];
 	    
-	    if (isRunningOnIos()) {
-	        apInitArgs.push(stargateConf.appstore_appid);
-	    }
-
-	    document.addEventListener('onInstallConversionDataLoaded', function(e){
-		    conversionData = e.detail;
-		    
-		    if (typeof cb !== 'function') {
-				return log("[appsflyer] callback not set!");
-			}
-
-			// send it
-			try {
-				cb(conversionData);
-			}
-			catch (error) {
-				err("[appsflyer] callback error: "+error, error);
-			}
-
-		}, false);
-
-		window.plugins.appsFlyer.initSdk(apInitArgs);
+	    var json_data = JSON.stringify(contents_inapp);
+	       
+	    return json_data;
 	};
 
-	/**
-     * @name analytics#setCallback
-     * @memberof analytics
-     *
-     * @description Save webapp callback to be called when appsflyer data
-     *
-     * @param {function} callback
-     */
-	af.setCallback = function(callback) {
-		cb = callback;
+	MobileFingerPrint.getPonyValue = function(ponyWithEqual) {
+		try {
+			return ponyWithEqual.split('=')[1];
+		}
+		catch (e) {
+			err(e);
+		}
+		return '';
 	};
 
-	return af;
+	MobileFingerPrint.setSession = function(pony){
+
+		// baseUrl: read from main stargate.js
+		var appUrl = baseUrl;
+		if (window.localStorage.getItem('appUrl')){
+			appUrl = window.localStorage.getItem('appUrl');
+		}
+
+		var currentUrl = new URI(baseUrl);
+
+		// stargateConf.api.mfpSetUriTemplate:
+		// '{protocol}://{hostname}/mfpset.php{?url}&{pony}'
+		var hostname = currentUrl.hostname();
+		var newUrl = URITemplate(stargateConf.api.mfpSetUriTemplate)
+	  		.expand({
+	  			"protocol": currentUrl.protocol(),
+	  			"hostname": hostname,
+	  			"url": appUrl,
+	  			"domain": hostname,
+	  			"_PONY": MobileFingerPrint.getPonyValue(pony)
+	  	});
+				
+		log("[MobileFingerPrint] going to url: ", newUrl);
+
+		launchUrl(newUrl);
+	};
+
+	MobileFingerPrint.get = function(country){
+		var expire = "";
+
+	    // stargateConf.api.mfpGetUriTemplate:
+	    // "http://domain.com/path.ext{?apikey,contents_inapp,country,expire}",
+
+		var mfpUrl = URITemplate(stargateConf.api.mfpGetUriTemplate)
+	  		.expand({
+	  			"apikey": stargateConf.motime_apikey,
+	  			"contents_inapp": MobileFingerPrint.getContents(country, stargateConf.namespace, stargateConf.label),
+	  			"country": country,
+	  			"expire": expire
+	  	});
+
+        window.aja()
+            .url(mfpUrl)
+            .type('jsonp')
+            .on('success', function(response){
+                
+                log("[MobileFingerPrint] get() response: ", response);
+
+                var ponyUrl = '';
+
+                if (response.content.inappInfo){
+                    var jsonStruct = JSON.parse(response.content.inappInfo);
+
+                    if (jsonStruct.extData) {
+                    	if (jsonStruct.extData.ponyUrl) {
+                    		ponyUrl = jsonStruct.extData.ponyUrl;
+                    	}
+                    	if (jsonStruct.extData.return_url) {
+                    		window.localStorage.setItem('appUrl', jsonStruct.extData.return_url);
+                    	}
+                    	if (jsonStruct.extData.session_mfp) {
+
+                    		analytics.track({
+		                    	page: 'hybrid_initialize',
+		                    	action: 'MFP_get',
+		                    	session_mfp: jsonStruct.extData.session_mfp
+		                    });
+                    	}
+                    }
+
+                    
+                    
+                    MobileFingerPrint.setSession(ponyUrl);                
+                }else{
+                    log("[MobileFingerPrint] get(): Empty session");
+                }
+            })
+            .on('error', function(error){
+                err("[MobileFingerPrint] get() error: ", error);
+            })
+            .go();
+	};
+
+
+	return {
+		check: MobileFingerPrint.check
+	};
 
 })();
 
-/**
- * @name Stargate#setConversionDataCallback
- * @memberof Stargate
+/*
+ * JavaScript MD5
+ * https://github.com/blueimp/JavaScript-MD5
  *
- * @description Save webapp conversion data callback to be called when converion data from AppsFlyer are received.
- *              You may need to save the data you receive, becouse you'll only got that data the first time the app
- *              is run after installation.
- *              Please call this before Stargate.initialize()
+ * Copyright 2011, Sebastian Tschan
+ * https://blueimp.net
  *
- * @param {function} callback
+ * Licensed under the MIT license:
+ * http://www.opensource.org/licenses/MIT
+ *
+ * Based on
+ * A JavaScript implementation of the RSA Data Security, Inc. MD5 Message
+ * Digest Algorithm, as defined in RFC 1321.
+ * Version 2.2 Copyright (C) Paul Johnston 1999 - 2009
+ * Other contributors: Greg Holt, Andrew Kepert, Ydnar, Lostinet
+ * Distributed under the BSD License
+ * See http://pajhome.org.uk/crypt/md5 for more info.
  */
-stargatePublic.setConversionDataCallback = function(callback) {
 
-	appsflyer.setCallback(callback);
-};
+/*jslint bitwise: true */
+/*global unescape, define, module */
 
+var md5 = (function () {
+    'use strict';
 
-/* global deltadna */
-
-var onDeltaDNAStartedSuccess = function() {
-    deltadna.registerPushCallback(
-		onDeltaDNAPush
-	);
-};
-
-
-var onDeltaDNAStartedError = function(error) {
-    err("[DeltaDNA] error: " + error);
-};
-
-var onDeltaDNAPush = function(pushDatas) {
-    if(isRunningOnAndroid() && pushDatas.payload && pushDatas.payload.url && !pushDatas.foreground){
-		return launchUrl(pushDatas.payload.url);
-	}
-    if(isRunningOnIos() && pushDatas.url){
-        return launchUrl(pushDatas.url);
-    }
-};
-/* global facebookConnectPlugin */
-
-
-stargatePublic.facebookLogin = function(scope, callbackSuccess, callbackError) {
-
-
-    // FIXME: check that facebook plugin is installed
-    // FIXME: check parameters
-
-    if (!isStargateInitialized) {
-        return callbackError("Stargate not initialized, call Stargate.initialize first!");
-    }
-    
-    facebookConnectPlugin.login(
-        scope.split(","),
-
-        // success callback
-        function (userData) {
-            log("[facebook] got userdata: ", userData);
-            
-            facebookConnectPlugin.getAccessToken(
-                function(token) {
-                    callbackSuccess({'accessToken' : token});
-                },
-                function(err) {
-                    callbackError({'error': err});
-                }
-            );
-        },
-
-        // error callback
-        function (error) {
-            err("Got FB login error:", error);
-            callbackError({'error': error});
-        }
-    );
-};
-
-stargatePublic.facebookShare = function(url, callbackSuccess, callbackError) {
-
-    // FIXME: check that facebook plugin is installed
-    // FIXME: check parameters
-
-    if (!isStargateInitialized) {
-        return callbackError("Stargate not initialized, call Stargate.initialize first!");
+    /*
+    * Add integers, wrapping at 2^32. This uses 16-bit operations internally
+    * to work around bugs in some JS interpreters.
+    */
+    function safe_add(x, y) {
+        var lsw = (x & 0xFFFF) + (y & 0xFFFF),
+            msw = (x >> 16) + (y >> 16) + (lsw >> 16);
+        return (msw << 16) | (lsw & 0xFFFF);
     }
 
-    var options = {
-        method: "share",
-        href: url
-    };
-    
-    facebookConnectPlugin.showDialog(
-        options, 
-        
-        function(message){
-            callbackSuccess({'message':message});
-        }, 
+    /*
+    * Bitwise rotate a 32-bit number to the left.
+    */
+    function bit_rol(num, cnt) {
+        return (num << cnt) | (num >>> (32 - cnt));
+    }
 
-        function(error){
+    /*
+    * These functions implement the four basic operations the algorithm uses.
+    */
+    function md5_cmn(q, a, b, x, s, t) {
+        return safe_add(bit_rol(safe_add(safe_add(a, q), safe_add(x, t)), s), b);
+    }
+    function md5_ff(a, b, c, d, x, s, t) {
+        return md5_cmn((b & c) | ((~b) & d), a, b, x, s, t);
+    }
+    function md5_gg(a, b, c, d, x, s, t) {
+        return md5_cmn((b & d) | (c & (~d)), a, b, x, s, t);
+    }
+    function md5_hh(a, b, c, d, x, s, t) {
+        return md5_cmn(b ^ c ^ d, a, b, x, s, t);
+    }
+    function md5_ii(a, b, c, d, x, s, t) {
+        return md5_cmn(c ^ (b | (~d)), a, b, x, s, t);
+    }
 
-            // error.errorMessage
-            err("Got FB share error:", error);
-            callbackError({'error':error});
+    /*
+    * Calculate the MD5 of an array of little-endian words, and a bit length.
+    */
+    function binl_md5(x, len) {
+        /* append padding */
+        x[len >> 5] |= 0x80 << (len % 32);
+        x[(((len + 64) >>> 9) << 4) + 14] = len;
+
+        var i, olda, oldb, oldc, oldd,
+            a =  1732584193,
+            b = -271733879,
+            c = -1732584194,
+            d =  271733878;
+
+        for (i = 0; i < x.length; i += 16) {
+            olda = a;
+            oldb = b;
+            oldc = c;
+            oldd = d;
+
+            a = md5_ff(a, b, c, d, x[i],       7, -680876936);
+            d = md5_ff(d, a, b, c, x[i +  1], 12, -389564586);
+            c = md5_ff(c, d, a, b, x[i +  2], 17,  606105819);
+            b = md5_ff(b, c, d, a, x[i +  3], 22, -1044525330);
+            a = md5_ff(a, b, c, d, x[i +  4],  7, -176418897);
+            d = md5_ff(d, a, b, c, x[i +  5], 12,  1200080426);
+            c = md5_ff(c, d, a, b, x[i +  6], 17, -1473231341);
+            b = md5_ff(b, c, d, a, x[i +  7], 22, -45705983);
+            a = md5_ff(a, b, c, d, x[i +  8],  7,  1770035416);
+            d = md5_ff(d, a, b, c, x[i +  9], 12, -1958414417);
+            c = md5_ff(c, d, a, b, x[i + 10], 17, -42063);
+            b = md5_ff(b, c, d, a, x[i + 11], 22, -1990404162);
+            a = md5_ff(a, b, c, d, x[i + 12],  7,  1804603682);
+            d = md5_ff(d, a, b, c, x[i + 13], 12, -40341101);
+            c = md5_ff(c, d, a, b, x[i + 14], 17, -1502002290);
+            b = md5_ff(b, c, d, a, x[i + 15], 22,  1236535329);
+
+            a = md5_gg(a, b, c, d, x[i +  1],  5, -165796510);
+            d = md5_gg(d, a, b, c, x[i +  6],  9, -1069501632);
+            c = md5_gg(c, d, a, b, x[i + 11], 14,  643717713);
+            b = md5_gg(b, c, d, a, x[i],      20, -373897302);
+            a = md5_gg(a, b, c, d, x[i +  5],  5, -701558691);
+            d = md5_gg(d, a, b, c, x[i + 10],  9,  38016083);
+            c = md5_gg(c, d, a, b, x[i + 15], 14, -660478335);
+            b = md5_gg(b, c, d, a, x[i +  4], 20, -405537848);
+            a = md5_gg(a, b, c, d, x[i +  9],  5,  568446438);
+            d = md5_gg(d, a, b, c, x[i + 14],  9, -1019803690);
+            c = md5_gg(c, d, a, b, x[i +  3], 14, -187363961);
+            b = md5_gg(b, c, d, a, x[i +  8], 20,  1163531501);
+            a = md5_gg(a, b, c, d, x[i + 13],  5, -1444681467);
+            d = md5_gg(d, a, b, c, x[i +  2],  9, -51403784);
+            c = md5_gg(c, d, a, b, x[i +  7], 14,  1735328473);
+            b = md5_gg(b, c, d, a, x[i + 12], 20, -1926607734);
+
+            a = md5_hh(a, b, c, d, x[i +  5],  4, -378558);
+            d = md5_hh(d, a, b, c, x[i +  8], 11, -2022574463);
+            c = md5_hh(c, d, a, b, x[i + 11], 16,  1839030562);
+            b = md5_hh(b, c, d, a, x[i + 14], 23, -35309556);
+            a = md5_hh(a, b, c, d, x[i +  1],  4, -1530992060);
+            d = md5_hh(d, a, b, c, x[i +  4], 11,  1272893353);
+            c = md5_hh(c, d, a, b, x[i +  7], 16, -155497632);
+            b = md5_hh(b, c, d, a, x[i + 10], 23, -1094730640);
+            a = md5_hh(a, b, c, d, x[i + 13],  4,  681279174);
+            d = md5_hh(d, a, b, c, x[i],      11, -358537222);
+            c = md5_hh(c, d, a, b, x[i +  3], 16, -722521979);
+            b = md5_hh(b, c, d, a, x[i +  6], 23,  76029189);
+            a = md5_hh(a, b, c, d, x[i +  9],  4, -640364487);
+            d = md5_hh(d, a, b, c, x[i + 12], 11, -421815835);
+            c = md5_hh(c, d, a, b, x[i + 15], 16,  530742520);
+            b = md5_hh(b, c, d, a, x[i +  2], 23, -995338651);
+
+            a = md5_ii(a, b, c, d, x[i],       6, -198630844);
+            d = md5_ii(d, a, b, c, x[i +  7], 10,  1126891415);
+            c = md5_ii(c, d, a, b, x[i + 14], 15, -1416354905);
+            b = md5_ii(b, c, d, a, x[i +  5], 21, -57434055);
+            a = md5_ii(a, b, c, d, x[i + 12],  6,  1700485571);
+            d = md5_ii(d, a, b, c, x[i +  3], 10, -1894986606);
+            c = md5_ii(c, d, a, b, x[i + 10], 15, -1051523);
+            b = md5_ii(b, c, d, a, x[i +  1], 21, -2054922799);
+            a = md5_ii(a, b, c, d, x[i +  8],  6,  1873313359);
+            d = md5_ii(d, a, b, c, x[i + 15], 10, -30611744);
+            c = md5_ii(c, d, a, b, x[i +  6], 15, -1560198380);
+            b = md5_ii(b, c, d, a, x[i + 13], 21,  1309151649);
+            a = md5_ii(a, b, c, d, x[i +  4],  6, -145523070);
+            d = md5_ii(d, a, b, c, x[i + 11], 10, -1120210379);
+            c = md5_ii(c, d, a, b, x[i +  2], 15,  718787259);
+            b = md5_ii(b, c, d, a, x[i +  9], 21, -343485551);
+
+            a = safe_add(a, olda);
+            b = safe_add(b, oldb);
+            c = safe_add(c, oldc);
+            d = safe_add(d, oldd);
         }
-    );
-};
+        return [a, b, c, d];
+    }
 
-
-var IAP = {
-
-	id: '',
-	alias: '',
-	type: '',
-	verbosity: '',
-	paymethod: '',
-    subscribeMethod: 'stargate',
-    returnUrl: '',
-    callbackSuccess: function(){log("[IAP] Undefined callbackSuccess");},
-    callbackError: function(){log("[IAP] Undefined callbackError");},
-    refreshDone: false,
-    lastCreateuserUrl: '',
-    lastCreateuserData: '',
-    createUserAttempt: 0,
-    maxCreateUserAttempt: 6,
-	
-	initialize: function () {
-        if (!window.store) {
-            err('Store not available');
-            return;
+    /*
+    * Convert an array of little-endian words to a string
+    */
+    function binl2rstr(input) {
+        var i,
+            output = '';
+        for (i = 0; i < input.length * 32; i += 8) {
+            output += String.fromCharCode((input[i >> 5] >>> (i % 32)) & 0xFF);
         }
-		
-        // initialize with current url
-        IAP.returnUrl = document.location.href;
+        return output;
+    }
 
-        if (hybrid_conf.IAP.id) {
-            IAP.id = hybrid_conf.IAP.id;
+    /*
+    * Convert a raw string to an array of little-endian words
+    * Characters >255 have their high-byte silently ignored.
+    */
+    function rstr2binl(input) {
+        var i,
+            output = [];
+        output[(input.length >> 2) - 1] = undefined;
+        for (i = 0; i < output.length; i += 1) {
+            output[i] = 0;
         }
-
-        // 
-        if (hybrid_conf.IAP.alias) {
-            IAP.alias = hybrid_conf.IAP.alias;
+        for (i = 0; i < input.length * 8; i += 8) {
+            output[i >> 5] |= (input.charCodeAt(i / 8) & 0xFF) << (i % 32);
         }
+        return output;
+    }
 
-        //  --- type ---
-        // store.FREE_SUBSCRIPTION = "free subscription";
-        // store.PAID_SUBSCRIPTION = "paid subscription";
-        // store.CONSUMABLE        = "consumable";
-        // store.NON_CONSUMABLE    = "non consumable";
-        if (hybrid_conf.IAP.type) {
-            IAP.type = hybrid_conf.IAP.type;
+    /*
+    * Calculate the MD5 of a raw string
+    */
+    function rstr_md5(s) {
+        return binl2rstr(binl_md5(rstr2binl(s), s.length * 8));
+    }
+
+    /*
+    * Calculate the HMAC-MD5, of a key and some data (raw strings)
+    */
+    function rstr_hmac_md5(key, data) {
+        var i,
+            bkey = rstr2binl(key),
+            ipad = [],
+            opad = [],
+            hash;
+        ipad[15] = opad[15] = undefined;
+        if (bkey.length > 16) {
+            bkey = binl_md5(bkey, key.length * 8);
         }
-
-        // Available values: DEBUG, INFO, WARNING, ERROR, QUIET
-        IAP.verbosity = 'INFO';
-
-        IAP.paymethod = isRunningOnAndroid() ? 'gwallet' : 'itunes';
-
-
-        log('IAP initialize id: '+IAP.id);
-		
-		if(isRunningOnAndroid()){
-			IAP.getGoogleAccount();
-		}
-        window.store.verbosity = window.store[IAP.verbosity];
-        // store.validator = ... TODO
-        
-        window.store.register({
-            id:    IAP.id,
-            alias: IAP.alias,
-            type:  window.store[IAP.type]
-        });
-        
-        window.store.when(IAP.alias).approved(function(p){IAP.onPurchaseApproved(p);});
-        window.store.when(IAP.alias).verified(function(p){IAP.onPurchaseVerified(p);});
-        window.store.when(IAP.alias).updated(function(p){IAP.onProductUpdate(p);});
-		window.store.when(IAP.alias).owned(function(p){IAP.onProductOwned(p);});
-		window.store.when(IAP.alias).cancelled(function(p){IAP.onCancelledProduct(p); });
-		window.store.when(IAP.alias).error(function(errorPar){IAP.error(JSON.stringify(errorPar));});
-        window.store.ready(function(){ IAP.onStoreReady();});
-        window.store.when("order "+IAP.id).approved(function(order){IAP.onOrderApproved(order);});
-
-
-        
-    },
-
-    doRefresh: function(force) {
-        if (!IAP.refreshDone || force) {
-            window.store.refresh();
-            IAP.refreshDone = true;
+        for (i = 0; i < 16; i += 1) {
+            ipad[i] = bkey[i] ^ 0x36363636;
+            opad[i] = bkey[i] ^ 0x5C5C5C5C;
         }
-    },
+        hash = binl_md5(ipad.concat(rstr2binl(data)), 512 + data.length * 8);
+        return binl2rstr(binl_md5(opad.concat(hash), 512 + 128));
+    }
 
-    getPassword: function (transactionId){
-        return md5('iap.'+transactionId+'.playme').substr(0,8);
-    },
-	
-	getGoogleAccount: function(){
-		window.accountmanager.getAccounts(IAP.checkGoogleAccount, IAP.error, "com.google");	
-	},
-	
-	checkGoogleAccount: function(result){
-		
-		if(result) {
-			log('[IAP] accounts');
-			log(result);
-			
-			for(var i in result){
-				window.localStorage.setItem('googleAccount', result[i].email);
-				return result[i].email;
-			}
-		}	
-	},
- 
-    onProductUpdate: function(p){
-        log('IAP> Product updated.');
-        log(JSON.stringify(p));
-        if (p.owned) {
-            log('[IAP] Subscribed!');
-        } else {
-            log('[IAP] Not Subscribed');
+    /*
+    * Convert a raw string to a hex string
+    */
+    function rstr2hex(input) {
+        var hex_tab = '0123456789abcdef',
+            output = '',
+            x,
+            i;
+        for (i = 0; i < input.length; i += 1) {
+            x = input.charCodeAt(i);
+            output += hex_tab.charAt((x >>> 4) & 0x0F) +
+                hex_tab.charAt(x & 0x0F);
         }
-    },
-    
-    onPurchaseApproved: function(p){
-        log('IAP> Purchase approved.');
-        log(JSON.stringify(p));
-        //p.verify(); TODO before finish		
-        p.finish();
-    },
-    onPurchaseVerified: function(p){
-        log("subscription verified ", p);
-        //p.finish(); TODO
-    },
-    onStoreReady: function(){
-        log("\\o/ STORE READY \\o/");
-        /*store.ask(IAP.alias)
-        .then(function(data) {
-              console.log('Price: ' + data.price);
-              console.log('Description: ' + data.description);
-              })
-        .error(function(err) {
-               // Invalid product / no connection.
-               console.log('ERROR: ' + err.code);
-               console.log('ERROR: ' + err.message);
-               });*/
-    },
-    
-    onProductOwned: function(p){
-        log('[IAP] > Product Owned.');
-        if (!p.transaction.id && isRunningOnIos()){
-            log('[IAP] > no transaction id');
-            return false;
-        }
-        window.localStorage.setItem('product', p);
-		if(isRunningOnIos()){
-			window.localStorage.setItem('transaction_id', p.transaction.id);
-		}
-        
-        if (isRunningOnAndroid()){
-            var purchase_token = p.transaction.purchaseToken + '|' + stargateConf.id + '|' + IAP.id;
-            log('[IAP] Purchase Token: '+purchase_token);
-            
-            if(!window.localStorage.getItem('user_account')){
-                IAP.createUser(p, purchase_token);
+        return output;
+    }
+
+    /*
+    * Encode a string as utf-8
+    */
+    function str2rstr_utf8(input) {
+        return unescape(encodeURIComponent(input));
+    }
+
+    /*
+    * Take string arguments and return either raw or hex encoded strings
+    */
+    function raw_md5(s) {
+        return rstr_md5(str2rstr_utf8(s));
+    }
+    function hex_md5(s) {
+        return rstr2hex(raw_md5(s));
+    }
+    function raw_hmac_md5(k, d) {
+        return rstr_hmac_md5(str2rstr_utf8(k), str2rstr_utf8(d));
+    }
+    function hex_hmac_md5(k, d) {
+        return rstr2hex(raw_hmac_md5(k, d));
+    }
+
+    function md5(string, key, raw) {
+        if (!key) {
+            if (!raw) {
+                return hex_md5(string);
             }
-            
-        } else {
-        
-            window.storekit.loadReceipts(function (receipts) {
-                
-                if(!window.localStorage.getItem('user_account')){
-                    if (!!!receipts.appStoreReceipt) {
-                        log('[IAP] appStoreReceipt empty, ignoring request');
-                    }
-                    else {
-                        log('[IAP] appStoreReceipt: ' + receipts.appStoreReceipt);
-                        IAP.createUser(p, receipts.appStoreReceipt);
-                    }
-                }
-            });
+            return raw_md5(string);
         }
-        
-    },
-    
-    onCancelledProduct: function(p){
-        setBusy(false);
-        IAP.callbackError({'iap_cancelled': 1, 'return_url' : IAP.returnUrl});
-        log('[IAP] > Purchase cancelled ##################################', p);
-    },
-    
-    onOrderApproved: function(order){
-       log("[IAP] ORDER APPROVED "+IAP.id);
-       order.finish();
-    },
-	
-	error: function(error) {
-        setBusy(false);
-        IAP.callbackError({'iap_error': 1, 'return_url' : IAP.returnUrl});
-
-		err('[IAP] error: '+error);	
-	},
-	
-
-
-	createUser: function(product, purchaseToken){
-        log('[IAP] createUser start ');
-	   
-		window.localStorage.setItem('user_account', 
-            isRunningOnAndroid() ? 
-                (window.localStorage.getItem('googleAccount') ? 
-                    window.localStorage.getItem('googleAccount')
-                    : purchaseToken+'@google.com')
-                : product.transaction.id+'@itunes.com');
-		
-        var url = IAP.subscribeMethod;		
-		
-        var formData = {
-            "paymethod": IAP.paymethod,
-            "user_account": window.localStorage.getItem('user_account'),
-            "purchase_token": purchaseToken,
-            "return_url": IAP.returnUrl,
-            "inapp_pwd": IAP.getPassword(purchaseToken),
-            "hybrid": 1
-        };
-
-        IAP.lastCreateuserUrl = url;
-        IAP.lastCreateuserData = formData;
-
-        var onCreateError = function(error) {
-            if (IAP.createUserAttempt <= IAP.maxCreateUserAttempt) {
-                err("[IAP] createUser failed "+IAP.createUserAttempt+
-                    " times, trying again... last error: "+JSON.stringify(error)
-                );
-
-                // trying again
-                createUserAjaxCall();
-            }
-            else {
-                // no more try, fail to webapp callbackerror
-
-                log('[IAP] createUser onCreateError: removing user_account');
-                window.localStorage.removeItem('user_account');
-
-                var stargateResponseError = {"iap_error" : "1", "return_url" : IAP.returnUrl};
-                setBusy(false);
-                IAP.callbackError(stargateResponseError);
-            }
-        };
-
-        var onCreateSuccess = function(user) {
-            log('[IAP] createUser success ', user);
-            try {
-                user.device_id = runningDevice.uuid;
-                if(window.localStorage.getItem('transaction_id')){
-                    user.transaction_id = window.localStorage.getItem('transaction_id');
-                }
-                setBusy(false);
-                IAP.callbackSuccess(user);
-            }
-            catch (error) {
-                onCreateError(error);
-            }
-        };
-
-        var startTimeoutSeconds = 10;
-
-        var createUserAjaxCall = function() {
-            setTimeout(function() {
-                    IAP.createUserAttempt = IAP.createUserAttempt + 1;
-
-                    log('[IAP] createUser attempt: '+IAP.createUserAttempt+
-                        ' with timeout: '+startTimeoutSeconds+'sec.');
-
-                    window.aja()
-                        .method('POST')
-                        .url(IAP.lastCreateuserUrl)
-                        .cache(false)
-                        .timeout(startTimeoutSeconds * 1000) // milliseconds
-                        .data(IAP.lastCreateuserData)
-                        .on('success', function(user){
-                            onCreateSuccess(user);
-                        })
-                        .on('error', function(error){
-                            onCreateError(error);
-                        })
-                        .on('4**', function(error){
-                            onCreateError(error);
-                        })
-                        .on('5**', function(error){
-                            onCreateError(error);
-                        })
-                        .on('timeout', function(){
-                            onCreateError("timeout");
-                        })
-                        .on('end', function(){
-                            log("[IAP] createUser end");
-                            setBusy(false);
-                        })
-                        .go();
-
-                    // more timeout
-                    startTimeoutSeconds = startTimeoutSeconds + 5;
-
-                },
-                10 // millisecond after it's executed (when the thread that called setTimeout() has terminated)
-            );
-        };
-
-        IAP.createUserAttempt = 0;
-
-        // start first attempt
-        createUserAjaxCall();
-        
-	}
-};
-
-
-
-stargatePublic.inAppPurchaseSubscription = function(callbackSuccess, callbackError, subscriptionUrl, returnUrl) {
-
-    if (!isStargateInitialized) {
-        return callbackError("Stargate not initialized, call Stargate.initialize first!");
-    }
-    
-    setBusy(true);
-
-    if (typeof returnUrl !==  'undefined'){
-        IAP.returnUrl = returnUrl;
-    }
-    if (typeof subscriptionUrl !==  'undefined'){
-        IAP.subscribeMethod = subscriptionUrl;
-    }
-    
-    IAP.callbackSuccess = callbackSuccess;
-    IAP.callbackError = callbackError;
-
-    IAP.doRefresh();
-    window.store.order(IAP.id);
-};
-
-
-stargatePublic.inAppRestore = function(callbackSuccess, callbackError, subscriptionUrl, returnUrl) {
-
-    if (!isStargateInitialized) {
-        return callbackError("Stargate not initialized, call Stargate.initialize first!");
+        if (!raw) {
+            return hex_hmac_md5(key, string);
+        }
+        return raw_hmac_md5(key, string);
     }
 
-    // no set busy needed for restore as it's usually fast and 
-    //  we cannot intercept error result, so the loader remain visible
-
-    if (typeof subscriptionUrl !==  'undefined'){
-        IAP.subscribeMethod = subscriptionUrl;
-    }
-    if (typeof returnUrl !==  'undefined'){
-        IAP.returnUrl = returnUrl;
-    }
-    
-    IAP.callbackSuccess = callbackSuccess;
-    IAP.callbackError = callbackError;
-
-    IAP.doRefresh(true);
-};
-
+    return md5;
+}());
 
 
 /*  */
@@ -7458,1066 +7822,1157 @@ stargatePublic.test.loading.change = changeLoadingMessage;
 window.startLoading = startLoading;
 window.stopLoading = stopLoading;
 
-/*
- * JavaScript MD5
- * https://github.com/blueimp/JavaScript-MD5
- *
- * Copyright 2011, Sebastian Tschan
- * https://blueimp.net
- *
- * Licensed under the MIT license:
- * http://www.opensource.org/licenses/MIT
- *
- * Based on
- * A JavaScript implementation of the RSA Data Security, Inc. MD5 Message
- * Digest Algorithm, as defined in RFC 1321.
- * Version 2.2 Copyright (C) Paul Johnston 1999 - 2009
- * Other contributors: Greg Holt, Andrew Kepert, Ydnar, Lostinet
- * Distributed under the BSD License
- * See http://pajhome.org.uk/crypt/md5 for more info.
- */
 
-/*jslint bitwise: true */
-/*global unescape, define, module */
-
-var md5 = (function () {
-    'use strict';
-
-    /*
-    * Add integers, wrapping at 2^32. This uses 16-bit operations internally
-    * to work around bugs in some JS interpreters.
-    */
-    function safe_add(x, y) {
-        var lsw = (x & 0xFFFF) + (y & 0xFFFF),
-            msw = (x >> 16) + (y >> 16) + (lsw >> 16);
-        return (msw << 16) | (lsw & 0xFFFF);
-    }
-
-    /*
-    * Bitwise rotate a 32-bit number to the left.
-    */
-    function bit_rol(num, cnt) {
-        return (num << cnt) | (num >>> (32 - cnt));
-    }
-
-    /*
-    * These functions implement the four basic operations the algorithm uses.
-    */
-    function md5_cmn(q, a, b, x, s, t) {
-        return safe_add(bit_rol(safe_add(safe_add(a, q), safe_add(x, t)), s), b);
-    }
-    function md5_ff(a, b, c, d, x, s, t) {
-        return md5_cmn((b & c) | ((~b) & d), a, b, x, s, t);
-    }
-    function md5_gg(a, b, c, d, x, s, t) {
-        return md5_cmn((b & d) | (c & (~d)), a, b, x, s, t);
-    }
-    function md5_hh(a, b, c, d, x, s, t) {
-        return md5_cmn(b ^ c ^ d, a, b, x, s, t);
-    }
-    function md5_ii(a, b, c, d, x, s, t) {
-        return md5_cmn(c ^ (b | (~d)), a, b, x, s, t);
-    }
-
-    /*
-    * Calculate the MD5 of an array of little-endian words, and a bit length.
-    */
-    function binl_md5(x, len) {
-        /* append padding */
-        x[len >> 5] |= 0x80 << (len % 32);
-        x[(((len + 64) >>> 9) << 4) + 14] = len;
-
-        var i, olda, oldb, oldc, oldd,
-            a =  1732584193,
-            b = -271733879,
-            c = -1732584194,
-            d =  271733878;
-
-        for (i = 0; i < x.length; i += 16) {
-            olda = a;
-            oldb = b;
-            oldc = c;
-            oldd = d;
-
-            a = md5_ff(a, b, c, d, x[i],       7, -680876936);
-            d = md5_ff(d, a, b, c, x[i +  1], 12, -389564586);
-            c = md5_ff(c, d, a, b, x[i +  2], 17,  606105819);
-            b = md5_ff(b, c, d, a, x[i +  3], 22, -1044525330);
-            a = md5_ff(a, b, c, d, x[i +  4],  7, -176418897);
-            d = md5_ff(d, a, b, c, x[i +  5], 12,  1200080426);
-            c = md5_ff(c, d, a, b, x[i +  6], 17, -1473231341);
-            b = md5_ff(b, c, d, a, x[i +  7], 22, -45705983);
-            a = md5_ff(a, b, c, d, x[i +  8],  7,  1770035416);
-            d = md5_ff(d, a, b, c, x[i +  9], 12, -1958414417);
-            c = md5_ff(c, d, a, b, x[i + 10], 17, -42063);
-            b = md5_ff(b, c, d, a, x[i + 11], 22, -1990404162);
-            a = md5_ff(a, b, c, d, x[i + 12],  7,  1804603682);
-            d = md5_ff(d, a, b, c, x[i + 13], 12, -40341101);
-            c = md5_ff(c, d, a, b, x[i + 14], 17, -1502002290);
-            b = md5_ff(b, c, d, a, x[i + 15], 22,  1236535329);
-
-            a = md5_gg(a, b, c, d, x[i +  1],  5, -165796510);
-            d = md5_gg(d, a, b, c, x[i +  6],  9, -1069501632);
-            c = md5_gg(c, d, a, b, x[i + 11], 14,  643717713);
-            b = md5_gg(b, c, d, a, x[i],      20, -373897302);
-            a = md5_gg(a, b, c, d, x[i +  5],  5, -701558691);
-            d = md5_gg(d, a, b, c, x[i + 10],  9,  38016083);
-            c = md5_gg(c, d, a, b, x[i + 15], 14, -660478335);
-            b = md5_gg(b, c, d, a, x[i +  4], 20, -405537848);
-            a = md5_gg(a, b, c, d, x[i +  9],  5,  568446438);
-            d = md5_gg(d, a, b, c, x[i + 14],  9, -1019803690);
-            c = md5_gg(c, d, a, b, x[i +  3], 14, -187363961);
-            b = md5_gg(b, c, d, a, x[i +  8], 20,  1163531501);
-            a = md5_gg(a, b, c, d, x[i + 13],  5, -1444681467);
-            d = md5_gg(d, a, b, c, x[i +  2],  9, -51403784);
-            c = md5_gg(c, d, a, b, x[i +  7], 14,  1735328473);
-            b = md5_gg(b, c, d, a, x[i + 12], 20, -1926607734);
-
-            a = md5_hh(a, b, c, d, x[i +  5],  4, -378558);
-            d = md5_hh(d, a, b, c, x[i +  8], 11, -2022574463);
-            c = md5_hh(c, d, a, b, x[i + 11], 16,  1839030562);
-            b = md5_hh(b, c, d, a, x[i + 14], 23, -35309556);
-            a = md5_hh(a, b, c, d, x[i +  1],  4, -1530992060);
-            d = md5_hh(d, a, b, c, x[i +  4], 11,  1272893353);
-            c = md5_hh(c, d, a, b, x[i +  7], 16, -155497632);
-            b = md5_hh(b, c, d, a, x[i + 10], 23, -1094730640);
-            a = md5_hh(a, b, c, d, x[i + 13],  4,  681279174);
-            d = md5_hh(d, a, b, c, x[i],      11, -358537222);
-            c = md5_hh(c, d, a, b, x[i +  3], 16, -722521979);
-            b = md5_hh(b, c, d, a, x[i +  6], 23,  76029189);
-            a = md5_hh(a, b, c, d, x[i +  9],  4, -640364487);
-            d = md5_hh(d, a, b, c, x[i + 12], 11, -421815835);
-            c = md5_hh(c, d, a, b, x[i + 15], 16,  530742520);
-            b = md5_hh(b, c, d, a, x[i +  2], 23, -995338651);
-
-            a = md5_ii(a, b, c, d, x[i],       6, -198630844);
-            d = md5_ii(d, a, b, c, x[i +  7], 10,  1126891415);
-            c = md5_ii(c, d, a, b, x[i + 14], 15, -1416354905);
-            b = md5_ii(b, c, d, a, x[i +  5], 21, -57434055);
-            a = md5_ii(a, b, c, d, x[i + 12],  6,  1700485571);
-            d = md5_ii(d, a, b, c, x[i +  3], 10, -1894986606);
-            c = md5_ii(c, d, a, b, x[i + 10], 15, -1051523);
-            b = md5_ii(b, c, d, a, x[i +  1], 21, -2054922799);
-            a = md5_ii(a, b, c, d, x[i +  8],  6,  1873313359);
-            d = md5_ii(d, a, b, c, x[i + 15], 10, -30611744);
-            c = md5_ii(c, d, a, b, x[i +  6], 15, -1560198380);
-            b = md5_ii(b, c, d, a, x[i + 13], 21,  1309151649);
-            a = md5_ii(a, b, c, d, x[i +  4],  6, -145523070);
-            d = md5_ii(d, a, b, c, x[i + 11], 10, -1120210379);
-            c = md5_ii(c, d, a, b, x[i +  2], 15,  718787259);
-            b = md5_ii(b, c, d, a, x[i +  9], 21, -343485551);
-
-            a = safe_add(a, olda);
-            b = safe_add(b, oldb);
-            c = safe_add(c, oldc);
-            d = safe_add(d, oldd);
-        }
-        return [a, b, c, d];
-    }
-
-    /*
-    * Convert an array of little-endian words to a string
-    */
-    function binl2rstr(input) {
-        var i,
-            output = '';
-        for (i = 0; i < input.length * 32; i += 8) {
-            output += String.fromCharCode((input[i >> 5] >>> (i % 32)) & 0xFF);
-        }
-        return output;
-    }
-
-    /*
-    * Convert a raw string to an array of little-endian words
-    * Characters >255 have their high-byte silently ignored.
-    */
-    function rstr2binl(input) {
-        var i,
-            output = [];
-        output[(input.length >> 2) - 1] = undefined;
-        for (i = 0; i < output.length; i += 1) {
-            output[i] = 0;
-        }
-        for (i = 0; i < input.length * 8; i += 8) {
-            output[i >> 5] |= (input.charCodeAt(i / 8) & 0xFF) << (i % 32);
-        }
-        return output;
-    }
-
-    /*
-    * Calculate the MD5 of a raw string
-    */
-    function rstr_md5(s) {
-        return binl2rstr(binl_md5(rstr2binl(s), s.length * 8));
-    }
-
-    /*
-    * Calculate the HMAC-MD5, of a key and some data (raw strings)
-    */
-    function rstr_hmac_md5(key, data) {
-        var i,
-            bkey = rstr2binl(key),
-            ipad = [],
-            opad = [],
-            hash;
-        ipad[15] = opad[15] = undefined;
-        if (bkey.length > 16) {
-            bkey = binl_md5(bkey, key.length * 8);
-        }
-        for (i = 0; i < 16; i += 1) {
-            ipad[i] = bkey[i] ^ 0x36363636;
-            opad[i] = bkey[i] ^ 0x5C5C5C5C;
-        }
-        hash = binl_md5(ipad.concat(rstr2binl(data)), 512 + data.length * 8);
-        return binl2rstr(binl_md5(opad.concat(hash), 512 + 128));
-    }
-
-    /*
-    * Convert a raw string to a hex string
-    */
-    function rstr2hex(input) {
-        var hex_tab = '0123456789abcdef',
-            output = '',
-            x,
-            i;
-        for (i = 0; i < input.length; i += 1) {
-            x = input.charCodeAt(i);
-            output += hex_tab.charAt((x >>> 4) & 0x0F) +
-                hex_tab.charAt(x & 0x0F);
-        }
-        return output;
-    }
-
-    /*
-    * Encode a string as utf-8
-    */
-    function str2rstr_utf8(input) {
-        return unescape(encodeURIComponent(input));
-    }
-
-    /*
-    * Take string arguments and return either raw or hex encoded strings
-    */
-    function raw_md5(s) {
-        return rstr_md5(str2rstr_utf8(s));
-    }
-    function hex_md5(s) {
-        return rstr2hex(raw_md5(s));
-    }
-    function raw_hmac_md5(k, d) {
-        return rstr_hmac_md5(str2rstr_utf8(k), str2rstr_utf8(d));
-    }
-    function hex_hmac_md5(k, d) {
-        return rstr2hex(raw_hmac_md5(k, d));
-    }
-
-    function md5(string, key, raw) {
-        if (!key) {
-            if (!raw) {
-                return hex_md5(string);
-            }
-            return raw_md5(string);
-        }
-        if (!raw) {
-            return hex_hmac_md5(key, string);
-        }
-        return raw_hmac_md5(key, string);
-    }
-
-    return md5;
-}());
-
-
-/* global URI, URITemplate  */
-
-/**
- * @namespace
- * @protected
- * 
- * @description
- * MFP is used to recognize user coming from webapp.
- *
- * For example an usual flow can be:
- *  1. an user open the browser and go to our webapp;
- *  2. then he's suggested to install the app
- *  3. he's sent to the app store and install the app
- *  4. our app with Stargate integrated is opened by our user
- *  5. MFP module send an api request to the server and the user is recongized
- *  6. the previous session is restored by the MobileFingerPrint.setSession
- * 
- */
-var MFP = (function(){
-
-	// contains private module members
-	var MobileFingerPrint = {};
-
-	/**
-     * @name MFP#check
-     * @memberof MFP
-     *
-     * @description Start the MFP check to see if user has a session on the server
-     *
-     */
-	MobileFingerPrint.check = function(){
-
-		//if (window.localStorage.getItem('mfpCheckDone')){
-		//	return;
-		//}
-
-		// country defined on main stargate.js
-		if (!country) {		
-			return err("Country not defined!");
-		}
-
-		MobileFingerPrint.get(country);
-	};
-
-	MobileFingerPrint.getContents = function(country, namespace, label, extData){
-		var contents_inapp = {};
-	    contents_inapp.api_country = label;
-	    contents_inapp.country = country;
-	    contents_inapp.fpnamespace = namespace;
-	    if (extData){
-	        contents_inapp.extData = extData;
-	    }
-	    
-	    var json_data = JSON.stringify(contents_inapp);
-	       
-	    return json_data;
-	};
-
-	MobileFingerPrint.getPonyValue = function(ponyWithEqual) {
-		try {
-			return ponyWithEqual.split('=')[1];
-		}
-		catch (e) {
-			err(e);
-		}
-		return '';
-	};
-
-	MobileFingerPrint.setSession = function(pony){
-
-		// baseUrl: read from main stargate.js
-		var appUrl = baseUrl;
-		if (window.localStorage.getItem('appUrl')){
-			appUrl = window.localStorage.getItem('appUrl');
-		}
-
-		var currentUrl = new URI(baseUrl);
-
-		// stargateConf.api.mfpSetUriTemplate:
-		// '{protocol}://{hostname}/mfpset.php{?url}&{pony}'
-		var hostname = currentUrl.hostname();
-		var newUrl = URITemplate(stargateConf.api.mfpSetUriTemplate)
-	  		.expand({
-	  			"protocol": currentUrl.protocol(),
-	  			"hostname": hostname,
-	  			"url": appUrl,
-	  			"domain": hostname,
-	  			"_PONY": MobileFingerPrint.getPonyValue(pony)
-	  	});
-				
-		log("[MobileFingerPrint] going to url: ", newUrl);
-
-		launchUrl(newUrl);
-	};
-
-	MobileFingerPrint.get = function(country){
-		var expire = "";
-
-	    // stargateConf.api.mfpGetUriTemplate:
-	    // "http://domain.com/path.ext{?apikey,contents_inapp,country,expire}",
-
-		var mfpUrl = URITemplate(stargateConf.api.mfpGetUriTemplate)
-	  		.expand({
-	  			"apikey": stargateConf.motime_apikey,
-	  			"contents_inapp": MobileFingerPrint.getContents(country, stargateConf.namespace, stargateConf.label),
-	  			"country": country,
-	  			"expire": expire
-	  	});
-
-        window.aja()
-            .url(mfpUrl)
-            .type('jsonp')
-            .on('success', function(response){
-                
-                log("[MobileFingerPrint] get() response: ", response);
-
-                var ponyUrl = '';
-
-                if (response.content.inappInfo){
-                    var jsonStruct = JSON.parse(response.content.inappInfo);
-
-                    if (jsonStruct.extData) {
-                    	if (jsonStruct.extData.ponyUrl) {
-                    		ponyUrl = jsonStruct.extData.ponyUrl;
-                    	}
-                    	if (jsonStruct.extData.return_url) {
-                    		window.localStorage.setItem('appUrl', jsonStruct.extData.return_url);
-                    	}
-                    	if (jsonStruct.extData.session_mfp) {
-
-                    		analytics.track({
-		                    	page: 'hybrid_initialize',
-		                    	action: 'MFP_get',
-		                    	session_mfp: jsonStruct.extData.session_mfp
-		                    });
-                    	}
-                    }
-
-                    
-                    
-                    MobileFingerPrint.setSession(ponyUrl);                
-                }else{
-                    log("[MobileFingerPrint] get(): Empty session");
-                }
-            })
-            .on('error', function(error){
-                err("[MobileFingerPrint] get() error: ", error);
-            })
-            .go();
-	};
-
-
-	return {
-		check: MobileFingerPrint.check
-	};
-
-})();
-
-
-/* globals Q */
-
-/***
-* 
-* 
-* 
-*/
-
-// current stargateVersion 
-var stargateVersion = "2";
-
-// logger function
-var log = function(msg, obj) {
-    if (typeof obj !== 'undefined') {
-        console.log("[Stargate] "+msg+" ",obj);
-    } else {
-        console.log("[Stargate] "+msg);
-    }
-    return true;
-};
-var err = function(msg, obj) {
-    if (typeof obj !== 'undefined') {
-        console.error("[Stargate] "+msg+" ",obj);
-    } else {
-        console.error("[Stargate] "+msg);
-    }
-    return false;
-};
-
-
-// device informations   // examples
-var runningDevice = {
-    available: false,    // true
-    cordova: "",         // 4.1.1
-    manufacturer: "",    // samsung
-    model: "",           // GT-I9505
-    platform: "",        // Android
-    uuid: "",            // ac7245e38e3dfecb
-    version: ""          // 5.0.1
-};
-var isRunningOnAndroid = function() {
-    return runningDevice.platform == "Android";
-};
-var isRunningOnIos = function() {
-    return runningDevice.platform == "iOS";
-};
-// - not used, enable if needed -
-//var isRunningOnCordova = function () {
-//    return (typeof window.cordova !== "undefined");
-//};
-var initDevice = function() {
-    if (typeof window.device === 'undefined') {
-        return err("Missing cordova device plugin");
-    }
-    for (var key in runningDevice) {
-        if (window.device.hasOwnProperty(key)) {
-            runningDevice[key] = window.device[key];
-        }
-    }
-    return true;
-};
-
-
-
-var getManifest = function() {
-
-    var deferred = Q.defer();
-
-    window.hostedwebapp.getManifest(
-        function(manifest){
-            deferred.resolve(manifest);
-        },
-        function(error){
-            deferred.reject(new Error(error));
-            console.error(error);
-        }
-    );
-    return deferred.promise;
-};
-
-var launchUrl = function (url) {
-    log("launchUrl: "+url);
-    document.location.href = url;
-};
-
-
-var isStargateRunningInsideHybrid = false;
-var isStargateInitialized = false;
-var isStargateOpen = false;
-var initializeCallback = null;
-var initializeDeferred = null;
-
-var appVersion = '';
-
-/**
- * 
- * variables sent by server configuration
- * 
- */
-var country = '',
-    hybrid_conf = {};
-
-/**
- * 
- * this is got from manifest
- * 
- */
-var baseUrl;
-
-var updateStatusBar = function() {
-
-    if (typeof window.StatusBar === "undefined") {
-        // missing cordova plugin
-        return err("[StatusBar] missing cordova plugin");
-    }
-    if (typeof stargateConf.statusbar === "undefined") {
-        return;
-    }
-    if (typeof stargateConf.statusbar.hideOnUrlPattern !== "undefined" && 
-        stargateConf.statusbar.hideOnUrlPattern.constructor === Array) {
-
-        var currentLocation = document.location.href;
-        var hide = false;
-
-        for (var i=0; i<stargateConf.statusbar.hideOnUrlPattern.length; i++) {
-
-            var re = new RegExp(stargateConf.statusbar.hideOnUrlPattern[i]);
-            
-            if (re.test(currentLocation)) {
-                hide = true;
-                break;
-            }
-        }
-
-        if (hide) {
-            window.StatusBar.hide();
-        }
-        else {
-            window.StatusBar.show();
-        }
-    }
-};
-
-/**
-* Set on webapp that we are hybrid
-* (this will be called only after device ready is received and 
-*   we are sure to be inside cordova app)
-*/
-var setIsHybrid = function() {
-
-    window.Cookies.set("hybrid", "1");
-    window.Cookies.set("stargateVersion", stargateVersion);
-
-    if (!window.localStorage.getItem('hybrid')) {
-        window.localStorage.setItem('hybrid', 1);
-    }
-    if (!window.localStorage.getItem('stargateVersion')) {
-        window.localStorage.setItem('stargateVersion', stargateVersion);
-    }
-};
-
-var onPluginReady = function () {
+var IAP = {
+
+	id: '',
+	alias: '',
+	type: '',
+	verbosity: '',
+	paymethod: '',
+    subscribeMethod: 'stargate',
+    returnUrl: '',
+    callbackSuccess: function(){log("[IAP] Undefined callbackSuccess");},
+    callbackError: function(){log("[IAP] Undefined callbackError");},
+    callbackListingSuccess: function(){log("[IAP] Undefined callbackListingSuccess");},
+    callbackListingError: function(){log("[IAP] Undefined callbackListingError");},
+    requestedListingProductId: '',
+    refreshDone: false,
+    lastCreateuserUrl: '',
+    lastCreateuserData: '',
+    createUserAttempt: 0,
+    maxCreateUserAttempt: 6,
     
-    // FIXME: this is needed ??
-    document.title = stargateConf.title;
+    productsInfo: {},
     
-    // set back cordova bridge mode to IFRAME_NAV overriding manifold settings
-    if (isRunningOnIos() && (typeof window.cordova !== 'undefined') && cordova.require) {
-        var exec = cordova.require('cordova/exec');
-        exec.setJsToNativeBridgeMode(exec.jsToNativeModes.IFRAME_NAV);
-    }
-    
-
-    updateStatusBar();
-
-    
-    if (hasFeature('mfp')) {
-        MFP.check();
-    }
-    
-    if (hasFeature('deltadna')) {
-        window.deltadna.startSDK(
-            stargateConf.deltadna.environmentKey,
-            stargateConf.deltadna.collectApi,
-            stargateConf.deltadna.engageApi,
-
-            onDeltaDNAStartedSuccess,
-            onDeltaDNAStartedError,
-
-            stargateConf.deltadna.settings
-        );
-    }
-
-    
-    navigator.splashscreen.hide();
-    setBusy(false);
-
-    // initialize all modules
-
-    // In-app purchase initialization
-    IAP.initialize();
-
-    // receive appsflyer conversion data event
-    appsflyer.init();
-    
-    // apply webapp fixes
-    webappsFixes.init();
-
-    // initialize finished
-    isStargateOpen = true;
-
-    log("version "+stargatePackageVersion+" ready; "+
-        "loaded from server version: v"+stargateVersion+
-        " running in package version: "+appVersion);
-
-    //execute callback
-    // FIXME: check callback type is function
-    initializeCallback(true);
-
-    log("Stargate.initialize() done");
-    initializeDeferred.resolve(true);
-};
-
-var onDeviceReady = function () {
-
-    // device ready received so i'm sure to be hybrid
-    setIsHybrid();
-    
-    // get device information
-    initDevice();
-
-    // request all asyncronous initialization to complete
-    Q.all([
-        // include here all needed asyncronous initializazion
-        cordova.getAppVersion.getVersionNumber(),
-        getManifest()
-    ])
-    .then(function(results) {
-        // save async initialization result
-
-        appVersion = results[0];
+	initialize: function () {
+        if (!window.store) {
+            err('Store not available');
+            return;
+        }
 		
-		if (typeof results[1] !== 'object') {
-			results[1] = JSON.parse(results[1]);
-		}
+        // initialize with current url
+        IAP.returnUrl = document.location.href;
 
-        baseUrl = results[1].start_url;
-
-        stargateConf = results[1].stargateConf;
-
-        // execute remaining initialization
-        onPluginReady();
-    })
-    .fail(function (error) {
-        err("onDeviceReady() error: "+error);
-    });
-};
-
-/**
-* Check if we are running inside hybrid environment,  
-* checking current url or cookies or localStorage
-*/
-var isHybridEnvironment = function() {
-
-    // check url for hybrid query param
-    var uri = window.URI(document.location.href);
-    if (uri.hasQuery('hybrid')) {
-        return true;
-    }
-
-    if (window.Cookies.get('hybrid')) {
-        return true;
-    }
-
-    if (window.localStorage.getItem('hybrid')) {
-        return true;
-    }
-
-    return false;
-};
-
-var stargateBusy = false;
-
-// - not used, enable if needed -
-//var isBusy = function() { return stargateBusy; };
-
-var setBusy = function(value) {
-    if (value) {
-        stargateBusy = true;
-        startLoading();
-    }
-    else {
-        stargateBusy = false;
-        stopLoading();
-    }
-};
-
-var stargateConf = {
-    features: {}
-};
-
-var hasFeature = function(feature) {
-    return (typeof stargateConf.features[feature] !== 'undefined' && stargateConf.features[feature]);
-};
-
-
-
-
-
-
-
-
-
-
-
-// global variable used by old stargate client
-// @deprecated since v0.1.2
-window.pubKey = '';
-// @deprecated since v0.1.2
-window.forge = '';
-
-
-/**
-*
-* initialize(configurations, callback)
-*
-* 
-* @deprecated initialize(configurations, pubKey, forge, callback)
-*
-*/
-stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callback) {
-
-    // parameters checking to support both interfaces:
-    //    initialize(configurations, callback)
-    //    initialize(configurations, pubKey, forge, callback)
-    if (typeof pubKeyPar === 'function' &&
-        typeof forgePar === 'undefined' &&
-        typeof callback === 'undefined') {
-        // second parameter is the callback
-        callback = pubKeyPar;
-    }
-
-    // check callback type is function
-    // if not return a failing promise 
-    if (typeof callback !== 'function') {
-        err("Stargate.initialize() callback is not a function!");
-
-        var errDefer = Q.defer();
-        setTimeout(function(){
-            // fail the promise
-            errDefer.reject(new Error("Stargate.initialize() callback is not a function!"));
-        }, 1);
-        return errDefer.promise;
-    }
-
-    isStargateRunningInsideHybrid = isHybridEnvironment();
-
-    // if i'm already initialized just:
-    //  * execute the callback
-    //  * return a resolving promise
-    if (isStargateInitialized) {
-        err("Stargate.initialize() already called, executing callback.");
-        
-        callback(isStargateRunningInsideHybrid);
-
-        var alreadyRunningDefer = Q.defer();
-        setTimeout(function(){
-            // resolve the promise
-            alreadyRunningDefer.resolve(isStargateRunningInsideHybrid);
-        }, 1);
-        return alreadyRunningDefer.promise;
-    }
-
-
-    isStargateInitialized = true;
-
-
-    if(configurations.country){
-        country = configurations.country;
-    }
-    
-    if(configurations.hybrid_conf){
-        if (typeof configurations.hybrid_conf === 'object') {
-            hybrid_conf = configurations.hybrid_conf;
-        } else {
-            hybrid_conf = JSON.parse(decodeURIComponent(configurations.hybrid_conf));
+        if (hybrid_conf.IAP.id) {
+            IAP.id = hybrid_conf.IAP.id;
         }
-    }
 
-    // if not running inside hybrid save the configuration then:
-    //  * call the callback and return a resolving promise
-    if (!isStargateRunningInsideHybrid) {
+        // 
+        if (hybrid_conf.IAP.alias) {
+            IAP.alias = hybrid_conf.IAP.alias;
+        }
 
-        log("version "+stargatePackageVersion+" running outside hybrid; "+
-            "loaded from server version: v"+stargateVersion);
+        //  --- type ---
+        // store.FREE_SUBSCRIPTION = "free subscription";
+        // store.PAID_SUBSCRIPTION = "paid subscription";
+        // store.CONSUMABLE        = "consumable";
+        // store.NON_CONSUMABLE    = "non consumable";
+        if (hybrid_conf.IAP.type) {
+            IAP.type = hybrid_conf.IAP.type;
+        }
 
-        callback(isStargateRunningInsideHybrid);
+        // Available values: DEBUG, INFO, WARNING, ERROR, QUIET
+        IAP.verbosity = 'INFO';
 
-        var notHybridDefer = Q.defer();
-        setTimeout(function(){
-            // resolve the promise
-            notHybridDefer.resolve(isStargateRunningInsideHybrid);
-        }, 1);
-        return notHybridDefer.promise;
-    }
+        IAP.paymethod = isRunningOnAndroid() ? 'gwallet' : 'itunes';
 
-    log("initialize() starting up, configuration: ",hybrid_conf);
 
-    initializeCallback = callback;
-    initializeDeferred = Q.defer();
-
-    // finish the initialization of cordova plugin when deviceReady is received
-    document.addEventListener('deviceready', onDeviceReady, false);
+        log('IAP initialize id: '+IAP.id);
+		
+		if(isRunningOnAndroid()){
+			IAP.getGoogleAccount();
+		}
+        window.store.verbosity = window.store[IAP.verbosity];
+        // store.validator = ... TODO
+        
+        window.store.register({
+            id:    IAP.id,
+            alias: IAP.alias,
+            type:  window.store[IAP.type]
+        });
+        
+        window.store.when(IAP.alias).approved(function(p){IAP.onPurchaseApproved(p);});
+        window.store.when(IAP.alias).verified(function(p){IAP.onPurchaseVerified(p);});
+        window.store.when(IAP.alias).updated(function(p){IAP.onProductUpdate(p);});
+		window.store.when(IAP.alias).owned(function(p){IAP.onProductOwned(p);});
+		window.store.when(IAP.alias).cancelled(function(p){IAP.onCancelledProduct(p); });
+		window.store.when(IAP.alias).error(function(errorPar){IAP.error(JSON.stringify(errorPar));});
+        window.store.ready(function(){ IAP.onStoreReady();});
+        window.store.when("order "+IAP.id).approved(function(order){IAP.onOrderApproved(order);});
+        
+        // When any product gets updated, refresh the HTML.
+        window.store.when("product").updated(function(p){ IAP.saveProductInfo(p); });
+        
+    },
     
-    return initializeDeferred.promise;
+    saveProductInfo: function(params) {
+        if (typeof params !== "object") {
+            err("[IAP] saveProductInfo() got invalid data");
+            return;
+        }
+        
+        if ("id" in params) {
+            IAP.productsInfo[params.id] = params;
+            
+        } else {
+            err("[IAP] saveProductInfo() got invalid data, id undefined");
+            return;
+        }
+        
+        if (IAP.requestedListingProductId === params.id) {
+                
+            IAP.callbackListingSuccess(params);
+        }
+    },
+    
+    doRefresh: function(force) {
+        if (!IAP.refreshDone || force) {
+            window.store.refresh();
+            IAP.refreshDone = true;
+        }
+    },
+
+    getPassword: function (transactionId){
+        return md5('iap.'+transactionId+'.playme').substr(0,8);
+    },
+	
+	getGoogleAccount: function(){
+		window.accountmanager.getAccounts(IAP.checkGoogleAccount, IAP.error, "com.google");	
+	},
+	
+	checkGoogleAccount: function(result){
+		
+		if(result) {
+			log('[IAP] accounts');
+			log(result);
+			
+			for(var i in result){
+				window.localStorage.setItem('googleAccount', result[i].email);
+				return result[i].email;
+			}
+		}	
+	},
+ 
+    onProductUpdate: function(p){
+        log('IAP> Product updated.');
+        log(JSON.stringify(p));
+        if (p.owned) {
+            log('[IAP] Subscribed!');
+        } else {
+            log('[IAP] Not Subscribed');
+        }
+    },
+    
+    onPurchaseApproved: function(p){
+        log('IAP> Purchase approved.');
+        log(JSON.stringify(p));
+        //p.verify(); TODO before finish		
+        p.finish();
+    },
+    onPurchaseVerified: function(p){
+        log("subscription verified ", p);
+        //p.finish(); TODO
+    },
+    onStoreReady: function(){
+        log("\\o/ STORE READY \\o/");
+        /*store.ask(IAP.alias)
+        .then(function(data) {
+              console.log('Price: ' + data.price);
+              console.log('Description: ' + data.description);
+              })
+        .error(function(err) {
+               // Invalid product / no connection.
+               console.log('ERROR: ' + err.code);
+               console.log('ERROR: ' + err.message);
+               });*/
+    },
+    
+    onProductOwned: function(p){
+        log('[IAP] > Product Owned.');
+        if (!p.transaction.id && isRunningOnIos()){
+            log('[IAP] > no transaction id');
+            return false;
+        }
+        window.localStorage.setItem('product', p);
+		if(isRunningOnIos()){
+			window.localStorage.setItem('transaction_id', p.transaction.id);
+		}
+        
+        if (isRunningOnAndroid()){
+            var purchase_token = p.transaction.purchaseToken + '|' + stargateConf.id + '|' + IAP.id;
+            log('[IAP] Purchase Token: '+purchase_token);
+            
+            if(!window.localStorage.getItem('user_account')){
+                IAP.createUser(p, purchase_token);
+            }
+            
+        } else {
+        
+            window.storekit.loadReceipts(function (receipts) {
+                
+                if(!window.localStorage.getItem('user_account')){
+                    if (!!!receipts.appStoreReceipt) {
+                        log('[IAP] appStoreReceipt empty, ignoring request');
+                    }
+                    else {
+                        log('[IAP] appStoreReceipt: ' + receipts.appStoreReceipt);
+                        IAP.createUser(p, receipts.appStoreReceipt);
+                    }
+                }
+            });
+        }
+        
+    },
+    
+    onCancelledProduct: function(p){
+        setBusy(false);
+        IAP.callbackError({'iap_cancelled': 1, 'return_url' : IAP.returnUrl});
+        log('[IAP] > Purchase cancelled ##################################', p);
+    },
+    
+    onOrderApproved: function(order){
+       log("[IAP] ORDER APPROVED "+IAP.id);
+       order.finish();
+    },
+	
+	error: function(error) {
+        setBusy(false);
+        IAP.callbackError({'iap_error': 1, 'return_url' : IAP.returnUrl});
+
+		err('[IAP] error: '+error);	
+	},
+	
+
+
+	createUser: function(product, purchaseToken){
+        log('[IAP] createUser start ');
+	   
+		window.localStorage.setItem('user_account', 
+            isRunningOnAndroid() ? 
+                (window.localStorage.getItem('googleAccount') ? 
+                    window.localStorage.getItem('googleAccount')
+                    : purchaseToken+'@google.com')
+                : product.transaction.id+'@itunes.com');
+		
+        var url = IAP.subscribeMethod;		
+		
+        var formData = {
+            "paymethod": IAP.paymethod,
+            "user_account": window.localStorage.getItem('user_account'),
+            "purchase_token": purchaseToken,
+            "return_url": IAP.returnUrl,
+            "inapp_pwd": IAP.getPassword(purchaseToken),
+            "hybrid": 1
+        };
+
+        IAP.lastCreateuserUrl = url;
+        IAP.lastCreateuserData = formData;
+
+        var onCreateError = function(error) {
+            if (IAP.createUserAttempt <= IAP.maxCreateUserAttempt) {
+                err("[IAP] createUser failed "+IAP.createUserAttempt+
+                    " times, trying again... last error: "+JSON.stringify(error)
+                );
+
+                // trying again
+                createUserAjaxCall();
+            }
+            else {
+                // no more try, fail to webapp callbackerror
+
+                log('[IAP] createUser onCreateError: removing user_account');
+                window.localStorage.removeItem('user_account');
+
+                var stargateResponseError = {"iap_error" : "1", "return_url" : IAP.returnUrl};
+                setBusy(false);
+                IAP.callbackError(stargateResponseError);
+            }
+        };
+
+        var onCreateSuccess = function(user) {
+            log('[IAP] createUser success ', user);
+            try {
+                user.device_id = runningDevice.uuid;
+                if(window.localStorage.getItem('transaction_id')){
+                    user.transaction_id = window.localStorage.getItem('transaction_id');
+                }
+                setBusy(false);
+                IAP.callbackSuccess(user);
+            }
+            catch (error) {
+                onCreateError(error);
+            }
+        };
+
+        var startTimeoutSeconds = 10;
+
+        var createUserAjaxCall = function() {
+            setTimeout(function() {
+                    IAP.createUserAttempt = IAP.createUserAttempt + 1;
+
+                    log('[IAP] createUser attempt: '+IAP.createUserAttempt+
+                        ' with timeout: '+startTimeoutSeconds+'sec.');
+
+                    window.aja()
+                        .method('POST')
+                        .url(IAP.lastCreateuserUrl)
+                        .cache(false)
+                        .timeout(startTimeoutSeconds * 1000) // milliseconds
+                        .data(IAP.lastCreateuserData)
+                        .on('success', function(user){
+                            onCreateSuccess(user);
+                        })
+                        .on('error', function(error){
+                            onCreateError(error);
+                        })
+                        .on('4**', function(error){
+                            onCreateError(error);
+                        })
+                        .on('5**', function(error){
+                            onCreateError(error);
+                        })
+                        .on('timeout', function(){
+                            onCreateError("timeout");
+                        })
+                        .on('end', function(){
+                            log("[IAP] createUser end");
+                            setBusy(false);
+                        })
+                        .go();
+
+                    // more timeout
+                    startTimeoutSeconds = startTimeoutSeconds + 5;
+
+                },
+                10 // millisecond after it's executed (when the thread that called setTimeout() has terminated)
+            );
+        };
+
+        IAP.createUserAttempt = 0;
+
+        // start first attempt
+        createUserAjaxCall();
+        
+	}
 };
 
-stargatePublic.isInitialized = function() {
-    return isStargateInitialized;
-};
 
-stargatePublic.isOpen = function() {
-    return isStargateOpen;
-};
 
-stargatePublic.isHybrid = function() {
-    return isHybridEnvironment();
-};
+stargatePublic.inAppPurchaseSubscription = function(callbackSuccess, callbackError, subscriptionUrl, returnUrl) {
 
-stargatePublic.openUrl = function(url) {
-
-	if (!isStargateInitialized) {
-		return err("Stargate not initialized, call Stargate.initialize first!");
+    if (!isStargateInitialized) {
+        return callbackError("Stargate not initialized, call Stargate.initialize first!");
     }
-    // FIXME: check that inappbrowser plugin is installed otherwise retunr error
+    
+    setBusy(true);
 
-    window.open(url, "_system");
-};
-
-stargatePublic.googleLogin = function(callbackSuccess, callbackError) {
-
-	if (!isStargateInitialized) {
-		return callbackError("Stargate not initialized, call Stargate.initialize first!");
+    if (typeof returnUrl !==  'undefined'){
+        IAP.returnUrl = returnUrl;
     }
-
-    // FIXME: implement it; get code from old stargate
-
-    err("unimplemented");
-    callbackError("unimplemented");
-};
-stargatePublic.checkConnection = function(callbackSuccess, callbackError) {
-
-	if (!isStargateInitialized) {
-		return callbackError("Stargate not initialized, call Stargate.initialize first!");
+    if (typeof subscriptionUrl !==  'undefined'){
+        IAP.subscribeMethod = subscriptionUrl;
     }
+    
+    IAP.callbackSuccess = callbackSuccess;
+    IAP.callbackError = callbackError;
 
-    // FIXME: check that network plugin is installed
-
-    var networkState = navigator.connection.type;
-    callbackSuccess({'networkState': networkState});
-};
-stargatePublic.getDeviceID = function(callbackSuccess, callbackError) {
-
-	if (!isStargateInitialized) {
-		return callbackError("Stargate not initialized, call Stargate.initialize first!");
-    }
-
-    // FIXME: check that device plugin is installed
-    // FIXME: integrate with other stargate device handling method
-
-    var deviceID = runningDevice.uuid;
-    callbackSuccess({'deviceID': deviceID});
+    IAP.doRefresh();
+    window.store.order(IAP.id);
 };
 
-stargatePublic.setStatusbarVisibility = function(visibility, callbackSuccess, callbackError) {
+
+stargatePublic.inAppRestore = function(callbackSuccess, callbackError, subscriptionUrl, returnUrl) {
 
     if (!isStargateInitialized) {
         return callbackError("Stargate not initialized, call Stargate.initialize first!");
     }
 
-    if (typeof window.StatusBar === "undefined") {
-        // missing cordova plugin
-        err("[StatusBar] missing cordova plugin");
-        return callbackError("missing cordova plugin");
+    // no set busy needed for restore as it's usually fast and 
+    //  we cannot intercept error result, so the loader remain visible
+
+    if (typeof subscriptionUrl !==  'undefined'){
+        IAP.subscribeMethod = subscriptionUrl;
+    }
+    if (typeof returnUrl !==  'undefined'){
+        IAP.returnUrl = returnUrl;
+    }
+    
+    IAP.callbackSuccess = callbackSuccess;
+    IAP.callbackError = callbackError;
+
+    IAP.doRefresh(true);
+};
+
+/**
+ * Call callbacks with information about a product got from store
+ * @param {string} productId - product id about to query for information on store
+ * @param {function} callbackSuccess - a function that will be called when information are ready
+ * @param {function} callbackError - a function that will be called in case of error
+ * @returns {void}
+ * */
+stargatePublic.inAppProductInfo = function(productId, callbackSuccess, callbackError) {
+
+    if (!isStargateInitialized) {
+        return callbackError("Stargate not initialized, call Stargate.initialize first!");
+    }
+    
+    if (! productId) {
+        productId = IAP.id;
+    }
+    
+    if (IAP.productsInfo[productId]) {
+        callbackSuccess(IAP.productsInfo[productId]);
+        return;
+    }
+    
+    IAP.callbackListingSuccess = callbackSuccess;
+    IAP.callbackListingError = callbackError;
+
+    IAP.doRefresh(true);    
+};
+
+/* global facebookConnectPlugin */
+
+
+stargatePublic.facebookLogin = function(scope, callbackSuccess, callbackError) {
+
+
+    // FIXME: check that facebook plugin is installed
+    // FIXME: check parameters
+
+    if (!isStargateInitialized) {
+        return callbackError("Stargate not initialized, call Stargate.initialize first!");
+    }
+    
+    facebookConnectPlugin.login(
+        scope.split(","),
+
+        // success callback
+        function (userData) {
+            log("[facebook] got userdata: ", userData);
+            
+            facebookConnectPlugin.getAccessToken(
+                function(token) {
+                    callbackSuccess({'accessToken' : token});
+                },
+                function(err) {
+                    callbackError({'error': err});
+                }
+            );
+        },
+
+        // error callback
+        function (error) {
+            err("Got FB login error:", error);
+            callbackError({'error': error});
+        }
+    );
+};
+
+stargatePublic.facebookShare = function(url, callbackSuccess, callbackError) {
+
+    // FIXME: check that facebook plugin is installed
+    // FIXME: check parameters
+
+    if (!isStargateInitialized) {
+        return callbackError("Stargate not initialized, call Stargate.initialize first!");
     }
 
-    if (visibility) {
-        window.StatusBar.show();
-        return callbackSuccess("statusbar shown");
-    }
+    var options = {
+        method: "share",
+        href: url
+    };
+    
+    facebookConnectPlugin.showDialog(
+        options, 
+        
+        function(message){
+            callbackSuccess({'message':message});
+        }, 
 
-    window.StatusBar.hide();
-    return callbackSuccess("statusbar hided");
+        function(error){
+
+            // error.errorMessage
+            err("Got FB share error:", error);
+            callbackError({'error':error});
+        }
+    );
+};
+
+/* global deltadna */
+
+var onDeltaDNAStartedSuccess = function() {
+    deltadna.registerPushCallback(
+		onDeltaDNAPush
+	);
 };
 
 
-stargatePublic.getVersion = function() {
-    return stargatePackageVersion;
+var onDeltaDNAStartedError = function(error) {
+    err("[DeltaDNA] error: " + error);
 };
 
-/**  
+var onDeltaDNAPush = function(pushDatas) {
+    if(isRunningOnAndroid() && pushDatas.payload && pushDatas.payload.url && !pushDatas.foreground){
+		return launchUrl(pushDatas.payload.url);
+	}
+    if(isRunningOnIos() && pushDatas.url){
+        return launchUrl(pushDatas.url);
+    }
+};
+
+
+var appsflyer = (function(){
+
+	var af = {};
+	var cb;
+	
+	/*
+		https://support.appsflyer.com/hc/en-us/articles/207032126-AppsFlyer-SDK-Integration-Android
+		https://support.appsflyer.com/hc/en-us/articles/207032096-Accessing-AppsFlyer-Attribution-Conversion-Data-from-the-SDK-Deferred-Deeplinking-
+		{
+		"af_status": "Non-organic",
+		"media_source": "tapjoy_int",
+		"campaign": "July4-Campaign",
+		"agency": "starcomm",
+		"af_siteid": null,
+		"af_sub1": "subtext1",
+		"af_sub2": null,
+		"af_sub3": null,
+		"af_sub4": null,
+		"af_sub5": null,
+		"freehand-param": "somevalue",
+		"click_time": "2014-05-23 20:11:31",
+		"install_time": "2014-05-23 20:12:16.751"
+		}
+	*/
+	var conversionData = {};
+
+	af.init = function() {
+
+		if (!window.plugins || !window.plugins.appsFlyer) {
+
+			// plugin is not installed
+
+			return err("[appsflyer] missing cordova plugin");
+		}
+
+		if (typeof stargateConf.appstore_appid === "undefined") {
+			return err("[appsflyer] missing manifest configuration: appstore_appid");
+		}
+		if (typeof stargateConf.appsflyer_devkey === "undefined") {
+			return err("[appsflyer] missing manifest configuration: appsflyer_devkey");
+	    }
+
+	    //
+	    // apInitArgs[0] => AppsFlyer Developer Key
+	    // apInitArgs[1] => iOS App Store Id
+	    //
+		var apInitArgs = [stargateConf.appsflyer_devkey];
+	    
+	    if (isRunningOnIos()) {
+	        apInitArgs.push(stargateConf.appstore_appid);
+	    }
+
+	    document.addEventListener('onInstallConversionDataLoaded', function(e){
+		    conversionData = e.detail;
+		    
+		    if (typeof cb !== 'function') {
+				return log("[appsflyer] callback not set!");
+			}
+
+			// send it
+			try {
+				cb(conversionData);
+				log("[appsflyer] parameters sent to webapp callback: "+JSON.stringify(conversionData));
+			}
+			catch (error) {
+				err("[appsflyer] callback error: "+error, error);
+			}
+
+		}, false);
+
+		window.plugins.appsFlyer.initSdk(apInitArgs);
+	};
+
+	/**
+     * @name analytics#setCallback
+     * @memberof analytics
+     *
+     * @description Save webapp callback to be called when appsflyer data
+     *
+     * @param {function} callback
+     */
+	af.setCallback = function(callback) {
+		cb = callback;
+	};
+
+	return af;
+
+})();
+
+/**
+ * @name Stargate#setConversionDataCallback
+ * @memberof Stargate
  *
- *  stargatePublic.inApp* -> iap.js
+ * @description Save webapp conversion data callback to be called when converion data from AppsFlyer are received.
+ *              You may need to save the data you receive, becouse you'll only got that data the first time the app
+ *              is run after installation.
+ *              Please call this before Stargate.initialize()
+ *
+ * @param {function} callback
+ */
+stargatePublic.setConversionDataCallback = function(callback) {
+
+	appsflyer.setCallback(callback);
+};
+
+
+
+/**
+ * @namespace
+ * @protected
+ *
+ * @description
+ * Analytics is a module to track events sending it to a webapp callback.
+ * It's used internally in Stargate to track events like MFP get.
+ * Before using it you need to set the callback calling {@link Stargate#setAnalyticsCallback}
+ * 
+ */
+var analytics = (function(){
+
+	var cb;
+	var ana = {};
+
+	/**
+     * @name analytics#track
+     * @memberof analytics
+     *
+     * @description Send an event to webapp analytics callback if it's defined
+     *
+     * @param {object} event
+     */
+	ana.track = function(trackedEvent) {
+
+		if (typeof cb !== 'function') {
+			return log("[analytics] callback not set!");
+		}
+
+		// send it
+		try {
+			cb(trackedEvent);
+		}
+		catch (error) {
+			err("[analytics] callback error: "+error, error);
+		}
+	};
+
+	/**
+     * @name analytics#setCallback
+     * @memberof analytics
+     *
+     * @description Save webapp analytics callback to be called when an event is tracked
+     *
+     * @param {function} callback
+     */
+	ana.setCallback = function(callback) {
+		cb = callback;
+	};
+
+	return ana;
+})();
+
+
+/**
+ * @name Stargate#setAnalyticsCallback
+ * @memberof Stargate
+ *
+ * @description Save webapp analytics callback to be called when an event inside Stargaed need to be tracked
+ *
+ * @param {function} callback
+ */
+stargatePublic.setAnalyticsCallback = function(callback) {
+
+	analytics.setCallback(callback);
+};
+
+/*! AdStargate.JS - v0.0.1 - 2015-XX-XX
  *
  */
-
-stargatePublic.ad = new AdStargate();
-
+function AdStargate() {
 
 
 
-// FIXME
-//function reboot(){
-//    window.location.href = 'index.html';
-//}
+    this.initialize = function(data, callbackSuccess, callbackError){
+        err("unimplemented");
+        callbackError("unimplemented");
+    };
 
+    this.createBanner = function(data, callbackSuccess, callbackError){
+    	err("unimplemented");
+        callbackError("unimplemented");
+    };
 
-// - not used, enable if needed -
-//var utils = {
-//    elementHasClass: function (element, selector) {
-//        var className = " " + selector + " ",
-//            rclass = "/[\n\t\r]/g",
-//            i = 0;
-//        if ( (" " + element.className + " ").replace(rclass, " ").indexOf(className) >= 0 ) {
-//            return true;
-//        }
-//        return false;
-//    }
-//};
+    this.hideBanner = function(data, callbackSuccess, callbackError){
+    	err("unimplemented");
+        callbackError("unimplemented");
+    };
 
+    this.removeBanner = function(data, callbackSuccess, callbackError){
+    	err("unimplemented");
+        callbackError("unimplemented");
+    };
 
-// - not used, enable if needed -
-//function ab2str(buf) {
-//    return String.fromCharCode.apply(null, new Uint16Array(buf));
-//}
+    this.showBannerAtSelectedPosition = function(data, callbackSuccess, callbackError){
+    	err("unimplemented");
+        callbackError("unimplemented");
+    };
 
-// - not used, enable if needed -
-//function str2ab(str) {
-//    var buf = new ArrayBuffer(str.length * 2); // 2 bytes for each char
-//    var bufView = new Uint16Array(buf);
-//    for (var i=0; i < str.length; i++) {
-//        bufView[i] = str.charCodeAt(i);
-//    }
-//    return buf;
-//}
+    this.showBannerAtGivenXY = function(data, callbackSuccess, callbackError){
+    	err("unimplemented");
+        callbackError("unimplemented");
+    };
 
+    this.registerAdEvents = function(eventManager, callbackSuccess, callbackError){
+    	err("unimplemented");
+        callbackError("unimplemented");
+    };
 
+    this.prepareInterstitial = function(data, callbackSuccess, callbackError){
+    	err("unimplemented");
+        callbackError("unimplemented");
+    };
 
-var webappsFixes = (function() {
+    this.showInterstitial = function(data, callbackSuccess, callbackError){
+    	err("unimplemented");
+        callbackError("unimplemented");
+    };
+}
 
+/* globals AdMob, MoPub */
 
-	var waf = {};
-	var enabled = false;
+var AdManager = {
 
-	waf.init = function() {
-		if (stargateConf.hasOwnProperty('webappsfixes') && 
-			typeof stargateConf.webappsfixes === 'object') {
-
-			enabled = true;
-
-			// execute all fixes found in conf
-			for (var fixName in stargateConf.webappsfixes) {
-				if (stargateConf.webappsfixes.hasOwnProperty(fixName)) {
-					
-
-					if (fixes.hasOwnProperty(fixName) && typeof fixes[fixName] === 'function') {
-
-						log("[webappsFixes] applying fix: "+fixName);
-						
-						var error = fixes[fixName](stargateConf.webappsfixes[fixName]);
-
-						if (error) {
-							err("[webappsFixes] fix '"+fixName+"' failed: "+error);
-						}
+	AdMobSupport: false,
+	MoPubSupport: false,
+	AdPosition: {
+		NO_CHANGE: 0,
+		TOP_LEFT: 1,
+		TOP_CENTER: 2,
+		TOP_RIGHT: 3,
+		LEFT: 4,
+		CENTER: 5,
+		RIGHT: 6,
+		BOTTOM_LEFT: 7,
+		BOTTOM_CENTER: 8,
+		BOTTOM_RIGHT: 9,
+		POS_XY: 10
+	},
+	AdSize: {
+		SMART_BANNER: 'SMART_BANNER',
+		BANNER: 'BANNER',
+		MEDIUM_RECTANGLE: 'MEDIUM_RECTANGLE',
+		FULL_BANNER: 'FULL_BANNER',
+		LEADERBOARD: 'LEADERBOARD',
+		SKYSCRAPER: 'SKYSCRAPER'
+	},
+	DefaultOptions : null,
+		
+	initialize: function (options, success, fail) {
+		if(options)
+			AdManager.DefaultOptions = options;
+			
+		if (AdMob) { 
+			AdManager.AdMobSupport = true;
+			AdManager.initAdMob(options, success, fail);
+		}
+		
+		if (MoPub) { 
+			AdManager.MoPubSupport = true;
+		}	
+		
+		return true;
+	},
+	
+	isAdMobSupported: function(){
+		return AdManager.AdMobSupport;
+	},
+	
+	isMoPubSupported: function(){
+		return AdManager.MoPubSupport;
+	},
+	
+	getUserAgent: function(){
+		if( /(android)/i.test(navigator.userAgent) ) {
+			return "android";
+		} else if(/(ipod|iphone|ipad)/i.test(navigator.userAgent)) {
+			return "ios";
+		} else {
+			return "other";
+		}
+	},
+	
+	/* setOptions(options, success, fail); */
+	initAdMob: function(options, success, fail){
+	
+		var defaultOptions = {
+			//bannerId: AdManager.AdMobID[userAgent].banner,
+			//interstitialId: AdManager.AdMobID[userAgent].interstitial,
+			adSize: 'BANNER',
+			// width: integer, // valid when set adSize 'CUSTOM'
+			// height: integer, // valid when set adSize 'CUSTOM'
+			position: 8,
+			// offsetTopBar: false, // avoid overlapped by status bar, for iOS7+
+			bgColor: 'black', // color name, or '#RRGGBB'
+			// x: integer, // valid when set position to 0 / POS_XY
+			// y: integer, // valid when set position to 0 / POS_XY
+			isTesting: false, // set to true, to receiving test ad for testing purpose
+			autoShow: true // auto show interstitial ad when loaded, set to false if prepare/show
+		};
+		AdMob.setOptions(defaultOptions, success, fail);
+		
+	},
+	
+	/* TODO if needed */
+	//initMoPub: function(options, success, fail){
+	//
+	//},	
+	
+	registerAdEvents: function(eventManager) {
+		document.addEventListener('onAdFailLoad', eventManager);
+		document.addEventListener('onAdLoaded', eventManager);
+		document.addEventListener('onAdPresent', eventManager);
+		document.addEventListener('onAdLeaveApp', eventManager);
+		document.addEventListener('onAdDismiss', eventManager);
+	},
+	
+	manageAdEvents: function(data) {
+	
+		console.log('error: ' + data.error +
+			', reason: ' + data.reason +
+			', adNetwork:' + data.adNetwork +
+			', adType:' + data.adType +
+			', adEvent:' + data.adEvent); 
+	},
+	
+	/*
+	createBanner(data, success, fail);
+	data could be an object (one network) or an array of network info
+	each network is an object with position, autoShow, banner, full_banner, leaderboard, ecc
+	data = [{network: "dfp", device: "android", position: "BOTTOM_CENTER", banner: "/1017836/320x50_Radio_Leaderboard", autoShow: true},
+			{network: "mopub", device: "ios", position: "BOTTOM_CENTER", banner: "agltb3B1Yi1pbmNyDAsSBFNpdGUY8fgRDA", autoShow: true}];
+	*/
+	createBanner: function(data, success, fail) {
+		var options = {};
+		var opt = [];
+		var userAgent = AdManager.getUserAgent();
+		
+		/* no data, we use DefaultOptions */
+		if(!data){
+			if(!AdManager.isObjEmpty(AdManager.DefaultOptions)){
+				data = AdManager.DefaultOptions;
+			}		
+		}
+		
+		if(!Array.isArray(data)){
+			opt.push(data);
+		}
+		else {
+			opt = data;
+		}
+		
+		opt.forEach(function(entry) {
+            if(entry.device == 'default' || entry.device == userAgent){
+			
+				var adId = AdManager.getAdSize().toLowerCase();					
+			
+				if(entry.overlap) options.overlap = entry.overlap;
+				if(entry.offsetTopBar) options.offsetTopBar = entry.offsetTopBar;
+				options.adSize = AdManager.getAdSize();
+				if(adId) options.adId = entry[adId];
+				if(entry.position) options.position = AdManager.AdPosition[entry.position];
+				if(entry.width) options.width = entry.width;
+				if(entry.height) options.height = entry.height;
+				if(entry.autoShow) options.autoShow = entry.autoShow;
+				
+				if(entry.network.toLowerCase() == 'admob' || entry.network.toLowerCase() == 'dfp'){
+					if(entry.width && entry.height){
+						options.adSize = 'CUSTOM';
 					}
-					else {
-						err("[webappsFixes] fix implementation not found for: "+fixName);
-					}
+					AdMob.createBanner(options, success, fail);
+				}
+				else if(entry.network.toLowerCase().toLowerCase() == 'mopub'){
+					MoPub.createBanner(options, success, fail);
+				}			
+			}
+		});
+	},
+	
+	/*
+	data could be an object (one network) or an array of network info
+	each entry is an object with position, device and network properties
+	data = [{network: "dfp", device: "android", position: "BOTTOM_CENTER"},
+			{network: "mopub", device: "ios", position: "BOTTOM_CENTER"}];
+	data.network could be admob, mopub, dfp
+	data.position could be: NO_CHANGE, TOP_LEFT, TOP_CENTER, TOP_RIGHT, LEFT, CENTER, RIGHT, BOTTOM_LEFT, BOTTOM_CENTER, BOTTOM_RIGHT, POS_XY
+	*/
+	showBannerAtSelectedPosition: function(data) {
+	
+		var opt = [];
+		var userAgent = AdManager.getUserAgent();
+		
+		/* no data, we use DefaultOptions */
+		if(!data){
+			if(!AdManager.isObjEmpty(AdManager.DefaultOptions)){
+				data = AdManager.DefaultOptions;
+			}		
+		}
+		
+		if(!Array.isArray(data)){
+			opt.push(data);
+		}
+		else {
+			opt = data;
+		}
+		
+		opt.forEach(function(entry) {
+            if(entry.device == 'default' || entry.device == userAgent){
+			
+				if(entry.network.toLowerCase() == 'admob' || entry.network.toLowerCase() == 'dfp'){
+					AdMob.showBanner(entry.position);
+				}
+				else if(entry.network.toLowerCase().toLowerCase() == 'mopub'){
+					MoPub.showBanner(entry.position);
+				}	
+			
+			}
+		});
+	},
+	
+	/*
+	data could be an object (one network) or an array of network info
+	each entry is an object with position, device and network properties
+	data = [{network: "dfp", device: "android", x: "", y: ""},
+			{network: "mopub", device: "ios", x: "", y: ""}];
+	data.network could be admob, mopub, dfp
+	*/
+	showBannerAtGivenXY: function(data) {
+	
+		var opt = [];
+		var userAgent = AdManager.getUserAgent();
+		
+		/* no data, we use DefaultOptions */
+		if(!data){
+			if(!AdManager.isObjEmpty(AdManager.DefaultOptions)){
+				data = AdManager.DefaultOptions;
+			}		
+		}
+		
+		if(!Array.isArray(data)){
+			opt.push(data);
+		}
+		else {
+			opt = data;
+		}
+		
+		opt.forEach(function(entry) {
+            if(entry.device == 'default' || entry.device == userAgent){
+			
+				if(entry.network.toLowerCase() == 'admob' || entry.network.toLowerCase() == 'dfp'){
+					AdMob.showBannerAtXY(entry.x, entry.y);
+				}
+				else if(entry.network.toLowerCase().toLowerCase() == 'mopub'){
+					MoPub.showBannerAtXY(entry.x, entry.y);
+				}	
+			
+			}
+		});
+	},
+	
+	/*
+	data could be an object (one network) or an array of network info
+	each entry is an object with position, device and network properties
+	data = [{network: "dfp", device: "android"},
+			{network: "mopub", device: "ios"}];
+	*/
+	hideBanner: function(data) {
+	
+		var opt = [];
+		var userAgent = AdManager.getUserAgent();
+		
+		/* no data, we use DefaultOptions */
+		if(!data){
+			if(!AdManager.isObjEmpty(AdManager.DefaultOptions)){
+				data = AdManager.DefaultOptions;
+			}		
+		}
+		
+		if(!Array.isArray(data)){
+			opt.push(data);
+		}
+		else {
+			opt = data;
+		}
+		
+		opt.forEach(function(entry) {
+            if(entry.device == 'default' || entry.device == userAgent){
+			
+				if(entry.network.toLowerCase() == 'admob' || entry.network.toLowerCase() == 'dfp'){
+					AdMob.hideBanner();
+				}
+				else if(entry.network.toLowerCase().toLowerCase() == 'mopub'){
+					MoPub.hideBanner();
+				}	
+			
+			}
+		});
+	},
+	
+	/*
+	data could be an object (one network) or an array of network info
+	each entry is an object with position, device and network properties
+	data = [{network: "dfp", device: "android"},
+			{network: "mopub", device: "ios"}];
+	*/
+	removeBanner: function(data) {
+	
+		var opt = [];
+		var userAgent = AdManager.getUserAgent();
+		
+		/* no data, we use DefaultOptions */
+		if(!data){
+			if(!AdManager.isObjEmpty(AdManager.DefaultOptions)){
+				data = AdManager.DefaultOptions;
+			}		
+		}
+		
+		if(!Array.isArray(data)){
+			opt.push(data);
+		}
+		else {
+			opt = data;
+		}
+		
+		opt.forEach(function(entry) {
+            if(entry.device == 'default' || entry.device == userAgent){
+			
+				if(entry.network.toLowerCase() == 'admob' || entry.network.toLowerCase() == 'dfp'){
+					AdMob.removeBanner();
+				}
+				else if(entry.network.toLowerCase().toLowerCase() == 'mopub'){
+					MoPub.removeBanner();
+				}	
+			
+			}
+		});
+	},
+	
+	/*
+	data could be an object (one network) or an array of network info
+	each entry is an object with position, device and network properties
+	data = [{network: "dfp", device: "android", interstitial: ""},
+			{network: "mopub", device: "ios", interstitial: ""}];
+	*/
+	prepareInterstitial: function(data, success, fail) {
+	
+		var options = {};
+		var opt = [];
+		var userAgent = AdManager.getUserAgent();
+		
+		/* no data, we use DefaultOptions */
+		if(!data){
+			if(!AdManager.isObjEmpty(AdManager.DefaultOptions)){
+				data = AdManager.DefaultOptions;
+			}		
+		}
+		
+		if(!Array.isArray(data)){
+			opt.push(data);
+		}
+		else {
+			opt = data;
+		}
+		
+		opt.forEach(function(entry) {
+            if(entry.device == 'default' || entry.device == userAgent){				
+			
+				if(entry.interstitial) options.adId = entry.interstitial;
+				if(entry.autoShow) options.autoShow = entry.autoShow;
+				
+				if(entry.network.toLowerCase() == 'admob' || entry.network.toLowerCase() == 'dfp'){
+					AdMob.prepareInterstitial(options);
+				}
+				else if(entry.network.toLowerCase() == 'mopub'){
+					MoPub.prepareInterstitial(options, success, fail);
 				}
 			}
-
+		});
+	},
+	
+	/*
+	data could be an object (one network) or an array of network info
+	each entry is an object with position, device and network properties
+	data = [{network: "dfp", device: "android", interstitial: ""},
+			{network: "mopub", device: "ios", interstitial: ""}];
+	*/
+	showInterstitial: function(data) {
+	
+		var opt = [];
+		var userAgent = AdManager.getUserAgent();
+		
+		/* no data, we use DefaultOptions */
+		if(!data){
+			if(!AdManager.isObjEmpty(AdManager.DefaultOptions)){
+				data = AdManager.DefaultOptions;
+			}		
 		}
-
-		return enabled;
-	};
-
-	// fixes function must return an empty string when result is ok and
-	//  a string describing the error when there is one error
-	var fixes = {};
-	fixes.gamifiveSearchBox = function(conf) {
-		// 
-
-		if (! window.cordova || ! window.cordova.plugins || ! window.cordova.plugins.Keyboard) {
-			return "missing ionic-plugin-keyboard";
+		
+		if(!Array.isArray(data)){
+			opt.push(data);
 		}
-
-		if (conf.platforms) {
-			if (isRunningOnIos() && ! conf.platforms.ios) {
-				return "fix disabled on iOS";
+		else {
+			opt = data;
+		}
+		
+		opt.forEach(function(entry) {
+            if(entry.device == 'default' || entry.device == userAgent){
+			
+				if(entry.network.toLowerCase() == 'admob' || entry.network.toLowerCase() == 'dfp'){
+					AdMob.showInterstitial();
+				}
+				else if(entry.network.toLowerCase().toLowerCase() == 'mopub'){
+					MoPub.showInterstitial();
+				}	
+			
 			}
-			if (isRunningOnAndroid() && ! conf.platforms.android) {
-				return "fix disabled on Android";
-			}
+		});
+	},
+	
+	isObjEmpty: function(obj) {
+		return Object.keys(obj).length === 0;
+	},
+	
+	getAdSize: function(){
+	
+		var height = screen.height;
+		var width = screen.width;
+	
+		if(width >= 728 && height >= 90 ) {
+			return AdManager.AdSize.LEADERBOARD;
+		} else if (width >= 468 && height >= 60 ) {
+			//return AdManager.AdSize.FULL_BANNER;
+			return AdManager.AdSize.BANNER;
+		} else if (width >= 320 && height >= 50 ) {
+			return AdManager.AdSize.BANNER;
+			
 		}
-
-		window.addEventListener(
-			'native.keyboardshow',
-			function(){
-				setTimeout(function() {
-					if (document.querySelectorAll('input:focus').length === 0) {
-						log('[webappsFixes] [gamifiveSearchBox] keyboard show on null input: hiding');
-						
-						cordova.plugins.Keyboard.close();
-					}
-				},
-				1);
-			},
-			false
-		);
-
-		log('[webappsFixes] [gamifiveSearchBox] listening on event native.keyboardshow');
-
-
-		return '';
-	};
-
-	//window.addEventListener('native.keyboardshow', function(){ console.log('keyboardshow start'); if($(':focus')===null){console.log('keyboard show on null input, hiding');cordova.plugins.Keyboard.close()} console.log('keyboardshow finish') }, false)
-
-	return waf;
-})();
-    // Just return a value to define the module export
+	}
+	
+	
+};
+    stargatePublic.game = stargateModules.game._public;
+    stargatePublic.file = stargateModules.file;    // Just return a value to define the module export
     return stargatePublic;
 }));
 

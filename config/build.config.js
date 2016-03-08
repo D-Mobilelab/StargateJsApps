@@ -37,7 +37,7 @@ module.exports = {
 
 	closureEnd: '\n' +
         '    stargatePublic.game = stargateModules.game._public;\n' +
-        '    '+
+        '    stargatePublic.file = stargateModules.file;'+
  		'    // Just return a value to define the module export\n' +
     	'    return stargatePublic;\n' +
         '}));\n\n\n',
@@ -54,7 +54,6 @@ module.exports = {
 	bowerFileList: [
 		'bower_components/urijs/src/URI.js',
 		'bower_components/urijs/src/URITemplate.js',
-		'bower_components/q/q.js',
 		'bower_components/aja/src/aja.js',
 		'bower_components/promise-polyfill/Promise.js',
 		'bower_components/cookies-js/dist/cookies.js'

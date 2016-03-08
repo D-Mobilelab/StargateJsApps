@@ -1,5 +1,4 @@
-
-/* globals Q */
+/* globals SpinnerDialog */
 
 /***
 * 
@@ -7,7 +6,8 @@
 * 
 */
 
-// current stargateVersion 
+// current stargateVersion used by webapp to understand
+//  the version to load based on cookie or localstorage
 var stargateVersion = "2";
 
 // logger function
@@ -66,7 +66,6 @@ var isStargateRunningInsideHybrid = false;
 var isStargateInitialized = false;
 var isStargateOpen = false;
 var initializeCallback = null;
-var initializeDeferred = null;
 
 var appVersion = '';
 
@@ -137,7 +136,17 @@ var setIsHybrid = function() {
     }
 };
 
-var onPluginReady = function () {
+var hydeSplashAndLoaders = function() {
+    
+    navigator.splashscreen.hide();
+    setBusy(false);
+    
+    if (typeof SpinnerDialog !== "undefined") {
+        SpinnerDialog.hide();
+    }
+};
+
+var onPluginReady = function (resolve, reject) {
     
     // FIXME: this is needed ??
     document.title = stargateConf.title;
@@ -169,42 +178,57 @@ var onPluginReady = function () {
         );
     }
 
-    
-    navigator.splashscreen.hide();
-    setBusy(false);
-
     // initialize all modules
 
     // In-app purchase initialization
     IAP.initialize();
 
     // receive appsflyer conversion data event
-    appsflyer.init();
+    if (hasFeature('appsflyer')) {
+        appsflyer.init();
+    }
     
     // apply webapp fixes
     webappsFixes.init();
-
+    
+    var modulePromises = [];
+    
     //Game Module Init
     if (hasFeature('game') && stargateModules.game) {
-        stargateModules.game._protected.initialize({});
+        modulePromises.push(
+            stargateModules.game._protected.initialize({})
+        );
     }
+    
+    
+    // wait for all module initializations before calling the webapp
+    Promise.all(
+            modulePromises
+        )
+        .then(function() {
+            hydeSplashAndLoaders();
+            
+            // initialize finished
+            isStargateOpen = true;
+            
+            log("version "+stargatePackageVersion+" ready; "+
+                "loaded from server version: v"+stargateVersion+
+                " running in package version: "+appVersion);
+            
+            //execute callback
+            initializeCallback(true);
 
-    // initialize finished
-    isStargateOpen = true;
-
-    log("version "+stargatePackageVersion+" ready; "+
-        "loaded from server version: v"+stargateVersion+
-        " running in package version: "+appVersion);
-
-    //execute callback
-    // FIXME: check callback type is function
-    initializeCallback(true);
-
-    log("Stargate.initialize() done");
-    initializeDeferred.resolve(true);
+            log("Stargate.initialize() done");
+            resolve(true);
+            
+        })
+        .catch(function (error) {
+            err("onPluginReady() error: "+error);
+            reject("onPluginReady() error: "+error);
+        });
 };
 
-var onDeviceReady = function () {
+var onDeviceReady = function (resolve, reject) {
 
     // device ready received so i'm sure to be hybrid
     setIsHybrid();
@@ -216,7 +240,7 @@ var onDeviceReady = function () {
     initializeConnectionStatus();
 
     // request all asyncronous initialization to complete
-    Q.all([
+    Promise.all([
         // include here all needed asyncronous initializazion
         cordova.getAppVersion.getVersionNumber(),
         getManifest()
@@ -235,10 +259,11 @@ var onDeviceReady = function () {
         stargateConf = results[1].stargateConf;
 
         // execute remaining initialization
-        onPluginReady();
+        onPluginReady(resolve, reject);
     })
-    .fail(function (error) {
+    .catch(function (error) {
         err("onDeviceReady() error: "+error);
+        reject("onDeviceReady() error: "+error);
     });
 };
 

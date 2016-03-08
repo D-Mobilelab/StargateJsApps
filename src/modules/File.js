@@ -106,7 +106,7 @@
     /**
      *  File.removeFile
      *
-     *  @param {String} filePath -
+     *  @param {String} filePath - file://
      *  @returns {Promise<String|FileError>}
      * */
     File.removeFile = function(filePath){
@@ -185,7 +185,7 @@
                     reject(reason);
                     File.currentFileTransfer = null;
                 },
-                true
+                true //trustAllHosts
             );
         });
     };
@@ -322,9 +322,59 @@
             });
     };
 
+    /**
+     * */
     File.write = function(filepath, content){
         return File.appendToFile(filepath, content, true);
     };
+
+    /**
+     * */
+    File.moveDir = function(source, destination){
+        var newFolderName = destination.substring(destination.lastIndexOf('/')+1);
+        var parent = destination.replace(newFolderName, "");
+        
+        LOG.d("moveDir:", parent, newFolderName);
+        return Promise.all([File.resolveFS(source), File.resolveFS(parent)])
+            .then(function(entries){
+                LOG.d("moveDir: resolved entries", entries);
+                return new Promise(function(resolve, reject){
+                    entries[0].moveTo(entries[1], newFolderName, resolve, reject);
+                });
+            });
+    };
+
+    /**
+     * */
+    File.copyFile = function(source, destination){
+        var newFilename = destination.substring(destination.lastIndexOf('/')+1);
+        var parent = destination.replace(newFilename, "");
+
+        return Promise.all([File.resolveFS(source), File.resolveFS(parent)])
+            .then(function(entries){
+                //TODO: check if are really files
+                LOG.d("copyFileTo", entries);
+                return new Promise(function(resolve, reject){
+                    entries[0].copyTo(entries[1], newFilename, resolve, reject);
+                });
+            });
+    };
+
+    /**
+     * */
+    File.copyDir = function(source, destination){
+        var newFolderName = destination.substring(destination.lastIndexOf('/')+1);
+        var parent = destination.replace(newFolderName, "");
+
+        return Promise.all([File.resolveFS(source), File.resolveFS(parent)])
+            .then(function(entries){
+                LOG.d("copyDir", source, "in",destination);
+                return new Promise(function(resolve, reject){
+                    entries[0].copyTo(entries[1], newFolderName, resolve, reject);
+                });
+            });
+    };
+
 
     /**
      * __transform utils function
@@ -333,14 +383,16 @@
      * @returns {Array.<Object>} - an array of Object
      * */
     function __transform(entries){
-        return entries.map(function(entry){
+        var arr = entries.map(function(entry){
             return {
+                fullPath:entry.fullPath,
                 path:entry.toURL(),
                 internalURL:entry.toInternalURL(),
                 isFile:entry.isFile,
                 isDirectory:entry.isDirectory
             };
         });
+        return (arr.length == 1) ? arr[0] : arr;
     }
     _modules.file = File;
     return File;

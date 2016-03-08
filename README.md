@@ -3,6 +3,7 @@
 [![Coverage Status](https://coveralls.io/repos/BuongiornoMIP/StargateJsApps/badge.svg?branch=master&service=github)](https://coveralls.io/github/BuongiornoMIP/StargateJsApps?branch=master)
 
 
+
 # StargateJsApps
 
 [![Join the chat at https://gitter.im/BuongiornoMIP/StargateJsApps](https://badges.gitter.im/BuongiornoMIP/StargateJsApps.svg)](https://gitter.im/BuongiornoMIP/StargateJsApps?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
@@ -196,6 +197,14 @@ IAP subscription
 
 IAP restore
 
+## Stargate.inAppProductInfo(productId, callbackSuccess, callbackError)
+
+IAP product information
+Call callbacks with information about a product got from store
+
+productId - product id about to query for information on store
+callbackSuccess - a function that will be called when information are ready
+callbackError - a function that will be called in case of error
 
 ## Stargate.getVersion()
 

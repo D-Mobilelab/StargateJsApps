@@ -119,12 +119,7 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
     if (typeof callback !== 'function') {
         err("Stargate.initialize() callback is not a function!");
 
-        var errDefer = Q.defer();
-        setTimeout(function(){
-            // fail the promise
-            errDefer.reject(new Error("Stargate.initialize() callback is not a function!"));
-        }, 1);
-        return errDefer.promise;
+        return Promise.reject(new Error("Stargate.initialize() callback is not a function!"));
     }
 
     isStargateRunningInsideHybrid = isHybridEnvironment();
@@ -137,12 +132,7 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
         
         if(callback){callback(isStargateRunningInsideHybrid);}
 
-        var alreadyRunningDefer = Q.defer();
-        setTimeout(function(){
-            // resolve the promise
-            alreadyRunningDefer.resolve(isStargateRunningInsideHybrid);
-        }, 1);
-        return alreadyRunningDefer.promise;
+        return Promise.resolve(isStargateRunningInsideHybrid);
     }
 
     isStargateInitialized = true;
@@ -167,25 +157,29 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
         log("version "+stargatePackageVersion+" running outside hybrid; "+
             "loaded from server version: v"+stargateVersion);
 
-        callback(isStargateRunningInsideHybrid);
-
-        var notHybridDefer = Q.defer();
-        setTimeout(function(){
-            // resolve the promise
-            notHybridDefer.resolve(isStargateRunningInsideHybrid);
-        }, 1);
-        return notHybridDefer.promise;
+        if(callback){callback(isStargateRunningInsideHybrid);}
+        
+        return Promise.resolve(isStargateRunningInsideHybrid);
     }
 
     log("initialize() starting up, configuration: ",hybrid_conf);
 
     initializeCallback = callback;
-    initializeDeferred = Q.defer();
-
-    // finish the initialization of cordova plugin when deviceReady is received
-    document.addEventListener('deviceready', onDeviceReady, false);
     
-    return initializeDeferred.promise;
+    var initPromise = new Promise(function(resolve,reject){
+        
+        
+        // finish the initialization of cordova plugin when deviceReady is received
+        document.addEventListener('deviceready', function(){
+            
+            onDeviceReady(resolve, reject);
+            
+        }, false);
+    });
+
+    
+    
+    return initPromise;
 };
 
 stargatePublic.isInitialized = function() {

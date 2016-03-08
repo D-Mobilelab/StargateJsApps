@@ -23,7 +23,6 @@
     "!bower.json"
   ],
   "dependencies": {
-    "q": "1.0.1",
     "urijs": "uri.js#~1.17.0",
     "aja": "https://github.com/krampstudio/aja.js.git#~0.4.1",
     "promise-polyfill": "^3.1.0",
