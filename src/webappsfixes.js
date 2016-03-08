@@ -49,10 +49,12 @@ var webappsFixes = (function() {
 
 		if (conf.platforms) {
 			if (isRunningOnIos() && ! conf.platforms.ios) {
-				return "fix disabled on iOS";
+				log('[webappsFixes] [gamifiveSearchBox] fix disabled on iOS');
+                return;
 			}
 			if (isRunningOnAndroid() && ! conf.platforms.android) {
-				return "fix disabled on Android";
+				log('[webappsFixes] [gamifiveSearchBox] fix disabled on Android');
+				return;
 			}
 		}
 
