@@ -224,7 +224,7 @@ describe("Game module tests", function() {
     });
 
     afterEach(function(done){
-        removeFolders([SDK_DIR, GAMES_DIR]).then(function(results){
+        removeFolders([SDK_DIR, GAMES_DIR, STORAGE_DIR + "gameover_template"]).then(function(results){
             console.log("afterEach:", results);
             done();
         }).catch(function(){done();});
@@ -277,7 +277,7 @@ describe("Game module tests", function() {
 
     fit("Game folders test",function(done){
         game.initialize().then(function(){
-            return game.download(gameObject);
+
         }).then(function(gameID){
             expect(gameID).toEqual(gameObject.id);
             done();
