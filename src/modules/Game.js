@@ -14,7 +14,8 @@
         wwwDir,
         dataDir,
         stargatejsDir,
-        SDK_URL = "http://s2.motime.com/js/wl/webstore_html5game/gfsdk/dist/gfsdk.js";
+        SDK_URL = "http://s2.motime.com/js/wl/webstore_html5game/gfsdk/dist/gfsdk.js",
+        DIXIE_URL = "http://s2.motime.com/tbr/dixie.js?country=it-igames";
     
     // GAMEINFO object
     //
@@ -80,7 +81,7 @@
         constants.WWW_DIR = wwwDir;
 
         /** expose games dir */
-        _modules.game.GAMES_DIR = constants.GAMES_DIR;
+        _modules.game._public.GAMES_DIR = constants.GAMES_DIR;
         
         function firstInit(){
             /**
@@ -97,6 +98,7 @@
                     LOG.d("Getting SDK from:", SDK_URL);
                     return Promise.all([
                         fileModule.download(SDK_URL, results[1].path, "gfsdk.min.js"),
+                        fileModule.download(DIXIE_URL, results[1].path, "dixie.js"),
                         fileModule.copyDir(constants.WWW_DIR + "gameover_template", constants.BASE_DIR + "gameover_template"),
                         fileModule.copyDir(constants.WWW_DIR + "plugins", constants.SDK_DIR + "plugins"),
                         fileModule.copyFile(constants.CORDOVAJS, constants.SDK_DIR + "cordova.js"),
@@ -209,6 +211,7 @@
                     return injectScripts(gameObject.id, [
                                 constants.GAMEOVER_RELATIVE_DIR + "gameover.css",
                                 constants.SDK_RELATIVE_DIR + "cordova.js",
+                                constants.SDK_RELATIVE_DIR + "dixie.js",
                                 constants.SDK_RELATIVE_DIR + "cordova_plugins.js",
                                 constants.SDK_RELATIVE_DIR + "gfsdk.min.js",
                                 constants.SDK_RELATIVE_DIR + "stargate.js"
@@ -256,7 +259,7 @@
             })
             .then(function(entry){
                 LOG.d(entry);
-                var address = entry[0].internalURL;
+                var address = entry[0].internalURL + "?hybrid=1";
                 if(window.device.platform.toLowerCase() == "ios"){
                     LOG.d("Play ios", address);
                     window.location.href = address;
@@ -490,14 +493,13 @@
                     .replace("{{url_cover}}", metaJson.url_cover)                    
                     .replace("{{startpage_url}}", constants.WWW_DIR + "startpage.html");              
         });
-                  
-    };    
+    };
     
     var _protected = {};
+    _modules.game = {};
+
     _protected.initialize = initialize;
-    _modules.game = {
-        _protected:_protected,
-        _public:new Game()
-    };
+    _modules.game._protected = _protected;
+    _modules.game._public = new Game();
 
 })(stargateModules.file, stargateModules.Logger, stargateModules);
