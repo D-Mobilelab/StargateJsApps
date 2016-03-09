@@ -114,11 +114,14 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
         callback = pubKeyPar;
     }
 
+    if(typeof callback === 'undefined'){
+        log("Callback success not setted. \n You can use 'then'");
+        callback = function(){};
+    }
     // check callback type is function
     // if not return a failing promise 
     if (typeof callback !== 'function') {
-        err("Stargate.initialize() callback is not a function!");
-
+        log("Stargate.initialize() callback is not a function!");
         return Promise.reject(new Error("Stargate.initialize() callback is not a function!"));
     }
 
@@ -176,8 +179,6 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
             
         }, false);
     });
-
-    
     
     return initPromise;
 };
