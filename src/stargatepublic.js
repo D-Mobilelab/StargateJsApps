@@ -98,6 +98,16 @@ stargatePublic.conf.getWebappStartUrl = function() {
 };
 
 /**
+ * Get webapp url origin
+ * @returns {String}
+ */
+stargatePublic.conf.getWebappOrigin = function() {
+    var re = /http:\/\/[\w]{3,4}\..*\.[\w]{2,}/;
+    var origin = re.exec(stargateConf.webapp_start_url)[0];
+    return origin;
+};
+
+/**
 *
 * initialize(configurations, callback)
 * @deprecated initialize(configurations, pubKey, forge, callback)
