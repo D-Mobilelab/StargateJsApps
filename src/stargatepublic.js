@@ -103,8 +103,12 @@ stargatePublic.conf.getWebappStartUrl = function() {
  */
 stargatePublic.conf.getWebappOrigin = function() {
     var re = /http:\/\/[\w]{3,4}\..*\.[\w]{2,}/;
-    var origin = re.exec(stargateConf.webapp_start_url)[0];
-    return origin;
+    if(typeof stargateConf.webapp_start_url === "undefined"){
+        log("Stargate is initialized? Please call this method after it");
+        return "";
+    }else{
+        return re.exec(stargateConf.webapp_start_url)[0];
+    }
 };
 
 /**

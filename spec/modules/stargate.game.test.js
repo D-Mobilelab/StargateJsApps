@@ -8,6 +8,16 @@ function isRunningOnIos(){
 function isRunningOnAndroid(){
     return window.device.platform.toLowerCase() == "android";
 }
+
+var conf = {
+    bundleGames:
+    [
+        "7329ebbdf49065552dac00f4f6e1be10",
+        "fd9ac2e5c1aeba0b89270688569d8f6e",
+        "4cf74f31e3cf4f75d33d191b78639a57"
+    ]
+};
+
 var gameObject =
 {
     "id":"4de756a55ac71f45c5b7b4211b71219e",
@@ -207,7 +217,8 @@ describe("Game module tests", function() {
         STORAGE_DIR,
         GAMES_DIR,
         SDK_DIR,
-        TEST_FOLDER_NAME = "Test";
+        TEST_FOLDER_NAME = "Test",
+        GAMEOVER_DIR;
 
     beforeAll(function(done){
         document.addEventListener("deviceready", function(readyEvent){
@@ -215,6 +226,7 @@ describe("Game module tests", function() {
             if(isRunningOnIos()){ STORAGE_DIR += "Documents/"; }
             SDK_DIR = STORAGE_DIR + "scripts/";
             GAMES_DIR = STORAGE_DIR + "games/";
+            GAMEOVER_DIR = STORAGE_DIR + "gameover_template";
             done();
         });
     });
@@ -224,10 +236,10 @@ describe("Game module tests", function() {
     });
 
     afterEach(function(done){
-        removeFolders([SDK_DIR, GAMES_DIR, STORAGE_DIR + "gameover_template"]).then(function(results){
+        removeFolders([SDK_DIR, GAMES_DIR, GAMEOVER_DIR]).then(function(results){
             console.log("afterEach:", results);
             done();
-        }).catch(function(){done();});
+        }).catch(function(){console.error(arguments)});
     });
 
     it("Game should exists", function() {
@@ -236,7 +248,7 @@ describe("Game module tests", function() {
 
     it("Test abortDownload", function(done){
 
-        game.initialize(GamifiveInfo.user)
+        game.initialize()
             .then(function(){
                 game.download(gameObject);
 
@@ -244,69 +256,42 @@ describe("Game module tests", function() {
                     var res = game.abortDownload();
                     expect(res).toBe(true);
                     done();
-                }, 100);
+                }, 500);
             });
     });
 
     it("Test abortDownload should not to abort if is not downloading", function(done){
 
-        game.initialize(GamifiveInfo.user);
-
-                setTimeout(function pippo(){
-                    var res = game.abortDownload();
-                    expect(res).toBe(false);
-                    done();
-                }, 500);
+        function check(results){
+                console.log(results);
+                var res = game.abortDownload();
+                expect(res).toBe(false);
+                done();
+        }
+        game.initialize().then(check);
     });
 
     it("Test download game already exists", function(done){
 
-        game.initialize(GamifiveInfo.user)
+        function check(reason){
+            expect(reason).toEqual({12:"AlreadyExists",gameID:gameObject.id});
+            done();
+        }
+
+        game.initialize()
             .then(function(results){
-               console.log(results);
                return createFolder(GAMES_DIR, gameObject.id);
             })
             .then(function(result){
                 return game.download(gameObject);
             })
-            .catch(function(reason){
-                expect(reason).toEqual({12:"AlreadyExists",gameID:gameObject.id});
-                done();
-            });
+            .catch(check);
     });
 
-    fit("Game folders test",function(done){
-        game.initialize().then(function(){
-
-        }).then(function(gameID){
-            expect(gameID).toEqual(gameObject.id);
-            done();
-        });
-    });
-
-    it("Gameover template test", function(done){
-        game.initialize()
+    fit("Test configuration bundle games", function(done){
+        game.initialize(conf)
             .then(function(results){
-                console.log("Initialize test results", results);
-                return game.download(gameObject, 
-                    {
-                        onEnd:function(e){
-                            console.log(e);
-                        }
-                    });
-            })
-            .then(function(results){
-                console.log("Download results", results);
-                return game.buildGameOver(
-                    {   score:50, 
-                        start:0, 
-                        duration:0,
-                        content_id:gameObject.id
-                    });
-            })
-            .then(function(result){
-                expect(result).toContain(50);
-                done();
+
             });
     });
 });

@@ -1,10 +1,9 @@
 /**
  * Logger module
- * @module src/modules/Logger
+ * @module src/modules/Utils
  * @type {Object}
  */
 (function(stargateModules){
-
     /**
      * @constructor
      * @alias module:src/modules/Logger
@@ -92,14 +91,56 @@
         this.level = Logger.levels[label];
     };
 
+    /**
+     * makeIterator
+     *
+     * make an iterator object from array
+     * @param {Array} array - the array you want to transform in iterator
+     * @returns {Object} - an iterator like object
+     * */
+    function Iterator(array){
+        var nextIndex = 0;
+
+        return {
+            next: function(reset){
+                if(reset){nextIndex = 0;}
+                return nextIndex < array.length ?
+                {value: array[nextIndex++], done: false} :
+                {done: true};
+            }
+        }
+    }
 
     /**
-     * A module representing a Logger class
-     * @exports Logger
-     */
-    if (stargateModules) {
-        stargateModules.Logger = Logger;
-    } else {
-        window.Logger = Logger;
+     * A function to compose query string
+     * @param {Strinq} api
+     * @param {Object} params
+     * @returns {String}
+     * */
+    function composeApiString(api, params){
+        api += "?";
+        var qs = "";
+
+        for(var key in params){
+            qs += encodeURIComponent(key) + "=" + encodeURIComponent(params[key]) + "&";
+        }
+
+        if (qs.length > 0){
+            qs = qs.substring(0, qs.length-1); //chop off last "&"
+        }
+        return api + qs;
     }
+
+    var exp = {
+        Iterator:Iterator,
+        Logger:Logger,
+        composeApiString:composeApiString
+    };
+
+    if(stargateModules){
+        stargateModules.Utils = exp;
+    }else{
+        window.Utils = exp;
+    }
+
 })(stargateModules);

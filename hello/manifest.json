@@ -33,7 +33,7 @@
             "androidMenuPlayme": false,
             "inappPurchase": true,
             "deltadna" : false,
-            "offline":true
+            "game":true
     },
 
     "api": {

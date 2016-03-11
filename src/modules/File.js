@@ -3,7 +3,7 @@
  * @module src/modules/File
  * @type {Object}
  * @see cordova.file
- * @requires ./Logger.js
+ * @requires ./Utils.js
  */
 (function(_modules, Logger){
 
@@ -397,4 +397,4 @@
     _modules.file = File;
     return File;
 
-})(stargateModules, stargateModules.Logger);
+})(stargateModules, stargateModules.Utils.Logger);
