@@ -18,7 +18,7 @@
     "stargateConf": {
     "title": "Gameasy",
         "country": "",
-
+        "webapp_start_url": "http://www2.gameasy.com/?hybrid=1",
         "motime_apikey": "",
         "namespace": "",
         "label": "",
@@ -33,7 +33,7 @@
             "androidMenuPlayme": false,
             "inappPurchase": true,
             "deltadna" : false,
-            "offline":true
+            "game":true
     },
 
     "api": {

@@ -98,8 +98,30 @@ stargatePublic.conf.getWebappStartUrl = function() {
 };
 
 /**
-*
+ * Get webapp url origin
+ * @returns {String}
+ */
+stargatePublic.conf.getWebappOrigin = function() {
+    var re = /http:\/\/[\w]{3,4}\..*\.[\w]{2,}/;
+    if(typeof stargateConf.webapp_start_url === "undefined"){
+        log("Stargate is initialized? Please call this method after it");
+        return "";
+    }else{
+        return re.exec(stargateConf.webapp_start_url)[0];
+    }
+};
+
+/**
+* 
 * initialize(configurations, callback)
+* @param {object} [configurations={}] - an object with configurations
+* @param @deprecated [configurations.country=undefined] - MFP country @deprecated since 0.2.3
+* @param @deprecated [configurations.hybrid_conf={}] - old configuration of modules, used by IAP @deprecated since 0.2.3 
+* @param [configurations.modules=["mfp","iapbase","appsflyer"]] - array with one or more of: "mfp","iapbase","iap","appsflyer","game"
+* @param [configurations.modules_conf={}] - an object with configurations for modules
+* @param {Function} [callback=function(){}] - callback success
+* @returns {Promise<boolean>} - true if we're running inside hybrid
+*
 * @deprecated initialize(configurations, pubKey, forge, callback)
 */
 stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callback) {
@@ -114,11 +136,14 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
         callback = pubKeyPar;
     }
 
+    if(typeof callback === 'undefined'){
+        log("Callback success not setted. \n You can use 'then'");
+        callback = function(){};
+    }
     // check callback type is function
     // if not return a failing promise 
     if (typeof callback !== 'function') {
-        err("Stargate.initialize() callback is not a function!");
-
+        war("Stargate.initialize() callback is not a function!");
         return Promise.reject(new Error("Stargate.initialize() callback is not a function!"));
     }
 
@@ -128,7 +153,7 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
     //  * execute the callback
     //  * return a resolving promise
     if (isStargateInitialized) {
-        err("Stargate.initialize() already called, executing callback.");
+        war("Stargate.initialize() already called, executing callback.");
         
         if(callback){callback(isStargateRunningInsideHybrid);}
 
@@ -136,17 +161,56 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
     }
 
     isStargateInitialized = true;
-
-
-    if(configurations.country){
-        country = configurations.country;
+    
+    if (typeof configurations !== 'object') {
+        configurations = {};
     }
     
+    // old configuration mechanism, used by IAP
     if(configurations.hybrid_conf){
         if (typeof configurations.hybrid_conf === 'object') {
             hybrid_conf = configurations.hybrid_conf;
         } else {
             hybrid_conf = JSON.parse(decodeURIComponent(configurations.hybrid_conf));
+        }
+    }
+    
+    if(configurations.modules){
+        // save modules requested by caller,
+        // initialization will be done oly for these modules
+        
+        // check type
+        if (configurations.modules.constructor !== Array) {
+            err("initialize() configurations.modules is not an array");
+        }
+        else {
+            requested_modules = configurations.modules;
+        }
+    } else {
+        // default modules
+        requested_modules = ["mfp","iapbase","appsflyer","game"];
+    }
+    if(configurations.modules_conf){
+        // check type
+        if (typeof configurations.modules_conf !== 'object') {
+            err("initialize() configurations.modules_conf is not an object");
+        }
+        else {
+            modules_conf = configurations.modules_conf;
+        }
+    }
+    
+    // old configuration mechanism, used by MFP module
+    if(configurations.country) {
+        // overwrite conf
+        if ("mfp" in hybrid_conf) {
+            hybrid_conf.mfp.country = configurations.country;        
+        }
+        // define conf
+        else {
+            hybrid_conf.mfp = {
+                "country": configurations.country
+            }; 
         }
     }
 
@@ -176,8 +240,6 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
             
         }, false);
     });
-
-    
     
     return initPromise;
 };

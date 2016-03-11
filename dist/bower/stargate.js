@@ -18,7 +18,7 @@
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.2.1";
+    var stargatePackageVersion = "0.2.2";
     var stargatePublic = {};
     
     var stargateModules = {};       
@@ -1495,7 +1495,8 @@
         wwwDir,
         dataDir,
         stargatejsDir,
-        SDK_URL = "http://s2.motime.com/js/wl/webstore_html5game/gfsdk/dist/gfsdk.js";
+        SDK_URL = "http://s2.motime.com/js/wl/webstore_html5game/gfsdk/dist/gfsdk.js",
+        DIXIE_URL = "http://s2.motime.com/tbr/dixie.js?country=it-igames";
     
     // GAMEINFO object
     //
@@ -1561,7 +1562,7 @@
         constants.WWW_DIR = wwwDir;
 
         /** expose games dir */
-        _modules.game.GAMES_DIR = constants.GAMES_DIR;
+        _modules.game._public.GAMES_DIR = constants.GAMES_DIR;
         
         function firstInit(){
             /**
@@ -1578,6 +1579,7 @@
                     LOG.d("Getting SDK from:", SDK_URL);
                     return Promise.all([
                         fileModule.download(SDK_URL, results[1].path, "gfsdk.min.js"),
+                        fileModule.download(DIXIE_URL, results[1].path, "dixie.js"),
                         fileModule.copyDir(constants.WWW_DIR + "gameover_template", constants.BASE_DIR + "gameover_template"),
                         fileModule.copyDir(constants.WWW_DIR + "plugins", constants.SDK_DIR + "plugins"),
                         fileModule.copyFile(constants.CORDOVAJS, constants.SDK_DIR + "cordova.js"),
@@ -1691,8 +1693,9 @@
                                 constants.GAMEOVER_RELATIVE_DIR + "gameover.css",
                                 constants.SDK_RELATIVE_DIR + "cordova.js",
                                 constants.SDK_RELATIVE_DIR + "cordova_plugins.js",
-                                constants.SDK_RELATIVE_DIR + "gfsdk.min.js",
-                                constants.SDK_RELATIVE_DIR + "stargate.js"
+                                constants.SDK_RELATIVE_DIR + "dixie.js",
+                                constants.SDK_RELATIVE_DIR + "stargate.js",
+                                constants.SDK_RELATIVE_DIR + "gfsdk.min.js"
                             ]);
                 }).then(function(results){
                     LOG.d("injectScripts result", results);
@@ -1737,7 +1740,7 @@
             })
             .then(function(entry){
                 LOG.d(entry);
-                var address = entry[0].internalURL;
+                var address = entry[0].internalURL + "?hybrid=1";
                 if(window.device.platform.toLowerCase() == "ios"){
                     LOG.d("Play ios", address);
                     window.location.href = address;
@@ -1971,15 +1974,14 @@
                     .replace("{{url_cover}}", metaJson.url_cover)                    
                     .replace("{{startpage_url}}", constants.WWW_DIR + "startpage.html");              
         });
-                  
-    };    
+    };
     
     var _protected = {};
+    _modules.game = {};
+
     _protected.initialize = initialize;
-    _modules.game = {
-        _protected:_protected,
-        _public:new Game()
-    };
+    _modules.game._protected = _protected;
+    _modules.game._public = new Game();
 
 })(stargateModules.file, stargateModules.Logger, stargateModules);
 
@@ -2205,8 +2207,26 @@ stargatePublic.conf.getWebappStartUrl = function() {
 };
 
 /**
-*
+ * Get webapp url origin
+ * @returns {String}
+ */
+stargatePublic.conf.getWebappOrigin = function() {
+    var re = /http:\/\/[\w]{3,4}\..*\.[\w]{2,}/;
+    var origin = re.exec(stargateConf.webapp_start_url)[0];
+    return origin;
+};
+
+/**
+* 
 * initialize(configurations, callback)
+* @param {object} [configurations={}] - an object with configurations
+* @param @deprecated [configurations.country=undefined] - MFP country @deprecated since 0.2.3
+* @param @deprecated [configurations.hybrid_conf={}] - old configuration of modules, used by IAP @deprecated since 0.2.3 
+* @param [configurations.modules=["mfp","iapbase","appsflyer"]] - array with one or more of: "mfp","iapbase","iap","appsflyer","game"
+* @param [configurations.modules_conf={}] - an object with configurations for modules
+* @param {Function} [callback=function(){}] - callback success
+* @returns {Promise<boolean>} - true if we're running inside hybrid
+*
 * @deprecated initialize(configurations, pubKey, forge, callback)
 */
 stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callback) {
@@ -2221,11 +2241,14 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
         callback = pubKeyPar;
     }
 
+    if(typeof callback === 'undefined'){
+        log("Callback success not setted. \n You can use 'then'");
+        callback = function(){};
+    }
     // check callback type is function
     // if not return a failing promise 
     if (typeof callback !== 'function') {
-        err("Stargate.initialize() callback is not a function!");
-
+        war("Stargate.initialize() callback is not a function!");
         return Promise.reject(new Error("Stargate.initialize() callback is not a function!"));
     }
 
@@ -2235,7 +2258,7 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
     //  * execute the callback
     //  * return a resolving promise
     if (isStargateInitialized) {
-        err("Stargate.initialize() already called, executing callback.");
+        war("Stargate.initialize() already called, executing callback.");
         
         if(callback){callback(isStargateRunningInsideHybrid);}
 
@@ -2243,17 +2266,56 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
     }
 
     isStargateInitialized = true;
-
-
-    if(configurations.country){
-        country = configurations.country;
+    
+    if (typeof configurations !== 'object') {
+        configurations = {};
     }
     
+    // old configuration mechanism, used by IAP
     if(configurations.hybrid_conf){
         if (typeof configurations.hybrid_conf === 'object') {
             hybrid_conf = configurations.hybrid_conf;
         } else {
             hybrid_conf = JSON.parse(decodeURIComponent(configurations.hybrid_conf));
+        }
+    }
+    
+    if(configurations.modules){
+        // save modules requested by caller,
+        // initialization will be done oly for these modules
+        
+        // check type
+        if (configurations.modules.constructor !== Array) {
+            err("initialize() configurations.modules is not an array");
+        }
+        else {
+            requested_modules = configurations.modules;
+        }
+    } else {
+        // default modules
+        requested_modules = ["mfp","iapbase","appsflyer","game"];
+    }
+    if(configurations.modules_conf){
+        // check type
+        if (typeof configurations.modules_conf !== 'object') {
+            err("initialize() configurations.modules_conf is not an object");
+        }
+        else {
+            modules_conf = configurations.modules_conf;
+        }
+    }
+    
+    // old configuration mechanism, used by MFP module
+    if(configurations.country) {
+        // overwrite conf
+        if ("mfp" in hybrid_conf) {
+            hybrid_conf.mfp.country = configurations.country;        
+        }
+        // define conf
+        else {
+            hybrid_conf.mfp = {
+                "country": configurations.country
+            }; 
         }
     }
 
@@ -2283,8 +2345,6 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
             
         }, false);
     });
-
-    
     
     return initPromise;
 };
@@ -2451,11 +2511,13 @@ stargatePublic.ad = new AdStargate();
 
 // current stargateVersion used by webapp to understand
 //  the version to load based on cookie or localstorage
+// @deprecated since 0.2.2
 var stargateVersion = "2";
 
 // logger function
 var log = console.log.bind(window.console, "[Stargate] ");
 var err = console.error.bind(window.console, "[Stargate] ");
+var war = console.warn.bind(window.console, "[Stargate] ");
 
 
 
@@ -2494,9 +2556,28 @@ var initDevice = function() {
 
 
 function getManifest() {
-
-    return stargateModules.file.readFileAsJSON(cordova.file.applicationDirectory + "www/manifest.json");
-
+    
+    if (window.cordova.file) {
+        return stargateModules.file.readFileAsJSON(
+            window.cordova.file.applicationDirectory + "www/manifest.json"
+        );
+    }
+    
+    if (window.hostedwebapp) {
+        return new Promise(function(resolve,reject){
+            window.hostedwebapp.getManifest(
+                function(manifest){
+                    resolve(manifest);
+                },
+                function(error){
+                    err(error);
+                    reject(new Error(error));
+                }
+            );
+        });
+    }
+    
+    return Promise.reject(new Error("getManifest() no available reading mechanism!"));
 }
 
 var launchUrl = function (url) {
@@ -2517,8 +2598,9 @@ var appVersion = '';
  * variables sent by server configuration
  * 
  */
-var country = '',
-    hybrid_conf = {};
+var hybrid_conf = {},
+    requested_modules = [],
+    modules_conf = {};
 
 /**
  * 
@@ -2604,11 +2686,13 @@ var onPluginReady = function (resolve, reject) {
     updateStatusBar();
 
     
-    if (hasFeature('mfp')) {
-        MFP.check();
+    if (hasFeature("mfp") && haveRequestedFeature("mfp")) {
+        MFP.check(
+            getModuleConf("mfp")
+        );
     }
     
-    if (hasFeature('deltadna')) {
+    if (hasFeature("deltadna")) {
         window.deltadna.startSDK(
             stargateConf.deltadna.environmentKey,
             stargateConf.deltadna.collectApi,
@@ -2624,11 +2708,25 @@ var onPluginReady = function (resolve, reject) {
     // initialize all modules
 
     // In-app purchase initialization
-    IAP.initialize();
+    if (haveRequestedFeature("iapbase")) {
+        // base legacy iap implementation
+        IAP.initialize(
+            getModuleConf("iapbase")
+        );
+        
+    } else if (haveRequestedFeature("iap")) {
+        // if initialize ok...
+        if ( IAP.initialize( getModuleConf("iap") ) ) {
+            // ...then call refresh
+            IAP.doRefresh();            
+        }
+    }
 
     // receive appsflyer conversion data event
-    if (hasFeature('appsflyer')) {
-        appsflyer.init();
+    if (hasFeature('appsflyer') && haveRequestedFeature("appsflyer")) {
+        appsflyer.init(
+            getModuleConf("appsflyer")
+        );
     }
     
     // apply webapp fixes
@@ -2637,9 +2735,15 @@ var onPluginReady = function (resolve, reject) {
     var modulePromises = [];
     
     //Game Module Init
-    if (hasFeature('game') && stargateModules.game) {
+    // if requested by caller (haveRequestedFeature)
+    // if available in app (has feature)
+    // if included in code (stargateModules.game)
+    if (haveRequestedFeature("game") && hasFeature('game') && stargateModules.game) {
+        // save initialization promise, to wait for
         modulePromises.push(
-            stargateModules.game._protected.initialize({})
+            stargateModules.game._protected.initialize(
+                getModuleConf("game")
+            )
         );
     }
     
@@ -2655,7 +2759,6 @@ var onPluginReady = function (resolve, reject) {
             isStargateOpen = true;
             
             log("version "+stargatePackageVersion+" ready; "+
-                "loaded from server version: v"+stargateVersion+
                 " running in package version: "+appVersion);
             
             //execute callback
@@ -2753,11 +2856,64 @@ var stargateConf = {
     features: {}
 };
 
+/**
+ * getModuleConf(moduleName)
+ * @param {string} moduleName - name of module to return conf of
+ * @returns {object} - configuration for the module sent by Stargate implementator on Stargate.initialize()
+ */
+var getModuleConf = function(moduleName) {
+    // 1. new version -> modules_conf
+    // 2. old version -> hybrid_conf
+    
+    if (!moduleName) {
+        return err("getModuleConf() invalid module requested");
+    }
+    
+    if (moduleName in modules_conf) {
+        return modules_conf[moduleName];
+    }
+    
+    // covert modulesname
+    var mapConfLegacy = {
+        "iapbase": "IAP",
+        "iap": "IAP"
+    };
+    
+    var moduleNameLegacy = moduleName;
+    if (mapConfLegacy[moduleName]) {
+        moduleNameLegacy = mapConfLegacy[moduleName];
+    }
+    
+    if (moduleNameLegacy in hybrid_conf) {
+        return hybrid_conf[moduleNameLegacy];
+    }
+    
+    log("getModuleConf(): no configuration for module: "+moduleName+" ("+mapConfLegacy+")");
+    return {};
+};
+
+/**
+ * hasFeature(feature)
+ * @param {string} feature - name of feature to check
+ * @returns {boolean} - true if app have feature requested (it check inside the manifest compiled in the app) 
+ */
 var hasFeature = function(feature) {
     return (typeof stargateConf.features[feature] !== 'undefined' && stargateConf.features[feature]);
 };
 
-
+/**
+ * haveRequestedFeature(feature)
+ * @param {string} feature - name of feature to check
+ * @returns {boolean} - true if implementator of Stargate requested the feature (it check against the configuration.modules array sent as paramenter of Stargate.initialize())
+ * 
+ * possible values: "mfp","iapbase","iap","appsflyer","webappanalytics","game" 
+ */
+var haveRequestedFeature = function(feature) {
+    if (requested_modules && requested_modules.constructor === Array) {
+        return requested_modules.indexOf(feature) > -1;
+    }
+    return false;
+};
 
 
 
@@ -2793,20 +2949,22 @@ var MFP = (function(){
      * @memberof MFP
      *
      * @description Start the MFP check to see if user has a session on the server
+     * @param {object} initializeConf - configuration sent by
+     * @return {boolean} - true if init ok
      *
      */
-	MobileFingerPrint.check = function(){
+	MobileFingerPrint.check = function(initializeConf){
 
 		//if (window.localStorage.getItem('mfpCheckDone')){
 		//	return;
 		//}
 
 		// country defined on main stargate.js
-		if (!country) {		
-			return err("Country not defined!");
+		if (!initializeConf.country) {		
+			return err("[MFP] Country not defined!");
 		}
 
-		MobileFingerPrint.get(country);
+		MobileFingerPrint.get(initializeConf.country);
 	};
 
 	MobileFingerPrint.getContents = function(country, namespace, label, extData){
@@ -3945,22 +4103,26 @@ var IAP = {
     
     productsInfo: {},
     
-	initialize: function () {
+    /**
+     * @param {object} initializeConf - configuration sent by
+     * @return {boolean} - true if init ok
+     */
+	initialize: function (initializeConf) {
         if (!window.store) {
             err('Store not available');
-            return;
+            return false;
         }
 		
         // initialize with current url
         IAP.returnUrl = document.location.href;
 
-        if (hybrid_conf.IAP.id) {
-            IAP.id = hybrid_conf.IAP.id;
+        if (initializeConf.id) {
+            IAP.id = initializeConf.id;
         }
 
         // 
-        if (hybrid_conf.IAP.alias) {
-            IAP.alias = hybrid_conf.IAP.alias;
+        if (initializeConf.alias) {
+            IAP.alias = initializeConf.alias;
         }
 
         //  --- type ---
@@ -3968,8 +4130,8 @@ var IAP = {
         // store.PAID_SUBSCRIPTION = "paid subscription";
         // store.CONSUMABLE        = "consumable";
         // store.NON_CONSUMABLE    = "non consumable";
-        if (hybrid_conf.IAP.type) {
-            IAP.type = hybrid_conf.IAP.type;
+        if (initializeConf.type) {
+            IAP.type = initializeConf.type;
         }
 
         // Available values: DEBUG, INFO, WARNING, ERROR, QUIET
@@ -4004,6 +4166,7 @@ var IAP = {
         // When any product gets updated, refresh the HTML.
         window.store.when("product").updated(function(p){ IAP.saveProductInfo(p); });
         
+        return true;
     },
     
     saveProductInfo: function(params) {

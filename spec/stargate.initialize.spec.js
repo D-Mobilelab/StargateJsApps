@@ -2,15 +2,28 @@ var spec_hybrid_conf_expected = {
 	"IAP": {
 		"id": "stargate.test.spec.subscription",
 		"alias": "Stargate Test Subscription",
-		"type": "PAID_SUBSCRIPTION",
-		"verbosity": "DEBUG"
-	}
+		"type": "PAID_SUBSCRIPTION"
+	},
+    "mfp": {
+        "country": "xx"
+    }
 };
-var spec_hybrid_conf_uriencoded = "%7B%22IAP%22%3A%20%7B%22id%22%3A%20%22stargate.test.spec.subscription%22%2C%22alias%22%3A%20%22Stargate%20Test%20Subscription%22%2C%22type%22%3A%20%22PAID_SUBSCRIPTION%22%2C%22verbosity%22%3A%20%22DEBUG%22%7D%7D";
+var spec_hybrid_conf_uriencoded = "%7B%22IAP%22%3A%20%7B%22id%22%3A%22stargate.test.spec.subscription%22%2C%22alias%22%3A%22Stargate%20Test%20Subscription%22%2C%22type%22%3A%22PAID_SUBSCRIPTION%22%7D%7D";
 
 var spec_configurations = {
 	country: "xx",
 	hybrid_conf: spec_hybrid_conf_uriencoded
+};
+
+var spec_modules_conf = {
+	"iap": {
+		"id": "stargate.test.spec.subscription",
+		"alias": "Stargate Test Subscription",
+		"type": "PAID_SUBSCRIPTION"
+	},
+    "mfp": {
+        "country": "xx"
+    }
 };
 
 var spec_device_mock = {
@@ -177,7 +190,6 @@ describe("Stargate initialize", function() {
 		stargatePublic.initialize(spec_configurations, pubKey, forge, function(){});
 
 		expect(hybrid_conf).toEqual(spec_hybrid_conf_expected);
-		expect(country).toEqual(spec_configurations.country);
 	});
 
 	it("initialize with hybrid_conf as object", function() {
@@ -185,7 +197,15 @@ describe("Stargate initialize", function() {
 		stargatePublic.initialize(spec_configurations, pubKey, forge, function(){});
 
 		expect(hybrid_conf).toEqual(spec_hybrid_conf_expected);
-		expect(country).toEqual(spec_configurations.country);
+	});
+    
+    it("initialize with modules_conf", function() {
+		var conf = {
+            modules_conf: spec_modules_conf
+        };
+		stargatePublic.initialize(conf, pubKey, forge, function(){});
+
+		expect(modules_conf).toEqual(spec_modules_conf);
 	});
 
 	it("initialize return promise", function() {
@@ -194,17 +214,17 @@ describe("Stargate initialize", function() {
 		expect(res.then).toBeDefined();
 	});
 
-	it("initialize called again show error and call back", function() {
+	it("initialize called again show warn and call back", function() {
 
 		stargatePublic.initialize(spec_configurations, pubKey, forge, function(){});		
 		expect(isStargateInitialized).toBe(true);
 
-		err = jasmine.createSpy();
+		war = jasmine.createSpy();
 
 		var cbFinish = jasmine.createSpy('cbFinish');
 
 		stargatePublic.initialize(spec_configurations, pubKey, forge, cbFinish);
-		expect(err).toHaveBeenCalled();
+		expect(war).toHaveBeenCalled();
 		expect(cbFinish).toHaveBeenCalled();
 	});
 

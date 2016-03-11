@@ -3,9 +3,9 @@
  * Game module
  * @module src/modules/Game
  * @type {Object}
- * @requires ./Logger.js,./File.js
+ * @requires ./Utils.js,./File.js
  */
-(function(fileModule, Logger, _modules){
+(function(fileModule, Logger, composeApiString, Iterator, _modules){
     "use strict";
     var baseDir,
         cacheDir,
@@ -14,8 +14,32 @@
         wwwDir,
         dataDir,
         stargatejsDir,
-        SDK_URL = "http://s2.motime.com/js/wl/webstore_html5game/gfsdk/dist/gfsdk.js";
-    
+        SDK_URL = "http://s2.motime.com/js/wl/webstore_html5game/gfsdk/dist/gfsdk.js"+"?timestamp=" + Date.now(),
+        DIXIE_URL = "http://s2.motime.com/tbr/dixie.js?country=it-igames"+"&timestamp=" + Date.now(),
+        API = "http://resources2.buongiorno.com/lapis/apps/contents.getList",
+        addressesForMeta = [];
+
+        var obj = {
+            "content_id":"", // to fill
+            "formats":"html5applications",
+            "sort":"-born_date",
+            "category":"b940b384ff0565b06dde433e05dc3c93",
+            "publisher":"",
+            "size":6,
+            "offset":0,
+            "label":"",
+            "label_slug":"",
+            "access_type":"",
+            "real_customer_id":"xx_gameasy",
+            "lang":"en",
+            "use_cs_id":"",
+            "white_label":"xx_gameasy",
+            "main_domain":"http://www2.gameasy.com/ww/&country=it",
+            "fw":"gameasy",
+            "vh":"ww.gameasy.com",
+            "check_compatibility_header":0
+        };
+
     // GAMEINFO object
     //
     // GET /gameplay?<content_id>
@@ -40,9 +64,20 @@
      * @returns {Promise<Array<boolean>>}
      * */
      function initialize(conf){
+
         LOG.d("Initialized called with:", conf);
         if(!fileModule){return Promise.reject("Missing file module!");}
 
+        if(conf && conf.bundleGames){
+
+            for(var i = 0;i < conf.bundleGames.length;i++){
+                obj.content_id = conf.bundleGames[i];
+                addressesForMeta.push(composeApiString(API,obj));
+            }
+
+            LOG.d("addressesForMeta composed but not called:",addressesForMeta);
+            //getBundleGameObjects(addressesForMeta);
+        }
 
         try{
             baseDir = window.cordova.file.applicationStorageDirectory;
@@ -80,7 +115,7 @@
         constants.WWW_DIR = wwwDir;
 
         /** expose games dir */
-        _modules.game.GAMES_DIR = constants.GAMES_DIR;
+        _modules.game._public.GAMES_DIR = constants.GAMES_DIR;
         
         function firstInit(){
             /**
@@ -97,12 +132,14 @@
                     LOG.d("Getting SDK from:", SDK_URL);
                     return Promise.all([
                         fileModule.download(SDK_URL, results[1].path, "gfsdk.min.js"),
+                        fileModule.download(DIXIE_URL, results[1].path, "dixie.js"  ),
                         fileModule.copyDir(constants.WWW_DIR + "gameover_template", constants.BASE_DIR + "gameover_template"),
                         fileModule.copyDir(constants.WWW_DIR + "plugins", constants.SDK_DIR + "plugins"),
                         fileModule.copyFile(constants.CORDOVAJS, constants.SDK_DIR + "cordova.js"),
                         fileModule.copyFile(constants.CORDOVA_PLUGINS_JS, constants.SDK_DIR + "cordova_plugins.js"),
-                        fileModule.copyFile(constants.STARGATEJS, constants.SDK_DIR + "stargate.js")                    
-                    ]);                
+                        fileModule.copyFile(constants.STARGATEJS, constants.SDK_DIR + "stargate.js"),
+                        fileModule.copyFile(constants.WWW_DIR + "js/gamesFixes.js", constants.SDK_DIR + "gamesFixes.js")
+                    ]);
                 });    
         }
 
@@ -207,11 +244,13 @@
                     LOG.d("result last operation:save meta.json", result);
                     LOG.d("InjectScripts in game:", gameObject.id, wwwDir);                    
                     return injectScripts(gameObject.id, [
+                                constants.SDK_RELATIVE_DIR + "gamesFixes.js",
                                 constants.GAMEOVER_RELATIVE_DIR + "gameover.css",
                                 constants.SDK_RELATIVE_DIR + "cordova.js",
                                 constants.SDK_RELATIVE_DIR + "cordova_plugins.js",
-                                constants.SDK_RELATIVE_DIR + "gfsdk.min.js",
-                                constants.SDK_RELATIVE_DIR + "stargate.js"
+                                constants.SDK_RELATIVE_DIR + "dixie.js",
+                                constants.SDK_RELATIVE_DIR + "stargate.js",
+                                constants.SDK_RELATIVE_DIR + "gfsdk.min.js"
                             ]);
                 }).then(function(results){
                     LOG.d("injectScripts result", results);
@@ -256,7 +295,7 @@
             })
             .then(function(entry){
                 LOG.d(entry);
-                var address = entry[0].internalURL;
+                var address = entry[0].internalURL + "?hybrid=1";
                 if(window.device.platform.toLowerCase() == "ios"){
                     LOG.d("Play ios", address);
                     window.location.href = address;
@@ -477,7 +516,10 @@
         
         LOG.d("Read meta.json:", metaJsonPath);
         LOG.d("GAMEOVER_TEMPLATE path", constants.GAMEOVER_DIR + "gameover.html");
-        
+        /***
+         * if needed
+         * return new window.DOMParser().parseFromString(documentAsString, "text/xml").firstChild
+         * **/
         return Promise.all([
             fileModule.readFileAsJSON(metaJsonPath),
             fileModule.readFile(constants.GAMEOVER_DIR + "gameover.html")
@@ -490,14 +532,40 @@
                     .replace("{{url_cover}}", metaJson.url_cover)                    
                     .replace("{{startpage_url}}", constants.WWW_DIR + "startpage.html");              
         });
-                  
-    };    
-    
-    var _protected = {};
-    _protected.initialize = initialize;
-    _modules.game = {
-        _protected:_protected,
-        _public:new Game()
     };
 
-})(stargateModules.file, stargateModules.Logger, stargateModules);
+    function makeSimpleRequest(url){
+        LOG.d("makeSimpleRequest", url);
+        var xhr = new window.XMLHttpRequest();
+        var daRequest = new Promise(function(resolve, reject){
+            xhr.onreadystatechange = function(){
+                //LOG.d("response!", xhr.response, xhr.responseXML);
+                if (xhr.readyState == 4 && xhr.status < 300) {
+                    resolve(xhr.response);
+                }else{
+                    reject(xhr);
+                }
+            }
+        });
+        xhr.open("GET", url, true);
+        xhr.setRequestHeader('Content-type', 'application/json; charset=UTF-8');
+        xhr.send();
+        return daRequest;
+    }
+
+    function getBundleGameObjects(urls){
+        var alls = [];
+        for(var i = 0;i < urls.length;i++){
+            alls.push(makeSimpleRequest(urls[i]));
+        }
+        return Promise.all(alls);
+    }
+
+    var _protected = {};
+    _modules.game = {};
+
+    _protected.initialize = initialize;
+    _modules.game._protected = _protected;
+    _modules.game._public = new Game();
+
+})(stargateModules.file, stargateModules.Utils.Logger, stargateModules.Utils.composeApiString, stargateModules.Utils.Iterator, stargateModules);
