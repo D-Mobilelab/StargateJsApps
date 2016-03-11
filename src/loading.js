@@ -676,23 +676,41 @@ var startLoading = function(properties) {
 	if (typeof properties !== 'object') {
 		properties = {};
 	}
-	if (! properties.theme) {
-		properties.theme = 'sk-circle';
-	}
-	stargateLoader.start(properties);
+	//if (! properties.theme) {
+	//	properties.theme = 'sk-circle';
+	//}
+	//stargateLoader.start(properties);
+    
+    if (typeof SpinnerDialog !== "undefined") {
+        var msg = null;
+        if(properties.hasOwnProperty("message")){
+            msg = properties.message;
+        }
+        SpinnerDialog.show(null, msg);
+    }
 };
 
 var stopLoading = function() {
-	stargateLoader.stop();
+	//stargateLoader.stop();
+    
+    if (typeof SpinnerDialog !== "undefined") {
+        SpinnerDialog.hide();
+    }
 };
 
 var changeLoadingMessage = function(newMessage) {
-	var hom = document.querySelector('#holdon-message');
-	if (hom) {
-		hom.textContent = newMessage;
-		return true;
-	}
-	return false;
+    if (typeof SpinnerDialog !== "undefined") {
+        SpinnerDialog.show(null, newMessage);
+       	return true;
+    }
+    return false;
+    
+    //var hom = document.querySelector('#holdon-message');
+	//if (hom) {
+	//	hom.textContent = newMessage;
+	//	return true;
+	//}
+	//return false;
 };
 
 
