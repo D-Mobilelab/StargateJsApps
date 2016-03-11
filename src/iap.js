@@ -21,22 +21,26 @@ var IAP = {
     
     productsInfo: {},
     
-	initialize: function () {
+    /**
+     * @param {object} initializeConf - configuration sent by
+     * @return {boolean} - true if init ok
+     */
+	initialize: function (initializeConf) {
         if (!window.store) {
             err('Store not available');
-            return;
+            return false;
         }
 		
         // initialize with current url
         IAP.returnUrl = document.location.href;
 
-        if (hybrid_conf.IAP.id) {
-            IAP.id = hybrid_conf.IAP.id;
+        if (initializeConf.id) {
+            IAP.id = initializeConf.id;
         }
 
         // 
-        if (hybrid_conf.IAP.alias) {
-            IAP.alias = hybrid_conf.IAP.alias;
+        if (initializeConf.alias) {
+            IAP.alias = initializeConf.alias;
         }
 
         //  --- type ---
@@ -44,8 +48,8 @@ var IAP = {
         // store.PAID_SUBSCRIPTION = "paid subscription";
         // store.CONSUMABLE        = "consumable";
         // store.NON_CONSUMABLE    = "non consumable";
-        if (hybrid_conf.IAP.type) {
-            IAP.type = hybrid_conf.IAP.type;
+        if (initializeConf.type) {
+            IAP.type = initializeConf.type;
         }
 
         // Available values: DEBUG, INFO, WARNING, ERROR, QUIET
@@ -80,6 +84,7 @@ var IAP = {
         // When any product gets updated, refresh the HTML.
         window.store.when("product").updated(function(p){ IAP.saveProductInfo(p); });
         
+        return true;
     },
     
     saveProductInfo: function(params) {

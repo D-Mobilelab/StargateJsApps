@@ -26,20 +26,22 @@ var MFP = (function(){
      * @memberof MFP
      *
      * @description Start the MFP check to see if user has a session on the server
+     * @param {object} initializeConf - configuration sent by
+     * @return {boolean} - true if init ok
      *
      */
-	MobileFingerPrint.check = function(){
+	MobileFingerPrint.check = function(initializeConf){
 
 		//if (window.localStorage.getItem('mfpCheckDone')){
 		//	return;
 		//}
 
 		// country defined on main stargate.js
-		if (!country) {		
-			return err("Country not defined!");
+		if (!initializeConf.country) {		
+			return err("[MFP] Country not defined!");
 		}
 
-		MobileFingerPrint.get(country);
+		MobileFingerPrint.get(initializeConf.country);
 	};
 
 	MobileFingerPrint.getContents = function(country, namespace, label, extData){
