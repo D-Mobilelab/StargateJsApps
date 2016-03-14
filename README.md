@@ -230,6 +230,28 @@ callbackSuccess - a function that will be called when information are ready
 
 callbackError - a function that will be called in case of error
 
+
+```javascript
+// example of object sent to success callback
+{
+    "id": "stargate.test.spec.product1",
+    "alias": "Test Spec Product 1",
+    "title": "Test Spec Product 1",
+    "description": "Test Spec Product 1",
+    "currency": "EUR",
+    "price": "0,99 €",
+    "type": "paid subscription",
+    "canPurchase": true,
+    "downloaded": false,
+    "downloading": false,
+    "loaded": true,
+    "owned": false,
+    "state": "valid",
+    "transaction": null,
+    "valid": true
+}
+```
+
 ## Stargate.getVersion()
 
 return current Stargate version

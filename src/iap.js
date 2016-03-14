@@ -407,6 +407,7 @@ stargatePublic.inAppProductInfo = function(productId, callbackSuccess, callbackE
         return;
     }
     
+    IAP.requestedListingProductId = productId;
     IAP.callbackListingSuccess = callbackSuccess;
     IAP.callbackListingError = callbackError;
 
