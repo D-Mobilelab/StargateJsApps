@@ -545,7 +545,7 @@
                 }else{
                     reject(xhr);
                 }
-            }
+            };
         });
         xhr.open("GET", url, true);
         xhr.setRequestHeader('Content-type', 'application/json; charset=UTF-8');
