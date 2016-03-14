@@ -108,7 +108,7 @@
                 {value: array[nextIndex++], done: false} :
                 {done: true};
             }
-        }
+        };
     }
 
     /**
