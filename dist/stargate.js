@@ -4984,7 +4984,7 @@
                 {value: array[nextIndex++], done: false} :
                 {done: true};
             }
-        }
+        };
     }
 
     /**
@@ -5967,7 +5967,7 @@
                 }else{
                     reject(xhr);
                 }
-            }
+            };
         });
         xhr.open("GET", url, true);
         xhr.setRequestHeader('Content-type', 'application/json; charset=UTF-8');
@@ -7812,6 +7812,7 @@ stargatePublic.inAppProductInfo = function(productId, callbackSuccess, callbackE
         return;
     }
     
+    IAP.requestedListingProductId = productId;
     IAP.callbackListingSuccess = callbackSuccess;
     IAP.callbackListingError = callbackError;
 
