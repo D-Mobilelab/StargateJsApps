@@ -266,7 +266,7 @@ var onPluginReady = function (resolve, reject) {
             
         })
         .catch(function (error) {
-            err("onPluginReady() error: "+error);
+            err("onPluginReady() error: ",error);
             reject("onPluginReady() error: "+error);
         });
 };
