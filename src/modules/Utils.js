@@ -131,10 +131,68 @@
         return api + qs;
     }
 
+    /**
+     * getJSON
+     *
+     * @param {String} url -
+     * @returns {Promise<Object|String>} the reject string is the statuscode
+     * */
+    function getJSON(url){
+        url = encodeURI(url);
+        var xhr = new window.XMLHttpRequest();
+        var daRequest = new Promise(function(resolve, reject){
+            xhr.onreadystatechange = function(){
+                if (xhr.readyState == 4 && xhr.status < 400) {
+                    resolve(xhr.response);
+                }else{
+                    reject(xhr.status);
+                }
+            }
+        });
+        xhr.open("GET", url, true);
+        xhr.setRequestHeader('Content-type', 'application/json; charset=UTF-8');
+        xhr.send();
+        return daRequest;
+    }
+
+    /**
+     * make a jsonp request, remember only GET
+     * usage: new jsonpRequest(url)
+     *
+     * @param {String} url - the url with querystring but without &callback at the end or &function
+     * @returns {Promise<Object|>}
+     * */
+    function jsonpRequest(url){
+        var self = this;
+        if(window.document) {
+            var ts = Date.now();
+            self.scriptTag = document.createElement("script");
+            url += "&callback=window.__jsonpHandler" + ts;
+            self.scriptTag.src = url;
+            self.scriptTag.type = 'text/javascript';
+            self.scriptTag.async = true;
+
+            self.daPromise = new Promise(function(resolve, reject){
+                var functionName = "__jsonpHandler" + ts;
+                window[functionName] = function(data){
+                    resolve(data);
+                    //self.scriptTag.parentElement.removeChild(self.scriptTag);
+                };
+            });
+            // the append start the call
+            document.getElementsByTagName("head")[0].appendChild(self.scriptTag);
+            return self.daPromise;
+        }else{
+            return Promise.reject("Not in a browser: window.document is undefined");
+        }
+    }
+
     var exp = {
         Iterator:Iterator,
         Logger:Logger,
-        composeApiString:composeApiString
+        composeApiString:composeApiString,
+        getJSON:getJSON,
+        jsonpRequest:jsonpRequest
     };
 
     if(stargateModules){

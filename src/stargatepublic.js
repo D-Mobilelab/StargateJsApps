@@ -76,8 +76,6 @@ stargatePublic.initializeOffline = function(options){
             .catch(function (error) {
                 err("initializeOffline() error: "+error);
             });
-
-            
         });
     });
     return initOfflinePromise;
