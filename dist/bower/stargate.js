@@ -18,7 +18,7 @@
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.2.5";
+    var stargatePackageVersion = "0.2.6";
     var stargatePublic = {};
     
     var stargateModules = {};       
@@ -3048,7 +3048,7 @@ var onPluginReady = function (resolve, reject) {
             
         })
         .catch(function (error) {
-            err("onPluginReady() error: "+error);
+            err("onPluginReady() error: ",error);
             reject("onPluginReady() error: "+error);
         });
 };
