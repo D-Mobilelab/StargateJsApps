@@ -1,7 +1,7 @@
 
 
 var startLoading = function(properties) {
-	if (typeof SpinnerDialog === "undefined") {
+	if (typeof window.SpinnerDialog === "undefined") {
         return err("startLoading(): SpinnerDialog cordova plugin missing!");
     }
     
@@ -14,23 +14,26 @@ var startLoading = function(properties) {
     if(properties.hasOwnProperty("message")){
         msg = properties.message;
     }
-    SpinnerDialog.show(null, msg);
+    window.SpinnerDialog.show(null, msg);
+    return true;
 };
 
 var stopLoading = function() {
-	if (typeof SpinnerDialog === "undefined") {
+	if (typeof window.SpinnerDialog === "undefined") {
         return err("startLoading(): SpinnerDialog cordova plugin missing!");
     }
     
-    SpinnerDialog.hide();
+    window.SpinnerDialog.hide();
+    return true;
 };
 
+//jshint unused:false
 var changeLoadingMessage = function(newMessage) {
-    if (typeof SpinnerDialog === "undefined") {
+    if (typeof window.SpinnerDialog === "undefined") {
         return err("startLoading(): SpinnerDialog cordova plugin missing!");
     }
     
-    SpinnerDialog.show(null, newMessage);
+    window.SpinnerDialog.show(null, newMessage);
     return true;
 };
 
