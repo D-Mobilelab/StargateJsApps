@@ -147,7 +147,7 @@
                 }else{
                     reject(xhr.status);
                 }
-            }
+            };
         });
         xhr.open("GET", url, true);
         xhr.setRequestHeader('Content-type', 'application/json; charset=UTF-8');
@@ -157,30 +157,39 @@
 
     /**
      * make a jsonp request, remember only GET
-     * usage: new jsonpRequest(url)
+     * usage: request = new jsonpRequest(url); request.then(...)
      *
      * @param {String} url - the url with querystring but without &callback at the end or &function
      * @returns {Promise<Object|>}
      * */
     function jsonpRequest(url){
         var self = this;
+        self.timeout = 3000;
+        self.called = false;
         if(window.document) {
             var ts = Date.now();
-            self.scriptTag = document.createElement("script");
-            url += "&callback=window.__jsonpHandler" + ts;
+            self.scriptTag = window.document.createElement("script");
+            url += "&callback=window.__jsonpHandler_" + ts;
             self.scriptTag.src = url;
             self.scriptTag.type = 'text/javascript';
             self.scriptTag.async = true;
 
             self.daPromise = new Promise(function(resolve, reject){
-                var functionName = "__jsonpHandler" + ts;
+                var functionName = "__jsonpHandler_" + ts;
                 window[functionName] = function(data){
+                    self.called = true;
                     resolve(data);
                     //self.scriptTag.parentElement.removeChild(self.scriptTag);
                 };
+                //reject after a timeout
+                setTimeout(function(){
+                    if(!self.called){
+                        reject("Timeout jsonp request " + ts);
+                    }
+                }, self.timeout);
             });
             // the append start the call
-            document.getElementsByTagName("head")[0].appendChild(self.scriptTag);
+            window.document.getElementsByTagName("head")[0].appendChild(self.scriptTag);
             return self.daPromise;
         }else{
             return Promise.reject("Not in a browser: window.document is undefined");

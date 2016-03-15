@@ -10,8 +10,8 @@
 
     var Logger = Utils.Logger,
         composeApiString = Utils.composeApiString,
-        Iterator = Utils.Iterator,
-        getJSON = Utils.getJSON,
+        //Iterator = Utils.Iterator,
+        //getJSON = Utils.getJSON,
         jsonpRequest = Utils.jsonpRequest;
 
     var baseDir,
@@ -90,7 +90,7 @@
                     var gameObjects = results[0];
                     var responses = results[1];
 
-                    LOG.d("RESPONSES", responses);
+                    LOG.d("RESPONSES", responses, gameObjects);
                 })
                 .catch(function(statusCode){
                     LOG.e("Games bundle meta info fail:", statusCode);
