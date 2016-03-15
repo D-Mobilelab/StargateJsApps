@@ -158,11 +158,14 @@ describe("Stargate IAP inAppProductInfo", function() {
         IAP.productsInfo = mock_iap_products;
         
         isStargateInitialized = true;
+        isStargateOpen = true;
     });
     
 	afterEach(function() {
         IAP.id = "";
 		IAP.productsInfo = {};
+        isStargateInitialized = undefined;
+        isStargateOpen = undefined;
 	});
     
     it("inAppProductInfo return default product info", function() {
