@@ -168,7 +168,7 @@ var hydeSplashAndLoaders = function() {
     }
 };
 
-var onPluginReady = function (resolve, reject) {
+var onPluginReady = function (resolve) {
     
     // FIXME: this is needed ??
     document.title = stargateConf.title;
@@ -250,25 +250,31 @@ var onPluginReady = function (resolve, reject) {
             modulePromises
         )
         .then(function() {
-            hydeSplashAndLoaders();
             
-            // initialize finished
-            isStargateOpen = true;
-            
-            log("version "+stargatePackageVersion+" ready; "+
-                " running in package version: "+appVersion);
-            
-            //execute callback
-            initializeCallback(true);
-
-            log("Stargate.initialize() done");
-            resolve(true);
+            onStargateReady(resolve);
             
         })
         .catch(function (error) {
-            err("onPluginReady() error: "+error);
-            reject("onPluginReady() error: "+error);
+            err("onPluginReady() error: ",error);
+            
+            onStargateReady(resolve);
         });
+};
+
+var onStargateReady = function(resolve) {
+    hydeSplashAndLoaders();
+            
+    // initialize finished
+    isStargateOpen = true;
+    
+    log("version "+stargatePackageVersion+" ready; "+
+        " running in package version: "+appVersion);
+    
+    //execute callback
+    initializeCallback(true);
+
+    log("Stargate.initialize() done");
+    resolve(true);
 };
 
 var onDeviceReady = function (resolve, reject) {
