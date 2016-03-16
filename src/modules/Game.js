@@ -5,8 +5,15 @@
  * @type {Object}
  * @requires ./Utils.js,./File.js
  */
-(function(fileModule, Logger, composeApiString, Iterator, _modules){
+(function(fileModule, Utils, _modules){
     "use strict";
+
+    var Logger = Utils.Logger,
+        composeApiString = Utils.composeApiString,
+        //Iterator = Utils.Iterator,
+        //getJSON = Utils.getJSON,
+        jsonpRequest = Utils.jsonpRequest;
+
     var baseDir,
         cacheDir,
         tempDirectory,
@@ -16,36 +23,29 @@
         stargatejsDir,
         SDK_URL = "http://s2.motime.com/js/wl/webstore_html5game/gfsdk/dist/gfsdk.js"+"?timestamp=" + Date.now(),
         DIXIE_URL = "http://s2.motime.com/tbr/dixie.js?country=it-igames"+"&timestamp=" + Date.now(),
-        API = "http://resources2.buongiorno.com/lapis/apps/contents.getList",
-        addressesForMeta = [];
+        API = "http://resources2.buongiorno.com/lapis/apps/contents.getList";
 
-        var obj = {
-            "content_id":"", // to fill
-            "formats":"html5applications",
-            "sort":"-born_date",
-            "category":"b940b384ff0565b06dde433e05dc3c93",
-            "publisher":"",
-            "size":6,
-            "offset":0,
-            "label":"",
-            "label_slug":"",
-            "access_type":"",
-            "real_customer_id":"xx_gameasy",
-            "lang":"en",
-            "use_cs_id":"",
-            "white_label":"xx_gameasy",
-            "main_domain":"http://www2.gameasy.com/ww/&country=it",
-            "fw":"gameasy",
-            "vh":"ww.gameasy.com",
-            "check_compatibility_header":0
-        };
+    var obj = {
+        "content_id":"", // to fill
+        "formats":"html5applications",
+        "sort":"-born_date",
+        "category":"b940b384ff0565b06dde433e05dc3c93",
+        "publisher":"",
+        "size":6,
+        "offset":0,
+        "label":"",
+        "label_slug":"",
+        "access_type":"",
+        "real_customer_id":"xx_gameasy",
+        "lang":"en",
+        "use_cs_id":"",
+        "white_label":"xx_gameasy",
+        "main_domain":"http://www2.gameasy.com/ww",
+        "fw":"gameasy",
+        "vh":"ww.gameasy.com",
+        "check_compatibility_header":0
+    };
 
-    // GAMEINFO object
-    //
-    // GET /gameplay?<content_id>
-    // fileModule.write(response)
-    // 
-    // inject in game fileModule.readFileAsJson(gameinfo.json)
     var LOG = new Logger("ALL", "[Game - module]");
 
     /**
@@ -57,7 +57,7 @@
      *  Stargate.game.play(results[0]) // and you leave this planet
      * });
      * */
-    function Game(){}
+     function Game(){}
 
     /**
      * Init must be called after the 'deviceready' event
@@ -69,14 +69,32 @@
         if(!fileModule){return Promise.reject("Missing file module!");}
 
         if(conf && conf.bundleGames){
+            LOG.d("Games bundle detected", conf.bundleGames);
 
-            for(var i = 0;i < conf.bundleGames.length;i++){
-                obj.content_id = conf.bundleGames[i];
-                addressesForMeta.push(composeApiString(API,obj));
-            }
+            // Prepare QueryString
+            obj.content_id = conf.bundleGames.join(",");
+            var api_string = composeApiString(API, obj);
 
-            LOG.d("addressesForMeta composed but not called:",addressesForMeta);
-            //getBundleGameObjects(addressesForMeta);
+            LOG.d("Request bundle games meta info:", api_string);
+            var getBundleObjects = new jsonpRequest(api_string);
+
+                getBundleObjects.then(function(bundleGameObjects){
+                    LOG.d("Games bundle response:", bundleGameObjects);
+                    var jsonpRequests = bundleGameObjects.map(function(item){
+                        //return getJSON(item.url_api_dld);
+                        return jsonpRequest(item.url_api_dld);
+                    });
+                    return [bundleGameObjects, Promise.all(jsonpRequests)];
+                })
+                .then(function(results){
+                    var gameObjects = results[0];
+                    var responses = results[1];
+
+                    LOG.d("RESPONSES", responses, gameObjects);
+                })
+                .catch(function(statusCode){
+                    LOG.e("Games bundle meta info fail:", statusCode);
+                });
         }
 
         try{
@@ -157,7 +175,7 @@
                 }else{
                     return Promise.resolve(true);
                 }
-            });       
+            });
     }
 
     /**
@@ -172,7 +190,7 @@
      * */
     Game.prototype.download = function(gameObject, callbacks){
         if(this.isDownloading()){ return Promise.reject(["Downloading...try later", fileModule.currentFileTransfer]);}
-        var alreadyExists = fileModule.dirExists(constants.GAMES_DIR + gameObject.id);
+        var alreadyExists = this.isGameDownloaded(gameObject.id);
 
         // Defaults
         callbacks = callbacks ? callbacks : {};
@@ -227,12 +245,30 @@
                     return fileModule.moveDir(src, constants.GAMES_DIR + saveAsName);                   
                 })
                 .then(function(result){
-                    //Remove the zip in the temp directory
+                    // Remove the zip in the temp directory
                     LOG.d("Remove zip from:", constants.TEMP_DIR + saveAsName + ".zip", "last operation result", result);
                     return fileModule.removeFile(constants.TEMP_DIR + saveAsName + ".zip");
                 })
                 .then(function(){
+                    //GET COVER IMAGE FOR THE GAME!
+                    var coverImageUrl = gameObject.images.cover.ratio_1_4
+                        .replace("[HSIZE]","240")
+                        .replace("[WSIZE]","240");
+                    var gameFolder = constants.GAMES_DIR + gameObject.id;
+                    var imagesFolder = gameFolder + "/images/";
+                    LOG.d("coverImageUrl", coverImageUrl, "gameFolder", gameFolder);
+                    return fileModule.download(coverImageUrl, imagesFolder, "cover" + ".png");
+                })
+                .then(function(coverResult){
                     LOG.d("Save meta.json for:", gameObject.id);
+                    LOG.d("Download image result", coverResult);
+
+                    /**
+                     * Modify gameObject.images.cover.ratio_1_4
+                     * it point to the cover image with cdvfile:// protocol
+                     * TODO: Build a system for file caching also for webapp
+                     * **/
+                    gameObject.images.cover.ratio_1_4 = coverResult.internalURL;
                     return fileModule.createFile(constants.GAMES_DIR + saveAsName, "meta.json")
                         .then(function(entry){                            
                             return fileModule.write(entry.path, JSON.stringify(gameObject));
@@ -240,7 +276,6 @@
                 })
                 .then(function(result){
                     
-                    //TODO: inject gameover css
                     LOG.d("result last operation:save meta.json", result);
                     LOG.d("InjectScripts in game:", gameObject.id, wwwDir);                    
                     return injectScripts(gameObject.id, [
@@ -444,6 +479,7 @@
      * @returns {Promise<boolean|FileError>}
      * */
     Game.prototype.remove = function(gameID){
+        LOG.d("Removing game", gameID);
         return fileModule.removeDir(constants.GAMES_DIR + gameID);
     };
 
@@ -465,6 +501,7 @@
      * */
     Game.prototype.abortDownload = function(){
         if(this.isDownloading()){
+            LOG.d("Abort last download");
             fileModule.currentFileTransfer.abort();
             fileModule.currentFileTransfer = null;
             return true;
@@ -480,6 +517,7 @@
      * @returns {Array<Object>} - Returns an array of metainfo game object
      * */
     Game.prototype.list = function(){
+        LOG.d("Get games list");
         return fileModule.readDir(constants.GAMES_DIR)
             .then(function(entries){
                 var _entries = Array.isArray(entries) ? entries : [entries];
@@ -525,41 +563,25 @@
             fileModule.readFile(constants.GAMEOVER_DIR + "gameover.html")
         ]).then(function(results){
                 var htmlString = results[1];
-                var metaJson = results[0];                
+                var metaJson = results[0];
+                LOG.i("Meta JSON:", metaJson);
                 return htmlString
                     .replace("{{score}}", datas.score)
                     .replace("{{url_share}}", metaJson.url_share)
-                    .replace("{{url_cover}}", metaJson.url_cover)                    
-                    .replace("{{startpage_url}}", constants.WWW_DIR + "startpage.html");              
+                    .replace("{{url_cover}}", metaJson.images.cover.ratio_1_4)
+                    .replace("{{startpage_url}}", constants.WWW_DIR + "index.html");
         });
     };
 
-    function makeSimpleRequest(url){
-        LOG.d("makeSimpleRequest", url);
-        var xhr = new window.XMLHttpRequest();
-        var daRequest = new Promise(function(resolve, reject){
-            xhr.onreadystatechange = function(){
-                //LOG.d("response!", xhr.response, xhr.responseXML);
-                if (xhr.readyState == 4 && xhr.status < 300) {
-                    resolve(xhr.response);
-                }else{
-                    reject(xhr);
-                }
-            };
-        });
-        xhr.open("GET", url, true);
-        xhr.setRequestHeader('Content-type', 'application/json; charset=UTF-8');
-        xhr.send();
-        return daRequest;
-    }
-
-    function getBundleGameObjects(urls){
-        var alls = [];
-        for(var i = 0;i < urls.length;i++){
-            alls.push(makeSimpleRequest(urls[i]));
-        }
-        return Promise.all(alls);
-    }
+    /**
+     * isGameDownloaded
+     *
+     * @param {String} gameID - the id of the game
+     * @returns {Promise}
+     * */
+    Game.prototype.isGameDownloaded = function(gameID){
+        return fileModule.dirExists(constants.GAMES_DIR + gameID);
+    };
 
     var _protected = {};
     _modules.game = {};
@@ -568,4 +590,4 @@
     _modules.game._protected = _protected;
     _modules.game._public = new Game();
 
-})(stargateModules.file, stargateModules.Utils.Logger, stargateModules.Utils.composeApiString, stargateModules.Utils.Iterator, stargateModules);
+})(stargateModules.file, stargateModules.Utils, stargateModules);

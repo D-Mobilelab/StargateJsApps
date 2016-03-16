@@ -76,8 +76,6 @@ stargatePublic.initializeOffline = function(options){
             .catch(function (error) {
                 err("initializeOffline() error: "+error);
             });
-
-            
         });
     });
     return initOfflinePromise;
@@ -283,9 +281,22 @@ var connectionStatus = {
     networkState: "unknown"
 };
 
+var onConnectionChange;
+/**
+ * @param {String} type - possible values: "connectionchange"
+ * @param {Function} [_onConnectionChange=function(){}]
+ **/
+stargatePublic.addListener = function(type, _onConnectionChange){
+    if(type == "connectionchange"){
+        log("onConnectionChange registered");
+        onConnectionChange = _onConnectionChange ? _onConnectionChange : function(){};
+    }
+};
+
 function updateConnectionStatus(theEvent){
     connectionStatus.type = theEvent.type;
     connectionStatus.networkState = navigator.connection.type;
+    if(onConnectionChange){onConnectionChange(connectionStatus);}
 }
 
 window.addEventListener("online", updateConnectionStatus, false);

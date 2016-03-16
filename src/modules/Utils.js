@@ -131,10 +131,77 @@
         return api + qs;
     }
 
+    /**
+     * getJSON
+     *
+     * @param {String} url -
+     * @returns {Promise<Object|String>} the reject string is the statuscode
+     * */
+    function getJSON(url){
+        url = encodeURI(url);
+        var xhr = new window.XMLHttpRequest();
+        var daRequest = new Promise(function(resolve, reject){
+            xhr.onreadystatechange = function(){
+                if (xhr.readyState == 4 && xhr.status < 400) {
+                    resolve(xhr.response);
+                }else{
+                    reject(xhr.status);
+                }
+            };
+        });
+        xhr.open("GET", url, true);
+        xhr.setRequestHeader('Content-type', 'application/json; charset=UTF-8');
+        xhr.send();
+        return daRequest;
+    }
+
+    /**
+     * make a jsonp request, remember only GET
+     * usage: request = new jsonpRequest(url); request.then(...)
+     *
+     * @param {String} url - the url with querystring but without &callback at the end or &function
+     * @returns {Promise<Object|>}
+     * */
+    function jsonpRequest(url){
+        var self = this;
+        self.timeout = 3000;
+        self.called = false;
+        if(window.document) {
+            var ts = Date.now();
+            self.scriptTag = window.document.createElement("script");
+            url += "&callback=window.__jsonpHandler_" + ts;
+            self.scriptTag.src = url;
+            self.scriptTag.type = 'text/javascript';
+            self.scriptTag.async = true;
+
+            self.daPromise = new Promise(function(resolve, reject){
+                var functionName = "__jsonpHandler_" + ts;
+                window[functionName] = function(data){
+                    self.called = true;
+                    resolve(data);
+                    //self.scriptTag.parentElement.removeChild(self.scriptTag);
+                };
+                //reject after a timeout
+                setTimeout(function(){
+                    if(!self.called){
+                        reject("Timeout jsonp request " + ts);
+                    }
+                }, self.timeout);
+            });
+            // the append start the call
+            window.document.getElementsByTagName("head")[0].appendChild(self.scriptTag);
+            return self.daPromise;
+        }else{
+            return Promise.reject("Not in a browser: window.document is undefined");
+        }
+    }
+
     var exp = {
         Iterator:Iterator,
         Logger:Logger,
-        composeApiString:composeApiString
+        composeApiString:composeApiString,
+        getJSON:getJSON,
+        jsonpRequest:jsonpRequest
     };
 
     if(stargateModules){
