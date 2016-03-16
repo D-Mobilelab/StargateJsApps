@@ -3918,7 +3918,7 @@
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.2.6";
+    var stargatePackageVersion = "0.2.7";
     var stargatePublic = {};
     
     var stargateModules = {};       
@@ -6850,7 +6850,7 @@ var hydeSplashAndLoaders = function() {
     }
 };
 
-var onPluginReady = function (resolve, reject) {
+var onPluginReady = function (resolve) {
     
     // FIXME: this is needed ??
     document.title = stargateConf.title;
@@ -6866,9 +6866,29 @@ var onPluginReady = function (resolve, reject) {
 
     
     if (hasFeature("mfp") && haveRequestedFeature("mfp")) {
-        MFP.check(
-            getModuleConf("mfp")
-        );
+        var mfpModuleConf = getModuleConf("mfp");
+        
+        // configurations needed
+        //stargateConf.motime_apikey,
+	  	//stargateConf.namespace,
+        //stargateConf.label,
+        
+        // configurations needed
+        //moduleConf.country
+                  
+        // retrocompatibility
+        var keysOnStargateConf = ["motime_apikey", "namespace", "label"];
+        keysOnStargateConf.forEach(function(keyOnStargateConf) {
+            // if it's available in stargateConf but not in module conf
+            // copy it to module conf
+            if (!mfpModuleConf.hasOwnProperty(keyOnStargateConf) &&
+                stargateConf.hasOwnProperty(keyOnStargateConf)) {
+                    
+                mfpModuleConf[keyOnStargateConf] = stargateConf[keyOnStargateConf];
+            }
+        });
+        
+        MFP.check(mfpModuleConf);
     }
     
     if (hasFeature("deltadna")) {
@@ -6932,25 +6952,31 @@ var onPluginReady = function (resolve, reject) {
             modulePromises
         )
         .then(function() {
-            hydeSplashAndLoaders();
             
-            // initialize finished
-            isStargateOpen = true;
-            
-            log("version "+stargatePackageVersion+" ready; "+
-                " running in package version: "+appVersion);
-            
-            //execute callback
-            initializeCallback(true);
-
-            log("Stargate.initialize() done");
-            resolve(true);
+            onStargateReady(resolve);
             
         })
         .catch(function (error) {
             err("onPluginReady() error: ",error);
-            reject("onPluginReady() error: "+error);
+            
+            onStargateReady(resolve);
         });
+};
+
+var onStargateReady = function(resolve) {
+    hydeSplashAndLoaders();
+            
+    // initialize finished
+    isStargateOpen = true;
+    
+    log("version "+stargatePackageVersion+" ready; "+
+        " running in package version: "+appVersion);
+    
+    //execute callback
+    initializeCallback(true);
+
+    log("Stargate.initialize() done");
+    resolve(true);
 };
 
 var onDeviceReady = function (resolve, reject) {
