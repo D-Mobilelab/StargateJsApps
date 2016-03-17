@@ -27,7 +27,7 @@ var IAP = {
      */
 	initialize: function (initializeConf) {
         if (!window.store) {
-            err('Store not available');
+            err("[IAP] Store not available, missing cordova plugin.");
             return false;
         }
 		
@@ -36,6 +36,18 @@ var IAP = {
 
         if (initializeConf.id) {
             IAP.id = initializeConf.id;
+        } else {
+            if (isRunningOnAndroid()) {
+                IAP.id = initializeConf.id_android;
+            }
+            else if (isRunningOnIos()) {
+                IAP.id = initializeConf.id_ios;
+            }
+        }
+        
+        if (!IAP.id) {
+            err("[IAP] Configuration error, missing product id!");
+            return false;
         }
 
         // 
@@ -345,6 +357,9 @@ stargatePublic.inAppPurchaseSubscription = function(callbackSuccess, callbackErr
     if (!isStargateInitialized) {
         return callbackError("Stargate not initialized, call Stargate.initialize first!");
     }
+    if (!isStargateOpen) {
+        return callbackError("Stargate closed, wait for Stargate.initialize to complete!");
+    }
     
     setBusy(true);
 
@@ -367,6 +382,9 @@ stargatePublic.inAppRestore = function(callbackSuccess, callbackError, subscript
 
     if (!isStargateInitialized) {
         return callbackError("Stargate not initialized, call Stargate.initialize first!");
+    }
+    if (!isStargateOpen) {
+        return callbackError("Stargate closed, wait for Stargate.initialize to complete!");
     }
 
     // no set busy needed for restore as it's usually fast and 
@@ -397,6 +415,9 @@ stargatePublic.inAppProductInfo = function(productId, callbackSuccess, callbackE
     if (!isStargateInitialized) {
         return callbackError("Stargate not initialized, call Stargate.initialize first!");
     }
+    if (!isStargateOpen) {
+        return callbackError("Stargate closed, wait for Stargate.initialize to complete!");
+    }
     
     if (! productId) {
         productId = IAP.id;
@@ -407,6 +428,7 @@ stargatePublic.inAppProductInfo = function(productId, callbackSuccess, callbackE
         return;
     }
     
+    IAP.requestedListingProductId = productId;
     IAP.callbackListingSuccess = callbackSuccess;
     IAP.callbackListingError = callbackError;
 
