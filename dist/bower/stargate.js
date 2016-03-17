@@ -663,7 +663,8 @@
         stargatejsDir,
         SDK_URL = "http://s2.motime.com/js/wl/webstore_html5game/gfsdk/dist/gfsdk.js"+"?timestamp=" + Date.now(),
         DIXIE_URL = "http://s2.motime.com/tbr/dixie.js?country=it-igames"+"&timestamp=" + Date.now(),
-        API = "http://resources2.buongiorno.com/lapis/apps/contents.getList";
+        API = "http://resources2.buongiorno.com/lapis/apps/contents.getList",
+        CONF = {};
 
     var obj = {
         "content_id":"", // to fill
@@ -706,36 +707,8 @@
      function initialize(conf){
 
         LOG.d("Initialized called with:", conf);
+        CONF = conf;
         if(!fileModule){return Promise.reject("Missing file module!");}
-
-        if(conf && conf.bundleGames){
-            LOG.d("Games bundle detected", conf.bundleGames);
-
-            // Prepare QueryString
-            obj.content_id = conf.bundleGames.join(",");
-            var api_string = composeApiString(API, obj);
-
-            LOG.d("Request bundle games meta info:", api_string);
-            var getBundleObjects = new jsonpRequest(api_string);
-
-                getBundleObjects.then(function(bundleGameObjects){
-                    LOG.d("Games bundle response:", bundleGameObjects);
-                    var jsonpRequests = bundleGameObjects.map(function(item){
-                        //return getJSON(item.url_api_dld);
-                        return jsonpRequest(item.url_api_dld);
-                    });
-                    return [bundleGameObjects, Promise.all(jsonpRequests)];
-                })
-                .then(function(results){
-                    var gameObjects = results[0];
-                    var responses = results[1];
-
-                    LOG.d("RESPONSES", responses, gameObjects);
-                })
-                .catch(function(statusCode){
-                    LOG.e("Games bundle meta info fail:", statusCode);
-                });
-        }
 
         try{
             baseDir = window.cordova.file.applicationStorageDirectory;
@@ -772,9 +745,10 @@
         constants.GAMEOVER_DIR = constants.BASE_DIR + "gameover_template/";
         constants.WWW_DIR = wwwDir;
 
-        /** expose games dir */
+        /** expose */
         _modules.game._public.GAMES_DIR = constants.GAMES_DIR;
-        
+        _modules.game._public.OFFLINE_INDEX = constants.WWW_DIR + "index.html";
+
         function firstInit(){
             /**
              * Create directories
@@ -798,7 +772,7 @@
                         fileModule.copyFile(constants.STARGATEJS, constants.SDK_DIR + "stargate.js"),
                         fileModule.copyFile(constants.WWW_DIR + "js/gamesFixes.js", constants.SDK_DIR + "gamesFixes.js")
                     ]);
-                });    
+                });
         }
 
         //Object.freeze(constants);
@@ -891,13 +865,13 @@
                 })
                 .then(function(){
                     //GET COVER IMAGE FOR THE GAME!
-                    var coverImageUrl = gameObject.images.cover.ratio_1_4
-                        .replace("[HSIZE]","240")
-                        .replace("[WSIZE]","240");
-                    var gameFolder = constants.GAMES_DIR + gameObject.id;
-                    var imagesFolder = gameFolder + "/images/";
-                    LOG.d("coverImageUrl", coverImageUrl, "gameFolder", gameFolder);
-                    return fileModule.download(coverImageUrl, imagesFolder, "cover" + ".png");
+                    var info = {
+                        gameId:gameObject.id,
+                        size:{width:"240",height:"170",ratio:"1_4"},
+                        url:gameObject.images.cover.ratio_1_4,
+                        type:"cover"
+                    };
+                    return downloadImage(info);
                 })
                 .then(function(coverResult){
                     LOG.d("Save meta.json for:", gameObject.id);
@@ -1088,20 +1062,21 @@
             })
             .then(function(dom){
                 // TODO: injectLocalSDK and other scripts with one call
-
                 LOG.d("_injectScripts"); LOG.d(dom);
                 return _injectScriptsInDom(dom, sources);
-
             })
             .then(function(dom){
                 LOG.d("Serialize dom");
                 var result = new XMLSerializer().serializeToString(dom);
                 var toReplace = "<html xmlns=\"http:\/\/www.w3.org\/1999\/xhtml\"";
-                result = result.replace(toReplace, "<html");
+                //Remove BOM :( it's a space character it depends on config of the developer
+                result = result.replace(toReplace, "<html")
+                                .replace(RegExp(/[^\x20-\x7E\xA0-\xFF]/g), '');
                 return result;
             })
             .then(function(htmlAsString){
-                LOG.d("Write dom:",indexPath,htmlAsString);
+                htmlAsString = htmlAsString.trim();
+                LOG.d("Write dom:", indexPath, htmlAsString);
                 return fileModule.write(indexPath, htmlAsString);
             });
     }
@@ -1221,6 +1196,86 @@
      * */
     Game.prototype.isGameDownloaded = function(gameID){
         return fileModule.dirExists(constants.GAMES_DIR + gameID);
+    };
+
+    /**
+     * removeAll delete all games and recreate the games folder
+     *
+     * @returns {Promise}
+     * */
+    Game.prototype.removeAll = function(){
+        return fileModule.removeDir(constants.GAMES_DIR)
+            .then(function(result){
+                LOG.d("All games deleted!", result);
+                return fileModule.createDir(constants.BASE_DIR, "games");
+            });
+    };
+
+    /**
+     * downloadImage
+     * Save the image in games/<gameId>/images/<type>/<size.width>x<size.height>.png
+     *
+     * @param {String} info -
+     * @param {String} info.gameId -
+     * @param {Object} info.size -
+     * @param {String|Number} info.size.width -
+     * @param {String|Number} info.size.height -
+     * @param {String|Number} info.size.ratio - 1|2|1_5|1_4
+     * @param {String} info.url - the url with the [HSIZE] and [WSIZE] in it
+     * @param {String} info.type - possible values cover|screenshot|icon
+     * @returns {Promise<String|FileTransferError>} where string is the cdvfile:// path
+     * */
+    function downloadImage(info){
+        /*info = {
+            gameId:"",
+            size:{width:"",height:"",ratio:""},
+            url:"",
+            type:"cover"
+        };*/
+
+        //GET COVER IMAGE FOR THE GAME!
+        var toDld = info.url
+            .replace("[WSIZE]", info.size.width)
+            .replace("[HSIZE]", info.size.height);
+
+        var gameFolder = constants.GAMES_DIR + info.gameId;
+
+        var imagesFolder = gameFolder + "/images/" + info.type;
+
+        var imageName = info.size.width + "x" + info.size.height + (info.size.ratio || "") + ".png";
+        LOG.d("coverImageUrl", imageName, "imagesFolder", imagesFolder);
+        return fileModule.download(toDld, imagesFolder, imageName);
+    }
+
+    Game.prototype.bundleGames = function(){
+        if(CONF && CONF.bundleGames){
+            LOG.d("Games bundle detected", CONF.bundleGames);
+
+            // Prepare QueryString
+            obj.content_id = CONF.bundleGames.join(",");
+            var api_string = composeApiString(API, obj);
+
+            LOG.d("Request bundle games meta info:", api_string);
+            var getBundleObjects = new jsonpRequest(api_string);
+
+            getBundleObjects.then(function(bundleGameObjects){
+                    LOG.d("Games bundle response:", bundleGameObjects);
+                    var jsonpRequests = bundleGameObjects.map(function(item){
+                        //return getJSON(item.url_api_dld);
+                        return jsonpRequest(item.url_api_dld);
+                    });
+                    return [bundleGameObjects, Promise.all(jsonpRequests)];
+                })
+                .then(function(results){
+                    var gameObjects = results[0];
+                    var responses = results[1];
+
+                    LOG.d("RESPONSES", responses, gameObjects);
+                })
+                .catch(function(statusCode){
+                    LOG.e("Games bundle meta info fail:", statusCode);
+                });
+        }
     };
 
     var _protected = {};
@@ -1615,7 +1670,7 @@ stargatePublic.openUrl = function(url) {
 	if (!isStargateInitialized) {
 		return err("Stargate not initialized, call Stargate.initialize first!");
     }
-    // FIXME: check that inappbrowser plugin is installed otherwise retunr error
+    // FIXME: check that inappbrowser plugin is installed otherwise return error
 
     window.open(url, "_system");
 };
@@ -1639,24 +1694,26 @@ var connectionStatus = {
 
 var onConnectionChange;
 /**
+ * Stargate.addListener
  * @param {String} type - possible values: "connectionchange"
- * @param {Function} [_onConnectionChange=function(){}]
- **/
+ * @param {Function} _onConnectionChange
+ * **/
 stargatePublic.addListener = function(type, _onConnectionChange){
-    if(type == "connectionchange"){
+    //if not already registered
+    if(type == "connectionchange" && (typeof _onConnectionChange === "function")){
         log("onConnectionChange registered");
-        onConnectionChange = _onConnectionChange ? _onConnectionChange : function(){};
+        onConnectionChange = _onConnectionChange;
     }
 };
 
 function updateConnectionStatus(theEvent){
     connectionStatus.type = theEvent.type;
     connectionStatus.networkState = navigator.connection.type;
-    if(onConnectionChange){onConnectionChange(connectionStatus);}
+    if(typeof onConnectionChange === "function"){onConnectionChange(connectionStatus);}
 }
 
-window.addEventListener("online", updateConnectionStatus, false);
-window.addEventListener("offline", updateConnectionStatus, false);
+document.addEventListener("online", updateConnectionStatus, false);
+document.addEventListener("offline", updateConnectionStatus, false);
 
 function initializeConnectionStatus() {
     connectionStatus.networkState = navigator.connection.type;
@@ -1820,9 +1877,7 @@ var initDevice = function() {
 function getManifest() {
     
     if (window.cordova.file) {
-        return stargateModules.file.readFileAsJSON(
-            window.cordova.file.applicationDirectory + "www/manifest.json"
-        );
+        return stargateModules.file.readFileAsJSON(window.cordova.file.applicationDirectory + "www/manifest.json");
     }
     
     if (window.hostedwebapp) {
@@ -1959,10 +2014,8 @@ var onPluginReady = function (resolve) {
             stargateConf.deltadna.environmentKey,
             stargateConf.deltadna.collectApi,
             stargateConf.deltadna.engageApi,
-
             onDeltaDNAStartedSuccess,
             onDeltaDNAStartedError,
-
             stargateConf.deltadna.settings
         );
     }

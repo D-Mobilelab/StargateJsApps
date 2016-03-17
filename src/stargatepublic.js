@@ -259,7 +259,7 @@ stargatePublic.openUrl = function(url) {
 	if (!isStargateInitialized) {
 		return err("Stargate not initialized, call Stargate.initialize first!");
     }
-    // FIXME: check that inappbrowser plugin is installed otherwise retunr error
+    // FIXME: check that inappbrowser plugin is installed otherwise return error
 
     window.open(url, "_system");
 };
@@ -283,24 +283,26 @@ var connectionStatus = {
 
 var onConnectionChange;
 /**
+ * Stargate.addListener
  * @param {String} type - possible values: "connectionchange"
- * @param {Function} [_onConnectionChange=function(){}]
- **/
+ * @param {Function} _onConnectionChange
+ * **/
 stargatePublic.addListener = function(type, _onConnectionChange){
-    if(type == "connectionchange"){
+    //if not already registered
+    if(type == "connectionchange" && (typeof _onConnectionChange === "function")){
         log("onConnectionChange registered");
-        onConnectionChange = _onConnectionChange ? _onConnectionChange : function(){};
+        onConnectionChange = _onConnectionChange;
     }
 };
 
 function updateConnectionStatus(theEvent){
     connectionStatus.type = theEvent.type;
     connectionStatus.networkState = navigator.connection.type;
-    if(onConnectionChange){onConnectionChange(connectionStatus);}
+    if(typeof onConnectionChange === "function"){onConnectionChange(connectionStatus);}
 }
 
-window.addEventListener("online", updateConnectionStatus, false);
-window.addEventListener("offline", updateConnectionStatus, false);
+document.addEventListener("online", updateConnectionStatus, false);
+document.addEventListener("offline", updateConnectionStatus, false);
 
 function initializeConnectionStatus() {
     connectionStatus.networkState = navigator.connection.type;
