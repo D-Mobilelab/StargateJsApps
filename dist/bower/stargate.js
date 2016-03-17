@@ -18,7 +18,7 @@
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.2.7";
+    var stargatePackageVersion = "0.2.8";
     var stargatePublic = {};
     
     var stargateModules = {};       
@@ -3365,11 +3365,17 @@ var MFP = (function(){
 		//}
 
 		// country defined on main stargate.js
-		if (!initializeConf.country) {		
-			return err("[MFP] Country not defined!");
-		}
+        var neededConfs = ["motime_apikey", "namespace", "label", "country"];
+        neededConfs.forEach(function(neededConf) {
+            if (!initializeConf.hasOwnProperty(neededConf)) {		
+                return err("[MFP] Configuration '"+neededConf+"' not defined!");
+            }
+            if (!initializeConf[neededConf]) {		
+                return err("[MFP] Configuration: '"+neededConf+"' not valid!");
+            }
+        });
 
-		MobileFingerPrint.get(initializeConf.country);
+		MobileFingerPrint.get(initializeConf);
 	};
 
 	MobileFingerPrint.getContents = function(country, namespace, label, extData){
@@ -3423,7 +3429,7 @@ var MFP = (function(){
 		launchUrl(newUrl);
 	};
 
-	MobileFingerPrint.get = function(country){
+	MobileFingerPrint.get = function(initializeConf){
 		var expire = "";
 
 	    // stargateConf.api.mfpGetUriTemplate:
@@ -3431,9 +3437,9 @@ var MFP = (function(){
 
 		var mfpUrl = URITemplate(stargateConf.api.mfpGetUriTemplate)
 	  		.expand({
-	  			"apikey": stargateConf.motime_apikey,
-	  			"contents_inapp": MobileFingerPrint.getContents(country, stargateConf.namespace, stargateConf.label),
-	  			"country": country,
+	  			"apikey": initializeConf.motime_apikey,
+	  			"contents_inapp": MobileFingerPrint.getContents(initializeConf.country, initializeConf.namespace, initializeConf.label),
+	  			"country": initializeConf.country,
 	  			"expire": expire
 	  	});
 
