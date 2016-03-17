@@ -182,9 +182,29 @@ var onPluginReady = function (resolve) {
 
     
     if (hasFeature("mfp") && haveRequestedFeature("mfp")) {
-        MFP.check(
-            getModuleConf("mfp")
-        );
+        var mfpModuleConf = getModuleConf("mfp");
+        
+        // configurations needed
+        //stargateConf.motime_apikey,
+	  	//stargateConf.namespace,
+        //stargateConf.label,
+        
+        // configurations needed
+        //moduleConf.country
+                  
+        // retrocompatibility
+        var keysOnStargateConf = ["motime_apikey", "namespace", "label"];
+        keysOnStargateConf.forEach(function(keyOnStargateConf) {
+            // if it's available in stargateConf but not in module conf
+            // copy it to module conf
+            if (!mfpModuleConf.hasOwnProperty(keyOnStargateConf) &&
+                stargateConf.hasOwnProperty(keyOnStargateConf)) {
+                    
+                mfpModuleConf[keyOnStargateConf] = stargateConf[keyOnStargateConf];
+            }
+        });
+        
+        MFP.check(mfpModuleConf);
     }
     
     if (hasFeature("deltadna")) {
