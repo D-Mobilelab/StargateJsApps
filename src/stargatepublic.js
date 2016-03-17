@@ -327,8 +327,14 @@ stargatePublic.checkConnection = function() {
 		callbackError("Stargate not initialized, call Stargate.initialize first!");
         return false;
     }
+    if (!isStargateOpen) {
+        callbackError("Stargate closed, wait for Stargate.initialize to complete!");
+        return false;
+    }
 
-    if(typeof navigator.connection.getInfo !== "function"){
+    if(typeof navigator.connection === "undefined" ||
+        typeof navigator.connection.getInfo !== "function"){
+            
         callbackError("Missing cordova plugin");
         console.warn("Cordova Network Information module missing");
         return false;
@@ -342,6 +348,10 @@ stargatePublic.getDeviceID = function(callbackSuccess, callbackError) {
 	if (!isStargateInitialized) {
 		return callbackError("Stargate not initialized, call Stargate.initialize first!");
     }
+    if (!isStargateOpen) {
+        callbackError("Stargate closed, wait for Stargate.initialize to complete!");
+        return false;
+    }
 
     // FIXME: check that device plugin is installed
     // FIXME: integrate with other stargate device handling method
@@ -354,6 +364,10 @@ stargatePublic.setStatusbarVisibility = function(visibility, callbackSuccess, ca
 
     if (!isStargateInitialized) {
         return callbackError("Stargate not initialized, call Stargate.initialize first!");
+    }
+    if (!isStargateOpen) {
+        callbackError("Stargate closed, wait for Stargate.initialize to complete!");
+        return false;
     }
 
     if (typeof window.StatusBar === "undefined") {
