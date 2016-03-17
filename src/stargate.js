@@ -55,9 +55,7 @@ var initDevice = function() {
 function getManifest() {
     
     if (window.cordova.file) {
-        return stargateModules.file.readFileAsJSON(
-            window.cordova.file.applicationDirectory + "www/manifest.json"
-        );
+        return stargateModules.file.readFileAsJSON(window.cordova.file.applicationDirectory + "www/manifest.json");
     }
     
     if (window.hostedwebapp) {
@@ -214,10 +212,8 @@ var onPluginReady = function (resolve) {
             stargateConf.deltadna.environmentKey,
             stargateConf.deltadna.collectApi,
             stargateConf.deltadna.engageApi,
-
             onDeltaDNAStartedSuccess,
             onDeltaDNAStartedError,
-
             stargateConf.deltadna.settings
         );
     }

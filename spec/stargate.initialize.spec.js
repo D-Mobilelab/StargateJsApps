@@ -402,5 +402,34 @@ describe("Stargate initialize", function() {
             done();
         }, timeout + 10);
     });
+
+    it("stargate addListener on OFFLINE event", function(done) {
+        isStargateInitialized = true;
+        navigator_connection_mock.type = "none";
+
+        stargatePublic.addListener("connectionchange", function(connection){
+            console.log("Connection", connection);
+            expect(connection.type).toEqual("offline");
+            expect(connection.networkState).toBeDefined();
+            done();
+        });
+
+        SimulateEvent("offline", {networkState:"none"}, 1);
+    });
+
+    it("stargate addListener on ONLINE event", function(done) {
+        isStargateInitialized = true;
+        navigator_connection_mock.type = "wifi";
+
+        stargatePublic.addListener("connectionchange", function(connection){
+            console.log("Connection", connection);
+            expect(connection.type).toEqual("online");
+            expect(connection.networkState).toBeDefined();
+            expect(connection.networkState).toEqual("wifi");
+            done();
+        });
+
+        SimulateEvent("online", {networkState:"wifi"}, 1);
+    });
 	
 });
