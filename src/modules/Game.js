@@ -251,13 +251,13 @@
                 })
                 .then(function(){
                     //GET COVER IMAGE FOR THE GAME!
-                    var coverImageUrl = gameObject.images.cover.ratio_1_4
-                        .replace("[HSIZE]","240")
-                        .replace("[WSIZE]","240");
-                    var gameFolder = constants.GAMES_DIR + gameObject.id;
-                    var imagesFolder = gameFolder + "/images/";
-                    LOG.d("coverImageUrl", coverImageUrl, "gameFolder", gameFolder);
-                    return fileModule.download(coverImageUrl, imagesFolder, "cover" + ".png");
+                    var info = {
+                        gameId:gameObject.id,
+                        size:{width:"240",height:"170",ratio:"1_4"},
+                        url:gameObject.images.cover.ratio_1_4,
+                        type:"cover"
+                    };
+                    return downloadImage(info);
                 })
                 .then(function(coverResult){
                     LOG.d("Save meta.json for:", gameObject.id);
@@ -583,6 +583,40 @@
         return fileModule.dirExists(constants.GAMES_DIR + gameID);
     };
 
+
+    /**
+     * downloadImage
+     * Save the image in games/<gameId>/images/<type>/<size.width>x<size.height>.png
+     *
+     * @param {String} info -
+     * @param {String} info.gameId -
+     * @param {Object} info.size -
+     * @param {String|Number} info.size.width -
+     * @param {String|Number} info.size.height -
+     * @param {String|Number} info.size.ratio - 1|2|1_5|1_4
+     * @param {String} info.url - the url with the [HSIZE] and [WSIZE] in it
+     * @param {String} info.type - possible values cover|screenshot|icon
+     * @returns {Promise<String|FileTransferError>} where string is the cdvfile:// path
+     * */
+    function downloadImage(info){
+        /* info = {
+            gameId:"",
+            size:{width:"",height:"",ratio:""},
+            url:"",
+            type:"cover"
+        };*/
+
+        //GET COVER IMAGE FOR THE GAME!
+        var toDld = info.url
+            .replace("[WSIZE]", info.size.width)
+            .replace("[HSIZE]", info.size.height);
+
+        var gameFolder = constants.GAMES_DIR + info.gameId;
+        var imagesFolder = gameFolder + "/images/" + info.type + "/";
+        var imageName = info.size.width + "x" + info.size.height + (info.size.ratio || "") + ".png";
+        LOG.d("coverImageUrl", imageName, "imagesFolder", imagesFolder);
+        return fileModule.download(toDld, imagesFolder, imageName);
+    }
     var _protected = {};
     _modules.game = {};
 
