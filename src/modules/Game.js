@@ -131,7 +131,7 @@
                         fileModule.copyFile(constants.STARGATEJS, constants.SDK_DIR + "stargate.js"),
                         fileModule.copyFile(constants.WWW_DIR + "js/gamesFixes.js", constants.SDK_DIR + "gamesFixes.js")
                     ]);
-                });    
+                });
         }
 
         //Object.freeze(constants);
@@ -497,7 +497,9 @@
                 var _entries = Array.isArray(entries) ? entries : [entries];
                 return _entries.map(function(entry){
                     //get the ids careful: there's / at the end
-                    return entry.path;
+                    if(entry.isDirectory){
+                        return entry.path;
+                    }
                 });
             }).then(function(ids){
 
