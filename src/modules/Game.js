@@ -650,7 +650,7 @@
 
                     //extend with the response object
                     for(var i = 0;i < results.length;i++){
-                        tmpBundleGameObjects[i]["response_api_dld"] =  results[i];
+                        tmpBundleGameObjects[i].response_api_dld =  results[i];
                     }
 
                     LOG.d("GameObjects", tmpBundleGameObjects);
