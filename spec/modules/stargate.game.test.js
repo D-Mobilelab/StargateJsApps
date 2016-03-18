@@ -176,142 +176,168 @@ function readDir(url){
         }, reject);
     });
 }
-var GamifiveInfo = {"label":"it_igames",
-    "contentId":"4de756a55ac71f45c5b7b4211b71219e",
-    "userId":"aac3121ebf5111e5a728005056b60712",
-    "fbUserId":null,
-    "fbAppId":"497938953670292",
-    "fbConnected":false,
-    "requireFbConnect":true,
-    "fbExternal":false,
-    "userFreemium":false,
-    "challenge":{"id":null},
-    "game":{"title":"Fruit Slicer"},
-    "dictionary": {
-        "messageOfFbChallenge":"Il mio punteggio \u00e8 %s, prova a battermi!",
-        "matchLeftSingular":"hai ancora solo <span>%s<\/span> partita",
-        "matchLeftPlural":"hai ancora <span>%s<\/span> partite per allenarti!",
-        "matchLeftNone":"Non hai pi\u00f9 crediti! :("
-    },
-    "user":
-    {"userId":"aac3121ebf5111e5a728005056b60712",
-        "fbUserId":null,
-        "fbConnected":false,
-        "userFreemium":false,
-        "nickname":"william_40e33",
-        "avatar":{
-            "src":"http:\/\/s2.motime.com\/img\/wl\/webstore_html5game\/images\/avatar\/big\/avatar_05.png?v=20150610133322",
-            "name":"avatar_05.png"}
-    }
-};
 
 function removeFolders(paths){
-        return new Promise(function(resolve, reject){
-            
-            var counter = 0;
-            for(var i = 0; i < paths.length;i++){
-                console.log("Deleting...", paths[i]);
-                window.resolveLocalFileSystemURL(paths[i], function(entry){
-                    entry.removeRecursively(function(result){
-                        console.log("Cleaned", result);
-                        counter += 1;
-                        if(counter == paths.length){
-                            console.log("Now i'm finished");
-                            resolve(paths);
-                        }
-                    },reject);
-                }, reject);
-            }
-        });        
+    return new Promise(function(resolve, reject){
+
+        var counter = 0;
+        for(var i = 0; i < paths.length;i++){
+            console.log("Deleting...", paths[i]);
+            window.resolveLocalFileSystemURL(paths[i], function(entry){
+                entry.removeRecursively(function(result){
+                    console.log("Cleaned", result);
+                    counter += 1;
+                    if(counter == paths.length){
+                        console.log("Now i'm finished");
+                        resolve(paths);
+                    }
+                },function(err){
+                    console.error(err);
+                    reject(err);
+                });
+            },function(err){
+                console.error(err);
+                reject(err);
+            });
+        }
+    });
 }
-describe("Game module tests", function() {
-    
-    var game = stargateModules.game._public;
-    game.initialize = stargateModules.game._protected.initialize;
-    var TEST_FOLDER_DIR,
-        STORAGE_DIR,
-        SDK_DIR,
-        TEST_FOLDER_NAME = "Test",
-        GAMEOVER_DIR;
+
+var deviceReady;
+function waitDeviceReady(){
+
+    if(deviceReady){return deviceReady;}
+    deviceReady = new Promise(function(resolve, reject){
+        document.addEventListener("deviceready", resolve);
+        setTimeout(reject,50000);
+    });
+    return deviceReady;
+}
+
+game = stargateModules.game._public;
+game.initialize = stargateModules.game._protected.initialize;
+var STORAGE_DIR,
+    SDK_DIR,
+    GAMEOVER_DIR,
+    deviceReady;
+
+fdescribe("Game module tests", function() {
 
     beforeAll(function(done){
-        document.addEventListener("deviceready", function(readyEvent){
-            STORAGE_DIR = cordova.file.applicationStorageDirectory;
-            if(isRunningOnIos()){ STORAGE_DIR += "Documents/"; }
-            SDK_DIR = STORAGE_DIR + "scripts/";
-            GAMES_DIR = STORAGE_DIR + "games/";
-            GAMEOVER_DIR = STORAGE_DIR + "gameover_template";
+        console.log("beforeAll");
+        deviceReady = waitDeviceReady();
+        deviceReady.then(function(readyEvent){
+                STORAGE_DIR = cordova.file.applicationStorageDirectory;
+                if(isRunningOnIos()){ STORAGE_DIR += "Documents/"; }
+                SDK_DIR = STORAGE_DIR + "scripts/";
+                GAMES_DIR = STORAGE_DIR + "games/";
+                GAMEOVER_DIR = STORAGE_DIR + "gameover_template";
+                console.log("Ready!",readyEvent, SDK_DIR, GAMES_DIR, GAMEOVER_DIR);
+                done();
+            });
+    });
+
+    beforeEach(function(){
+
+    });
+
+    afterEach(function(){
+    });
+
+    it("Game should exists", function(done) {
+        expect(game).toBeDefined();
+        done();
+    });
+
+    it("Game should return already initialized if called twice", function(done) {
+        var first = game.initialize({});
+        var second = game.initialize({});
+        second.then(function(result){
+            expect(result).toEqual("AlreadyInitialized");
             done();
         });
     });
 
-    beforeEach(function() {
-       console.log("beforeEach");
-    });
-
-    afterEach(function(done){
-        removeFolders([SDK_DIR, GAMES_DIR, GAMEOVER_DIR]).then(function(results){
-            console.log("afterEach:", results);
+    it("Should expose GAMES_DIR and OFFLINE_INDEX", function(done){
+        var afterInit = game.initialize({});
+        afterInit.then(function(results){
+            expect(stargateModules.game._public.GAMES_DIR).toBeDefined();
+            expect(stargateModules.game._public.OFFLINE_INDEX).toBeDefined();
             done();
-        }).catch(function(){console.error(arguments)});
-    });
-
-    it("Game should exists", function() {
-        expect(game).toBeDefined();        
-    });
-
-    it("Test abortDownload", function(done){
-
-        game.initialize()
-            .then(function(){
-                game.download(gameObject);
-
-                setTimeout(function pippo(){
-                    var res = game.abortDownload();
-                    expect(res).toBe(true);
-                    done();
-                }, 500);
-            });
+        });
     });
 
     it("Test abortDownload should not to abort if is not downloading", function(done){
+        var afterInit = game.initialize({});
+        afterInit.then(function(){
+            var res = game.abortDownload();
+            expect(res).toBe(false);
+            done();
+        }).catch(function(){
+            done();
+        });
 
-        function check(results){
-                console.log(results);
-                var res = game.abortDownload();
-                expect(res).toBe(false);
-                done();
-        }
-        game.initialize().then(check);
     });
 
-    fit("Test download game already exists", function(done){
-
+    it("Test download game already exists", function(done){
         function check(reason){
-            expect(reason).toEqual({12:"AlreadyExists",gameID:gameObject.id});
+            console.log(reason);
+            expect(reason).toEqual({12:"AlreadyExists", gameID:gameObject.id});
             done();
         }
 
-        game.initialize()
-            .then(function(results){
-               return createFolder(GAMES_DIR, gameObject.id);
+        var afterInit = game.initialize({});
+        afterInit.then(function(results){
+                return createFolder(GAMES_DIR, gameObject.id);
             })
             .then(function(result){
                 return game.download(gameObject);
             })
             .catch(check);
+
+
     });
 
-    it("Test configuration bundle games", function(done){
-        game.initialize(conf)
+    it("Test removeAll games", function(done){
+        var afterInit = game.initialize({});
+        afterInit.then(function(results){
+                return game.removeAll();
+            })
+            .then(function(result){
+                expect(result).toBeDefined();
+                expect(result.path).toBeDefined();
+                expect(result.path.indexOf(GAMES_DIR)).not.toEqual(-1);
+                done();
+            }).catch(function(){
+                expect(true).toBeFalsy();
+                done();
+            });
+    });
+
+    fit("Download Bundle games", function(done){
+        var afterInit = game.initialize(conf);
+        afterInit
+            .then(function(){
+                return game.bundleGames();
+            })
             .then(function(results){
-                console.log(results);
+                expect(results[0]["response_api_dld"]).toBeDefined();
+                expect(results[0]["response_api_dld"]["status"]).toEqual(200);
+                done();
+            })
+            .catch(function(reason){
+                console.log(reason);
+                expect(true).toBeFalsy();
                 done();
             });
     });
 });
 
-function manualTest(){
+function clean(){
+    return removeFolders([GAMES_DIR, GAMEOVER_DIR, SDK_DIR]);
+}
+
+function manualDownload(){
     stargateModules.game._protected.initialize(conf)
         .then(console.log.bind(console))
         .then(function(){
@@ -319,8 +345,8 @@ function manualTest(){
         })
         .then(function(){
             return Promise.all([
-                writeJson("cookie.json",cookiejson),
-                writeJson("user.json",userjson)
+                writeJson("cookie.json", cookiejson),
+                writeJson("user.json", userjson)
             ]);
         });
 }
