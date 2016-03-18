@@ -147,7 +147,7 @@
                 if(!results[0] && !results[1]){
                     return firstInit();
                 }else{
-                    return Promise.resolve(true);
+                    return Promise.resolve("AlreadyInitialized");
                 }
             });
     }
