@@ -105,9 +105,10 @@
         constants.GAMEOVER_DIR = constants.BASE_DIR + "gameover_template/";
         constants.WWW_DIR = wwwDir;
 
-        /** expose games dir */
+        /** expose */
         _modules.game._public.GAMES_DIR = constants.GAMES_DIR;
-        
+        _modules.game._public.OFFLINE_INDEX = constants.WWW_DIR + "index.html";
+
         function firstInit(){
             /**
              * Create directories
