@@ -556,6 +556,18 @@
         return fileModule.dirExists(constants.GAMES_DIR + gameID);
     };
 
+    /**
+     * removeAll delete all games and recreate the games folder
+     *
+     * @returns {Promise}
+     * */
+    Game.prototype.removeAll = function(){
+        return fileModule.removeDir(constants.GAMES_DIR)
+            .then(function(result){
+                LOG.d("All games deleted!", result);
+                return fileModule.createDir(constants.BASE_DIR, "games");
+            });
+    };
 
     /**
      * downloadImage
