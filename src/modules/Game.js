@@ -1,6 +1,6 @@
 /**globals Promise, cordova **/
 /**
- * Game module
+ * Game module needs cordova-file cordova-file-transfer
  * @module src/modules/Game
  * @type {Object}
  * @requires ./Utils.js,./File.js
@@ -23,7 +23,8 @@
         stargatejsDir,
         SDK_URL = "http://s2.motime.com/js/wl/webstore_html5game/gfsdk/dist/gfsdk.js"+"?timestamp=" + Date.now(),
         DIXIE_URL = "http://s2.motime.com/tbr/dixie.js?country=it-igames"+"&timestamp=" + Date.now(),
-        API = "http://resources2.buongiorno.com/lapis/apps/contents.getList";
+        API = "http://resources2.buongiorno.com/lapis/apps/contents.getList",
+        CONF = {};
 
     var obj = {
         "content_id":"", // to fill
@@ -66,36 +67,8 @@
      function initialize(conf){
 
         LOG.d("Initialized called with:", conf);
+        CONF = conf;
         if(!fileModule){return Promise.reject("Missing file module!");}
-
-        if(conf && conf.bundleGames){
-            LOG.d("Games bundle detected", conf.bundleGames);
-
-            // Prepare QueryString
-            obj.content_id = conf.bundleGames.join(",");
-            var api_string = composeApiString(API, obj);
-
-            LOG.d("Request bundle games meta info:", api_string);
-            var getBundleObjects = new jsonpRequest(api_string);
-
-                getBundleObjects.then(function(bundleGameObjects){
-                    LOG.d("Games bundle response:", bundleGameObjects);
-                    var jsonpRequests = bundleGameObjects.map(function(item){
-                        //return getJSON(item.url_api_dld);
-                        return jsonpRequest(item.url_api_dld);
-                    });
-                    return [bundleGameObjects, Promise.all(jsonpRequests)];
-                })
-                .then(function(results){
-                    var gameObjects = results[0];
-                    var responses = results[1];
-
-                    LOG.d("RESPONSES", responses, gameObjects);
-                })
-                .catch(function(statusCode){
-                    LOG.e("Games bundle meta info fail:", statusCode);
-                });
-        }
 
         try{
             baseDir = window.cordova.file.applicationStorageDirectory;
@@ -617,6 +590,62 @@
         LOG.d("coverImageUrl", imageName, "imagesFolder", imagesFolder);
         return fileModule.download(toDld, imagesFolder, imageName);
     }
+
+    Game.prototype.bundleGames = function(){
+        var self = this;
+        if(CONF && CONF.bundleGames){
+            LOG.d("Games bundle in configuration", CONF.bundleGames);
+            var whichGameAlreadyHere = CONF.bundleGames.map(function(gameId){
+                return self.isGameDownloaded(gameId);
+            });
+
+            var filteredToDownload = Promise.all(whichGameAlreadyHere)
+                .then(function(results){
+                    LOG.d("alreadyDownloaded",results);
+                    for(var i = 0;i < results.length;i++){
+                        if(results[i]) CONF.bundleGames.splice(i, 1);
+                    }
+                    return CONF.bundleGames;
+                })
+                .then(function(bundlesGamesIds){
+                    return bundlesGamesIds.join(",");
+                });
+
+            var tmpBundleGameObjects;
+            return filteredToDownload
+                .then(function(bundleGamesIds){
+
+                    obj.content_id = bundleGamesIds;
+                    var api_string = composeApiString(API, obj);
+                    LOG.d("Request bundle games meta info:", api_string);
+
+                    return new jsonpRequest(api_string).prom;
+                }).then(function(bundleGameObjects){
+                    LOG.d("Games bundle response:", bundleGameObjects);
+                    tmpBundleGameObjects = bundleGameObjects;
+                    var jsonpRequests = bundleGameObjects.map(function(item){
+                        return new jsonpRequest(item.url_api_dld).prom;
+                    });
+                    LOG.d("jsonpRequests",jsonpRequests);
+                    return Promise.all(jsonpRequests);
+                })
+                .then(function(results){
+                    LOG.d("RESULTS", results);
+
+                    //extend with the response object
+                    for(var i = 0;i < results.length;i++){
+                        tmpBundleGameObjects[i]["response_api_dld"] =  results[i];
+                    }
+
+                    LOG.d("GameObjects", tmpBundleGameObjects);
+                    return tmpBundleGameObjects;
+                })
+                .catch(function(reason){
+                    LOG.e("Games bundle meta fail:", reason);
+                });
+        }
+    };
+
     var _protected = {};
     _modules.game = {};
 
