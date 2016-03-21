@@ -21,18 +21,17 @@ var conf = {
 
 var GAMES_DIR = "";
 
-var userjson = {"data_iscr":"2016-03-11","modo_billing":null,"destinatario":"+12345678","numero":"+12345678","phone_company":"fake.xx","crediti_nonpremium":10,"crediti_nonpremium_extra":null,"data_scadenza_abb":"2016-03-18","premium_extra":null,"crediti_premium1":null,"crediti_nonpremium_rimasti":null,"points":null,"sweeps_opt_in":null,"subscription_start_date":null,"data_prossimo_rinnovo":"2016-03-18","operator":"fake.xx","mlist":null,"email":null,"privacy_agreed":false,"date_privacy_cookie_agree":null,"date_privacy_cookie_disagree":null,"data_ultimo_billing":"2016-03-11","downloads":null,"capid":null,"creativityid":null,"subscription_profile":"","chk":"","livello_utente":false,"stato_utente":1,"crediti_premium2":0,"id_operatore":0,"canDownload":true,"crediti_token_abbonamento_rimasti":10,"data_scadenza_abbonamento":"2016-03-18","data_iscr_utc":1457654400,"data_scadenza_abb_utc":1458259200,"data_prossimo_rinnovo_utc":1458259200,"data_ultimo_billing_utc":1457654400,"data_scadenza_abbonamento_utc":1458259200,"data_iscr_GMDATE":"2016-03-11T00:00:00+00:00","data_iscr_DATE":"2016-03-11T00:00:00+00:00","data_iscr_YEAR":2016,"data_iscr_HH":0,"data_iscr_MM":0,"data_iscr_SS":0,"data_iscr_MONTH":3,"data_iscr_DAY":11,"data_iscr_CDAY":11,"data_iscr_CMONTH":null,"data_iscr_postDate":"2016-03-11","data_iscr_postTime":"00:00:00","data_iscr_postSince":"10  ","data_iscr_formatted":"11  2016","data_iscr_numeric_formatted":"11\/3\/2016","data_scadenza_abb_GMDATE":"2016-03-18T00:00:00+00:00","data_scadenza_abb_DATE":"2016-03-18T00:00:00+00:00","data_scadenza_abb_YEAR":2016,"data_scadenza_abb_HH":0,"data_scadenza_abb_MM":0,"data_scadenza_abb_SS":0,"data_scadenza_abb_MONTH":3,"data_scadenza_abb_DAY":18,"data_scadenza_abb_CDAY":18,"data_scadenza_abb_CMONTH":null,"data_scadenza_abb_postDate":"2016-03-18","data_scadenza_abb_postTime":"00:00:00","data_scadenza_abb_postSince":"1  ","data_scadenza_abb_formatted":"18  2016","data_scadenza_abb_numeric_formatted":"18\/3\/2016","data_prossimo_rinnovo_GMDATE":"2016-03-18T00:00:00+00:00","data_prossimo_rinnovo_DATE":"2016-03-18T00:00:00+00:00","data_prossimo_rinnovo_YEAR":2016,"data_prossimo_rinnovo_HH":0,"data_prossimo_rinnovo_MM":0,"data_prossimo_rinnovo_SS":0,"data_prossimo_rinnovo_MONTH":3,"data_prossimo_rinnovo_DAY":18,"data_prossimo_rinnovo_CDAY":18,"data_prossimo_rinnovo_CMONTH":null,"data_prossimo_rinnovo_postDate":"2016-03-18","data_prossimo_rinnovo_postTime":"00:00:00","data_prossimo_rinnovo_postSince":"1  ","data_prossimo_rinnovo_formatted":"18  2016","data_prossimo_rinnovo_numeric_formatted":"18\/3\/2016","data_ultimo_billing_GMDATE":"2016-03-11T00:00:00+00:00","data_ultimo_billing_DATE":"2016-03-11T00:00:00+00:00","data_ultimo_billing_YEAR":2016,"data_ultimo_billing_HH":0,"data_ultimo_billing_MM":0,"data_ultimo_billing_SS":0,"data_ultimo_billing_MONTH":3,"data_ultimo_billing_DAY":11,"data_ultimo_billing_CDAY":11,"data_ultimo_billing_CMONTH":null,"data_ultimo_billing_postDate":"2016-03-11","data_ultimo_billing_postTime":"00:00:00","data_ultimo_billing_postSince":"10  ","data_ultimo_billing_formatted":"11  2016","data_ultimo_billing_numeric_formatted":"11\/3\/2016","data_scadenza_abbonamento_GMDATE":"2016-03-18T00:00:00+00:00","data_scadenza_abbonamento_DATE":"2016-03-18T00:00:00+00:00","data_scadenza_abbonamento_YEAR":2016,"data_scadenza_abbonamento_HH":0,"data_scadenza_abbonamento_MM":0,"data_scadenza_abbonamento_SS":0,"data_scadenza_abbonamento_MONTH":3,"data_scadenza_abbonamento_DAY":18,"data_scadenza_abbonamento_CDAY":18,"data_scadenza_abbonamento_CMONTH":null,"data_scadenza_abbonamento_postDate":"2016-03-18","data_scadenza_abbonamento_postTime":"00:00:00","data_scadenza_abbonamento_postSince":"1  ","data_scadenza_abbonamento_formatted":"18  2016","data_scadenza_abbonamento_numeric_formatted":"18\/3\/2016","user_billed_":true,"checkmail":0,"user":"903833c2c35a11e589cb005056b60712","msisdn":"+12345678","description_remaining_credits":"","mipuser_email":null,"fb_name":null,"auth_id":null,"nickname":"psql","avatar":"virgilio.png","subscribed":true,"logged":1,
+var userjson = {"data_iscr":"2016-03-11","modo_billing":null,"destinatario":"+12345678","numero":"+12345678","phone_company":"fake.xx","crediti_nonpremium":10,"crediti_nonpremium_extra":null,"data_scadenza_abb":"2016-04-18","premium_extra":null,"crediti_premium1":null,"crediti_nonpremium_rimasti":null,"points":null,"sweeps_opt_in":null,"subscription_start_date":null,"data_prossimo_rinnovo":"2016-03-18","operator":"fake.xx","mlist":null,"email":null,"privacy_agreed":false,"date_privacy_cookie_agree":null,"date_privacy_cookie_disagree":null,"data_ultimo_billing":"2016-03-11","downloads":null,"capid":null,"creativityid":null,"subscription_profile":"","chk":"","livello_utente":false,"stato_utente":1,"crediti_premium2":0,"id_operatore":0,"canDownload":true,"crediti_token_abbonamento_rimasti":10,"data_scadenza_abbonamento":"2016-03-18","data_iscr_utc":1457654400,"data_scadenza_abb_utc":1458259200,"data_prossimo_rinnovo_utc":1458259200,"data_ultimo_billing_utc":1457654400,"data_scadenza_abbonamento_utc":1458259200,"data_iscr_GMDATE":"2016-03-11T00:00:00+00:00","data_iscr_DATE":"2016-03-11T00:00:00+00:00","data_iscr_YEAR":2016,"data_iscr_HH":0,"data_iscr_MM":0,"data_iscr_SS":0,"data_iscr_MONTH":3,"data_iscr_DAY":11,"data_iscr_CDAY":11,"data_iscr_CMONTH":null,"data_iscr_postDate":"2016-03-11","data_iscr_postTime":"00:00:00","data_iscr_postSince":"10  ","data_iscr_formatted":"11  2016","data_iscr_numeric_formatted":"11\/3\/2016","data_scadenza_abb_GMDATE":"2016-03-18T00:00:00+00:00","data_scadenza_abb_DATE":"2016-03-18T00:00:00+00:00","data_scadenza_abb_YEAR":2016,"data_scadenza_abb_HH":0,"data_scadenza_abb_MM":0,"data_scadenza_abb_SS":0,"data_scadenza_abb_MONTH":3,"data_scadenza_abb_DAY":18,"data_scadenza_abb_CDAY":18,"data_scadenza_abb_CMONTH":null,"data_scadenza_abb_postDate":"2016-03-18","data_scadenza_abb_postTime":"00:00:00","data_scadenza_abb_postSince":"1  ","data_scadenza_abb_formatted":"18  2016","data_scadenza_abb_numeric_formatted":"18\/3\/2016","data_prossimo_rinnovo_GMDATE":"2016-03-18T00:00:00+00:00","data_prossimo_rinnovo_DATE":"2016-03-18T00:00:00+00:00","data_prossimo_rinnovo_YEAR":2016,"data_prossimo_rinnovo_HH":0,"data_prossimo_rinnovo_MM":0,"data_prossimo_rinnovo_SS":0,"data_prossimo_rinnovo_MONTH":3,"data_prossimo_rinnovo_DAY":18,"data_prossimo_rinnovo_CDAY":18,"data_prossimo_rinnovo_CMONTH":null,"data_prossimo_rinnovo_postDate":"2016-03-18","data_prossimo_rinnovo_postTime":"00:00:00","data_prossimo_rinnovo_postSince":"1  ","data_prossimo_rinnovo_formatted":"18  2016","data_prossimo_rinnovo_numeric_formatted":"18\/3\/2016","data_ultimo_billing_GMDATE":"2016-03-11T00:00:00+00:00","data_ultimo_billing_DATE":"2016-03-11T00:00:00+00:00","data_ultimo_billing_YEAR":2016,"data_ultimo_billing_HH":0,"data_ultimo_billing_MM":0,"data_ultimo_billing_SS":0,"data_ultimo_billing_MONTH":3,"data_ultimo_billing_DAY":11,"data_ultimo_billing_CDAY":11,"data_ultimo_billing_CMONTH":null,"data_ultimo_billing_postDate":"2016-03-11","data_ultimo_billing_postTime":"00:00:00","data_ultimo_billing_postSince":"10  ","data_ultimo_billing_formatted":"11  2016","data_ultimo_billing_numeric_formatted":"11\/3\/2016","data_scadenza_abbonamento_GMDATE":"2016-03-18T00:00:00+00:00","data_scadenza_abbonamento_DATE":"2016-03-18T00:00:00+00:00","data_scadenza_abbonamento_YEAR":2016,"data_scadenza_abbonamento_HH":0,"data_scadenza_abbonamento_MM":0,"data_scadenza_abbonamento_SS":0,"data_scadenza_abbonamento_MONTH":3,"data_scadenza_abbonamento_DAY":18,"data_scadenza_abbonamento_CDAY":18,"data_scadenza_abbonamento_CMONTH":null,"data_scadenza_abbonamento_postDate":"2016-03-18","data_scadenza_abbonamento_postTime":"00:00:00","data_scadenza_abbonamento_postSince":"1  ","data_scadenza_abbonamento_formatted":"18  2016","data_scadenza_abbonamento_numeric_formatted":"18\/3\/2016","user_billed_":true,"checkmail":0,"user":"903833c2c35a11e589cb005056b60712","msisdn":"+12345678","description_remaining_credits":"","mipuser_email":null,"fb_name":null,"auth_id":null,"nickname":"psql","avatar":"virgilio.png","subscribed":true,"logged":1,
 ponyUrl:"&_PONY=13-b0c925a4c405718e7ba731340c018044000719127.000.000.0017VRNi9swEP0tq4MP22yRLH9IAV8KZVko3UKvATOWxo2ILRlZLkmX%2FPfKdja5pH%2BgrW8z8zTz5r3Bb8TY1tVTQBuQbAnNxgDhPVGxRHnUJph68NibqU8rmmgIUJtR%2BSqlrHii%2FImxxOjaDejjW48RM%2BydxVq5fgB7qlo44Mfj8drMOnvpV7FLv1GBRvsLamiaW1%2BRaByDsRHhjas%2BsJRneVGKxE49elddY7U%2FVDktKdc5SJ1q2fJCZkiZarkuCqpTkZMN0aDBYphG9MuyoFtv0Oqxnteexsg8dLqKVGEK%2Bzq4A9rq4fHb6%2FPzy%2Bvjw9uOzE9f9I5sd%2BR9%2BI5sdiSmfxqFl9K88CWzVOOK%2BH1qomZmCMbZBXRT74r5AmP4ZLrO2B9%2FgnzF432IuDvps9X3YIN3relwKS2Jd%2FOu9KNfK9KsbGX81k0XpVYFlkQk5CHGF3XqJrLDdeppAay2z08YPc%2Bxm2zwpwUxTzknCrvuZqYbbhcTfVVCKFmy6GILIKmQOedKZ1wURUt1SaOvyxHPTcjWTl23Gj3iOEYFotElZ5hKmWeoVQucpyVkIk8hizmtKMYOdUO2QhQZlYzTDRnAQ1%2BD93CKi%2F2%2Fm7%2F5bv6Vn19vhssBS8pF1CJVPAfGMBdSNZTmNC%2BagpYsJefzbw%3D%3DEND"
 };
 
 var cookiejson = {"_ga":"GA1.2.1113339269.1453287779","trkdada":"fwAAAVaeSdR7HHxvAwNKAg==","prvcflag":1,"newton-session":"%229HiA%3D1v)*ErJ%22","operator":"fake.it","mipuser":"aac3121ebf5111e5a728005056b60712","_gat":1,"b_test_id":"10003220160310_ff916827ad09d6ff90896fa27af347f0"};
 function writeJson(name, object){
-    return stargateModules.file.createFile(GAMES_DIR, name)
+    return stargateModules.file.createFile(cordova.file.applicationStorageDirectory, name)
         .then(function(result){
             return stargateModules.file.write(result.path,JSON.stringify(object))
         });
 }
-
 var gameObject =
 {
     "id":"4de756a55ac71f45c5b7b4211b71219e",
@@ -176,142 +175,168 @@ function readDir(url){
         }, reject);
     });
 }
-var GamifiveInfo = {"label":"it_igames",
-    "contentId":"4de756a55ac71f45c5b7b4211b71219e",
-    "userId":"aac3121ebf5111e5a728005056b60712",
-    "fbUserId":null,
-    "fbAppId":"497938953670292",
-    "fbConnected":false,
-    "requireFbConnect":true,
-    "fbExternal":false,
-    "userFreemium":false,
-    "challenge":{"id":null},
-    "game":{"title":"Fruit Slicer"},
-    "dictionary": {
-        "messageOfFbChallenge":"Il mio punteggio \u00e8 %s, prova a battermi!",
-        "matchLeftSingular":"hai ancora solo <span>%s<\/span> partita",
-        "matchLeftPlural":"hai ancora <span>%s<\/span> partite per allenarti!",
-        "matchLeftNone":"Non hai pi\u00f9 crediti! :("
-    },
-    "user":
-    {"userId":"aac3121ebf5111e5a728005056b60712",
-        "fbUserId":null,
-        "fbConnected":false,
-        "userFreemium":false,
-        "nickname":"william_40e33",
-        "avatar":{
-            "src":"http:\/\/s2.motime.com\/img\/wl\/webstore_html5game\/images\/avatar\/big\/avatar_05.png?v=20150610133322",
-            "name":"avatar_05.png"}
-    }
-};
 
 function removeFolders(paths){
-        return new Promise(function(resolve, reject){
-            
-            var counter = 0;
-            for(var i = 0; i < paths.length;i++){
-                console.log("Deleting...", paths[i]);
-                window.resolveLocalFileSystemURL(paths[i], function(entry){
-                    entry.removeRecursively(function(result){
-                        console.log("Cleaned", result);
-                        counter += 1;
-                        if(counter == paths.length){
-                            console.log("Now i'm finished");
-                            resolve(paths);
-                        }
-                    },reject);
-                }, reject);
-            }
-        });        
+    return new Promise(function(resolve, reject){
+
+        var counter = 0;
+        for(var i = 0; i < paths.length;i++){
+            console.log("Deleting...", paths[i]);
+            window.resolveLocalFileSystemURL(paths[i], function(entry){
+                entry.removeRecursively(function(result){
+                    console.log("Cleaned", result);
+                    counter += 1;
+                    if(counter == paths.length){
+                        console.log("Now i'm finished");
+                        resolve(paths);
+                    }
+                },function(err){
+                    console.error(err);
+                    reject(err);
+                });
+            },function(err){
+                console.error(err);
+                reject(err);
+            });
+        }
+    });
 }
-describe("Game module tests", function() {
-    
-    var game = stargateModules.game._public;
-    game.initialize = stargateModules.game._protected.initialize;
-    var TEST_FOLDER_DIR,
-        STORAGE_DIR,
-        SDK_DIR,
-        TEST_FOLDER_NAME = "Test",
-        GAMEOVER_DIR;
+
+var deviceReady;
+function waitDeviceReady(){
+
+    if(deviceReady){return deviceReady;}
+    deviceReady = new Promise(function(resolve, reject){
+        document.addEventListener("deviceready", resolve);
+        setTimeout(reject,50000);
+    });
+    return deviceReady;
+}
+
+game = stargateModules.game._public;
+game.initialize = stargateModules.game._protected.initialize;
+var STORAGE_DIR,
+    SDK_DIR,
+    GAMEOVER_DIR,
+    deviceReady;
+
+fdescribe("Game module tests", function() {
 
     beforeAll(function(done){
-        document.addEventListener("deviceready", function(readyEvent){
-            STORAGE_DIR = cordova.file.applicationStorageDirectory;
-            if(isRunningOnIos()){ STORAGE_DIR += "Documents/"; }
-            SDK_DIR = STORAGE_DIR + "scripts/";
-            GAMES_DIR = STORAGE_DIR + "games/";
-            GAMEOVER_DIR = STORAGE_DIR + "gameover_template";
+        console.log("beforeAll");
+        deviceReady = waitDeviceReady();
+        deviceReady.then(function(readyEvent){
+                STORAGE_DIR = cordova.file.applicationStorageDirectory;
+                if(isRunningOnIos()){ STORAGE_DIR += "Documents/"; }
+                SDK_DIR = STORAGE_DIR + "scripts/";
+                GAMES_DIR = STORAGE_DIR + "games/";
+                GAMEOVER_DIR = STORAGE_DIR + "gameover_template";
+                console.log("Ready!",readyEvent, SDK_DIR, GAMES_DIR, GAMEOVER_DIR);
+                done();
+            });
+    });
+
+    beforeEach(function(){
+
+    });
+
+    afterEach(function(){
+    });
+
+    it("Game should exists", function(done) {
+        expect(game).toBeDefined();
+        done();
+    });
+
+    it("Game should return already initialized if called twice", function(done) {
+        var first = game.initialize({});
+        var second = game.initialize({});
+        second.then(function(result){
+            expect(result).toEqual("AlreadyInitialized");
             done();
         });
     });
 
-    beforeEach(function() {
-       console.log("beforeEach");
-    });
-
-    afterEach(function(done){
-        removeFolders([SDK_DIR, GAMES_DIR, GAMEOVER_DIR]).then(function(results){
-            console.log("afterEach:", results);
+    it("Should expose GAMES_DIR and OFFLINE_INDEX", function(done){
+        var afterInit = game.initialize({});
+        afterInit.then(function(results){
+            expect(stargateModules.game._public.GAMES_DIR).toBeDefined();
+            expect(stargateModules.game._public.OFFLINE_INDEX).toBeDefined();
             done();
-        }).catch(function(){console.error(arguments)});
-    });
-
-    it("Game should exists", function() {
-        expect(game).toBeDefined();        
-    });
-
-    it("Test abortDownload", function(done){
-
-        game.initialize()
-            .then(function(){
-                game.download(gameObject);
-
-                setTimeout(function pippo(){
-                    var res = game.abortDownload();
-                    expect(res).toBe(true);
-                    done();
-                }, 500);
-            });
+        });
     });
 
     it("Test abortDownload should not to abort if is not downloading", function(done){
+        var afterInit = game.initialize({});
+        afterInit.then(function(){
+            var res = game.abortDownload();
+            expect(res).toBe(false);
+            done();
+        }).catch(function(){
+            done();
+        });
 
-        function check(results){
-                console.log(results);
-                var res = game.abortDownload();
-                expect(res).toBe(false);
-                done();
-        }
-        game.initialize().then(check);
     });
 
-    fit("Test download game already exists", function(done){
-
+    it("Test download game already exists", function(done){
         function check(reason){
-            expect(reason).toEqual({12:"AlreadyExists",gameID:gameObject.id});
+            console.log(reason);
+            expect(reason).toEqual({12:"AlreadyExists", gameID:gameObject.id});
             done();
         }
 
-        game.initialize()
-            .then(function(results){
-               return createFolder(GAMES_DIR, gameObject.id);
+        var afterInit = game.initialize({});
+        afterInit.then(function(results){
+                return createFolder(GAMES_DIR, gameObject.id);
             })
             .then(function(result){
                 return game.download(gameObject);
             })
             .catch(check);
+
+
     });
 
-    it("Test configuration bundle games", function(done){
-        game.initialize(conf)
+    it("Test removeAll games", function(done){
+        var afterInit = game.initialize({});
+        afterInit.then(function(results){
+                return game.removeAll();
+            })
+            .then(function(result){
+                expect(result).toBeDefined();
+                expect(result.path).toBeDefined();
+                expect(result.path.indexOf(GAMES_DIR)).not.toEqual(-1);
+                done();
+            }).catch(function(){
+                expect(true).toBeFalsy();
+                done();
+            });
+    });
+
+    fit("Download Bundle games", function(done){
+        var afterInit = game.initialize(conf);
+        afterInit
+            .then(function(){
+                return game.getBundleGameObjects();
+            })
             .then(function(results){
-                console.log(results);
+                expect(results[0]["response_api_dld"]).toBeDefined();
+                expect(results[0]["response_api_dld"]["status"]).toEqual(200);
+                done();
+            })
+            .catch(function(reason){
+                console.log(reason);
+                expect(true).toBeFalsy();
                 done();
             });
     });
 });
 
-function manualTest(){
+function clean(){
+    return removeFolders([GAMES_DIR, GAMEOVER_DIR, SDK_DIR]);
+}
+
+function manualDownload(){
     stargateModules.game._protected.initialize(conf)
         .then(console.log.bind(console))
         .then(function(){
@@ -319,8 +344,8 @@ function manualTest(){
         })
         .then(function(){
             return Promise.all([
-                writeJson("cookie.json",cookiejson),
-                writeJson("user.json",userjson)
+                writeJson("cookie.json", cookiejson),
+                writeJson("user.json", userjson)
             ]);
         });
 }

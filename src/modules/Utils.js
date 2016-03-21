@@ -174,25 +174,28 @@
             self.scriptTag.type = 'text/javascript';
             self.scriptTag.async = true;
 
-            self.daPromise = new Promise(function(resolve, reject){
+            self.prom = new Promise(function(resolve, reject){
                 var functionName = "__jsonpHandler_" + ts;
                 window[functionName] = function(data){
                     self.called = true;
                     resolve(data);
-                    //self.scriptTag.parentElement.removeChild(self.scriptTag);
+                    self.scriptTag.parentElement.removeChild(self.scriptTag);
+                    delete window[functionName];
                 };
                 //reject after a timeout
                 setTimeout(function(){
                     if(!self.called){
                         reject("Timeout jsonp request " + ts);
+                        self.scriptTag.parentElement.removeChild(self.scriptTag);
+                        delete window[functionName];
                     }
                 }, self.timeout);
             });
             // the append start the call
             window.document.getElementsByTagName("head")[0].appendChild(self.scriptTag);
-            return self.daPromise;
+            //return self.daPromise;
         }else{
-            return Promise.reject("Not in a browser: window.document is undefined");
+            return false;
         }
     }
 
