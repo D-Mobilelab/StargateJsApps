@@ -611,7 +611,7 @@
             .replace("[HSIZE]", info.size.height);
 
         toDld = encodeURI(toDld);
-
+        //toDld = "http://lorempixel.com/g/"+info.size.width+"/"+info.size.height+"/";
         var gameFolder = constants.GAMES_DIR + info.gameId;
         var imagesFolder = gameFolder + "/images/" + info.type + "/";
         var imageName = info.size.width + "x" + info.size.height + ("_"+info.size.ratio || "") + ".png";

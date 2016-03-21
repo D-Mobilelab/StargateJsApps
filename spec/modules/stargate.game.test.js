@@ -25,6 +25,12 @@ var userjson = {"data_iscr":"2016-03-11","modo_billing":null,"destinatario":"+12
 ponyUrl:"&_PONY=13-b0c925a4c405718e7ba731340c018044000719127.000.000.0017VRNi9swEP0tq4MP22yRLH9IAV8KZVko3UKvATOWxo2ILRlZLkmX%2FPfKdja5pH%2BgrW8z8zTz5r3Bb8TY1tVTQBuQbAnNxgDhPVGxRHnUJph68NibqU8rmmgIUJtR%2BSqlrHii%2FImxxOjaDejjW48RM%2BydxVq5fgB7qlo44Mfj8drMOnvpV7FLv1GBRvsLamiaW1%2BRaByDsRHhjas%2BsJRneVGKxE49elddY7U%2FVDktKdc5SJ1q2fJCZkiZarkuCqpTkZMN0aDBYphG9MuyoFtv0Oqxnteexsg8dLqKVGEK%2Bzq4A9rq4fHb6%2FPzy%2Bvjw9uOzE9f9I5sd%2BR9%2BI5sdiSmfxqFl9K88CWzVOOK%2BH1qomZmCMbZBXRT74r5AmP4ZLrO2B9%2FgnzF432IuDvps9X3YIN3relwKS2Jd%2FOu9KNfK9KsbGX81k0XpVYFlkQk5CHGF3XqJrLDdeppAay2z08YPc%2Bxm2zwpwUxTzknCrvuZqYbbhcTfVVCKFmy6GILIKmQOedKZ1wURUt1SaOvyxHPTcjWTl23Gj3iOEYFotElZ5hKmWeoVQucpyVkIk8hizmtKMYOdUO2QhQZlYzTDRnAQ1%2BD93CKi%2F2%2Fm7%2F5bv6Vn19vhssBS8pF1CJVPAfGMBdSNZTmNC%2BagpYsJefzbw%3D%3DEND"
 };
 
+var dictjson = {};
+var configjson = {
+    MOA_API_APPLICATION_OBJECTS_GET:"http://resources.buongiorno.com/lapis/apps/application-object.get?external_token=:EXTERNAL_TOKEN&access_token=:ACCESS_TOKEN&collection=:COLLECTION&id=:ID&query=:QUERY&white_label=xx_gameasy&fw=gameasy&vh=ww.gameasy.com",
+    MOA_API_APPLICATION_OBJECTS_SET:"http://resources.buongiorno.com/lapis/apps/application-object.set?external_token=:EXTERNAL_TOKEN&access_token=:ACCESS_TOKEN&collection=:COLLECTION&id=:ID&white_label=xx_gameasy&fw=gameasy&vh=ww.gameasy.com"
+};
+
 var cookiejson = {"_ga":"GA1.2.1113339269.1453287779","trkdada":"fwAAAVaeSdR7HHxvAwNKAg==","prvcflag":1,"newton-session":"%229HiA%3D1v)*ErJ%22","operator":"fake.it","mipuser":"aac3121ebf5111e5a728005056b60712","_gat":1,"b_test_id":"10003220160310_ff916827ad09d6ff90896fa27af347f0"};
 function writeJson(name, object){
     return stargateModules.file.createFile(cordova.file.applicationStorageDirectory, name)
@@ -345,7 +351,9 @@ function manualDownload(){
         .then(function(){
             return Promise.all([
                 writeJson("cookie.json", cookiejson),
-                writeJson("user.json", userjson)
+                writeJson("user.json", userjson),
+                writeJson("config.json", configjson),
+                writeJson("dict.json", configjson)
             ]);
         });
 }
