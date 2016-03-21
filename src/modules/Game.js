@@ -163,7 +163,13 @@
      * @returns {Promise<boolean|FileError|Number>} - true if all has gone good, 403 if unathorized, FileError in case can write in the folder
      * */
     Game.prototype.download = function(gameObject, callbacks){
+
         if(this.isDownloading()){ return Promise.reject(["Downloading...try later", fileModule.currentFileTransfer]);}
+        if(gameObject.response_api_dld.status !== 200){
+            callbacks.onEnd("response_api_dld.status not equal 200");
+            return Promise.reject("response_api_dld.status not equal 200");
+        }
+
         var alreadyExists = this.isGameDownloaded(gameObject.id);
         var self = this;
         // Defaults
