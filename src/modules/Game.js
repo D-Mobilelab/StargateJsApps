@@ -501,19 +501,18 @@
         return fileModule.readDir(constants.GAMES_DIR)
             .then(function(entries){
                 var _entries = Array.isArray(entries) ? entries : [entries];
-                return _entries.map(function(entry){
+                return _entries.filter(function(entry){
                     //get the <id> folder. Careful: there's / at the end
                     if(entry.isDirectory){
-                        return entry.path;
+                        return entry;
                     }
                 });
-            }).then(function(ids){
-
-                var jsons = ids.map(function(id){
-                    return fileModule.readFileAsJSON(id + "meta.json");
+            }).then(function(gameEntries){
+                var metajsons = gameEntries.map(function(gameEntry){
+                    return fileModule.readFileAsJSON(gameEntry.path + "meta.json");
                 });
 
-                return Promise.all(jsons).then(function(results){
+                return Promise.all(metajsons).then(function(results){
                     return results;
                 });
             });
