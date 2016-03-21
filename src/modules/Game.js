@@ -607,7 +607,7 @@
         return fileModule.download(toDld, imagesFolder, imageName);
     }
 
-    Game.prototype.bundleGames = function(){
+    Game.prototype.getBundleGameObjects = function(){
         var self = this;
         if(CONF && CONF.bundleGames){
             LOG.d("Games bundle in configuration", CONF.bundleGames);
