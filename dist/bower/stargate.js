@@ -749,7 +749,7 @@
         constants.WWW_DIR = wwwDir;
 
         /** expose */
-        _modules.game._public.GAMES_DIR = constants.GAMES_DIR;
+        _modules.game._public.BASE_DIR = constants.BASE_DIR;
         _modules.game._public.OFFLINE_INDEX = constants.WWW_DIR + "index.html";
 
         function firstInit(){
@@ -808,7 +808,7 @@
     Game.prototype.download = function(gameObject, callbacks){
         if(this.isDownloading()){ return Promise.reject(["Downloading...try later", fileModule.currentFileTransfer]);}
         var alreadyExists = this.isGameDownloaded(gameObject.id);
-
+        var self = this;
         // Defaults
         callbacks = callbacks ? callbacks : {};
         var _onProgress = callbacks.onProgress ? callbacks.onProgress : function(){};
@@ -908,6 +908,11 @@
                     LOG.d("injectScripts result", results);
                     _onEnd({type:"download"});
                     return gameObject.id;
+                }).catch(function(reason){
+                    LOG.e(reason, "Cleaning...game not downloaded", gameObject.id);
+                    self.remove(gameObject.id);
+                    _onEnd({type:"error",description:reason});
+                    throw reason;
                 });
         }
 
@@ -1140,7 +1145,7 @@
             .then(function(entries){
                 var _entries = Array.isArray(entries) ? entries : [entries];
                 return _entries.map(function(entry){
-                    //get the ids careful: there's / at the end
+                    //get the <id> folder. Careful: there's / at the end
                     if(entry.isDirectory){
                         return entry.path;
                     }
@@ -1243,14 +1248,16 @@
             .replace("[WSIZE]", info.size.width)
             .replace("[HSIZE]", info.size.height);
 
+        toDld = encodeURI(toDld);
+
         var gameFolder = constants.GAMES_DIR + info.gameId;
         var imagesFolder = gameFolder + "/images/" + info.type + "/";
-        var imageName = info.size.width + "x" + info.size.height + (info.size.ratio || "") + ".png";
-        LOG.d("coverImageUrl", imageName, "imagesFolder", imagesFolder);
+        var imageName = info.size.width + "x" + info.size.height + ("_"+info.size.ratio || "") + ".png";
+        LOG.d("request Image to", toDld, "coverImageUrl", imageName, "imagesFolder", imagesFolder);
         return fileModule.download(toDld, imagesFolder, imageName);
     }
 
-    Game.prototype.bundleGames = function(){
+    Game.prototype.getBundleGameObjects = function(){
         var self = this;
         if(CONF && CONF.bundleGames){
             LOG.d("Games bundle in configuration", CONF.bundleGames);
@@ -1293,7 +1300,7 @@
 
                     //extend with the response object
                     for(var i = 0;i < results.length;i++){
-                        tmpBundleGameObjects[i]["response_api_dld"] =  results[i];
+                        tmpBundleGameObjects[i].response_api_dld =  results[i];
                     }
 
                     LOG.d("GameObjects", tmpBundleGameObjects);
