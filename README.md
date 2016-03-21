@@ -323,7 +323,7 @@ Inside manifest there is an object that holds all configuration options of Starg
 1. npm test
 2. change version in package.json
 3. gulp build
-4. git commit -m "New revision x.x.x" dist/
+4. git commit -m "New revision x.x.x" dist/ package.json
 5. git tag -a vx.x.x -m "Added xxxx. Changed xxxx. Fixed: xxxx"
 6. git push --tags
 
