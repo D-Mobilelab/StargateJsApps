@@ -605,10 +605,12 @@
             .replace("[WSIZE]", info.size.width)
             .replace("[HSIZE]", info.size.height);
 
+        toDld = encodeURI(toDld);
+
         var gameFolder = constants.GAMES_DIR + info.gameId;
         var imagesFolder = gameFolder + "/images/" + info.type + "/";
-        var imageName = info.size.width + "x" + info.size.height + (info.size.ratio || "") + ".png";
-        LOG.d("coverImageUrl", imageName, "imagesFolder", imagesFolder);
+        var imageName = info.size.width + "x" + info.size.height + ("_"+info.size.ratio || "") + ".png";
+        LOG.d("request Image to", toDld, "coverImageUrl", imageName, "imagesFolder", imagesFolder);
         return fileModule.download(toDld, imagesFolder, imageName);
     }
 
