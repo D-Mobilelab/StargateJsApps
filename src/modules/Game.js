@@ -165,7 +165,7 @@
     Game.prototype.download = function(gameObject, callbacks){
         if(this.isDownloading()){ return Promise.reject(["Downloading...try later", fileModule.currentFileTransfer]);}
         var alreadyExists = this.isGameDownloaded(gameObject.id);
-
+        var self = this;
         // Defaults
         callbacks = callbacks ? callbacks : {};
         var _onProgress = callbacks.onProgress ? callbacks.onProgress : function(){};
@@ -265,6 +265,11 @@
                     LOG.d("injectScripts result", results);
                     _onEnd({type:"download"});
                     return gameObject.id;
+                }).catch(function(reason){
+                    LOG.e(reason, "Cleaning...game not downloaded", gameObject.id);
+                    self.remove(gameObject.id);
+                    _onEnd({type:"error",description:reason});
+                    throw reason;
                 });
         }
 
@@ -497,7 +502,7 @@
             .then(function(entries){
                 var _entries = Array.isArray(entries) ? entries : [entries];
                 return _entries.map(function(entry){
-                    //get the ids careful: there's / at the end
+                    //get the <id> folder. Careful: there's / at the end
                     if(entry.isDirectory){
                         return entry.path;
                     }
