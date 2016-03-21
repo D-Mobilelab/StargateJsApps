@@ -146,13 +146,13 @@ var updateStatusBar = function() {
 var setIsHybrid = function() {
 
     window.Cookies.set("hybrid", "1");
-    window.Cookies.set("stargateVersion", stargateVersion);
+    window.Cookies.set("stargateVersion", getStargateVersionToLoad());
 
     if (!window.localStorage.getItem('hybrid')) {
         window.localStorage.setItem('hybrid', 1);
     }
     if (!window.localStorage.getItem('stargateVersion')) {
-        window.localStorage.setItem('stargateVersion', stargateVersion);
+        window.localStorage.setItem('stargateVersion', getStargateVersionToLoad());
     }
 };
 

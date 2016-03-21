@@ -12,6 +12,8 @@ var initOfflinePromise;
  * @param {object} [options={}] - an object with offline initialization options
  * @param [options.hideSplashScreen=true] - a boolean indicating to hide or not the splash screen
  * @returns {Promise<boolean>}
+ * 
+ * @deprecated since v0.2.8
  * */
 stargatePublic.initializeOffline = function(options){
 
@@ -92,7 +94,28 @@ stargatePublic.conf = {};
  * @returns {String}
  */
 stargatePublic.conf.getWebappStartUrl = function() {
-    return stargateConf.webapp_start_url;
+    if (!isStargateInitialized) {
+        return err("Stargate not initialized, call Stargate.initialize first!");
+    }
+    if (!isStargateOpen) {
+        return err("Stargate closed, wait for Stargate.initialize to complete!");
+    }
+    
+    var webappStartUrl = URI(stargateConf.webapp_start_url)
+        .addSearch("hybrid", "1")
+        .addSearch("stargateVersion", getStargateVersionToLoad());
+    
+    return webappStartUrl;
+};
+
+var getStargateVersionToLoad = function() {
+    if (stargateConf.stargate_version_to_load) {
+        return stargateConf.stargate_version_to_load;
+    }
+    
+    war("getStargateVersionToLoad() stargate_version_to_load must be set on manifest!");
+    // return deprecated value
+    return stargateVersion;
 };
 
 /**
@@ -108,6 +131,8 @@ stargatePublic.conf.getWebappOrigin = function() {
         return re.exec(stargateConf.webapp_start_url)[0];
     }
 };
+
+var initializePromise;
 
 /**
 * 
@@ -155,10 +180,8 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
         
         if(callback){callback(isStargateRunningInsideHybrid);}
 
-        return Promise.resolve(isStargateRunningInsideHybrid);
+        return initializePromise;
     }
-
-    isStargateInitialized = true;
     
     if (typeof configurations !== 'object') {
         configurations = {};
@@ -217,18 +240,20 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
     if (!isStargateRunningInsideHybrid) {
 
         log("version "+stargatePackageVersion+" running outside hybrid; "+
-            "loaded from server version: v"+stargateVersion);
+            "loaded from server version: v"+getStargateVersionToLoad());
 
         if(callback){callback(isStargateRunningInsideHybrid);}
         
-        return Promise.resolve(isStargateRunningInsideHybrid);
+        initializePromise = Promise.resolve(isStargateRunningInsideHybrid);
+        isStargateInitialized = true;
+        return initializePromise; 
     }
 
     log("initialize() starting up, configuration: ",hybrid_conf);
 
     initializeCallback = callback;
     
-    var initPromise = new Promise(function(resolve,reject){
+    initializePromise = new Promise(function(resolve,reject){
         
         
         // finish the initialization of cordova plugin when deviceReady is received
@@ -239,7 +264,9 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
         }, false);
     });
     
-    return initPromise;
+    isStargateInitialized = true;
+    
+    return initializePromise;
 };
 
 stargatePublic.isInitialized = function() {

@@ -150,6 +150,7 @@ describe("Stargate initialize", function() {
 	beforeEach(function() {
 		hybrid_conf = null;
 		country = null;
+        isStargateOpen = false;
 		isStargateInitialized = false;
 
 		specTestMock = {
@@ -306,19 +307,19 @@ describe("Stargate initialize", function() {
 
 		
 		// suppress console messages
-		spyOn(console, 'error');
-		spyOn(console, 'log');
+		//spyOn(console, 'error');
+		//spyOn(console, 'log');
 
 		var cbFinish = jasmine.createSpy('cbFinish');
 
 		var res = stargatePublic.initialize(spec_configurations, cbFinish);
 
-		expect(isStargateInitialized).toBe(true);
-		expect(isStargateRunningInsideHybrid).toBeFalsy();
-
 		expect(res.then).toBeDefined();
-
+        
+        
 		res.then(function() {
+            expect(isStargateInitialized).toBe(true);
+		    expect(isStargateRunningInsideHybrid).toBeFalsy();
 			expect(cbFinish).toHaveBeenCalled();
 			done();
 		});
@@ -357,8 +358,9 @@ describe("Stargate initialize", function() {
     it("checkConnection info object online", function(done) {
         var timeout = 100;
         isStargateInitialized = true;
+        isStargateOpen = true;
         navigator_connection_mock.type = "wifi";
-        SimulateEvent("online",{networkState:"wifi"}, timeout, "window");
+        SimulateEvent("online",{networkState:"wifi"}, timeout, "document");
 
         setTimeout(function() {
             var connectionInfo = stargatePublic.checkConnection(function(){}, function(){});
@@ -374,8 +376,9 @@ describe("Stargate initialize", function() {
     it("checkConnection info object offline", function(done) {
         var timeout = 100;
         isStargateInitialized = true;
+        isStargateOpen = true;
         navigator_connection_mock.type = "none";
-        SimulateEvent("offline", {networkState:"none"}, timeout, "window");
+        SimulateEvent("offline", {networkState:"none"}, timeout, "document");
         setTimeout(function() {
             var connectionInfo = stargatePublic.checkConnection(function(){}, function(){});
             expect(connectionInfo.type).toBeDefined();
@@ -390,8 +393,9 @@ describe("Stargate initialize", function() {
     it("checkConnection without functions callback", function(done) {
         var timeout = 100;
         isStargateInitialized = true;
+        isStargateOpen = true;
         navigator_connection_mock.type = "none";
-        SimulateEvent("offline", {networkState:"none"}, timeout, "window");
+        SimulateEvent("offline", {networkState:"none"}, timeout, "document");
         setTimeout(function() {
             var connectionInfo = stargatePublic.checkConnection();
             expect(connectionInfo.type).toBeDefined();
@@ -405,10 +409,11 @@ describe("Stargate initialize", function() {
 
     it("stargate addListener on OFFLINE event", function(done) {
         isStargateInitialized = true;
+        isStargateOpen = true;
         navigator_connection_mock.type = "none";
 
         stargatePublic.addListener("connectionchange", function(connection){
-            console.log("Connection", connection);
+            //console.log("Connection", connection);
             expect(connection.type).toEqual("offline");
             expect(connection.networkState).toBeDefined();
             done();
@@ -419,10 +424,11 @@ describe("Stargate initialize", function() {
 
     it("stargate addListener on ONLINE event", function(done) {
         isStargateInitialized = true;
+        isStargateOpen = true;
         navigator_connection_mock.type = "wifi";
 
         stargatePublic.addListener("connectionchange", function(connection){
-            console.log("Connection", connection);
+            //console.log("Connection", connection);
             expect(connection.type).toEqual("online");
             expect(connection.networkState).toBeDefined();
             expect(connection.networkState).toEqual("wifi");
