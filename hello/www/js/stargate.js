@@ -3918,7 +3918,7 @@
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.2.1";
+    var stargatePackageVersion = "0.2.8";
     var stargatePublic = {};
     
     var stargateModules = {};       
@@ -3927,11 +3927,10 @@
 
 /**
  * Logger module
- * @module src/modules/Logger
+ * @module src/modules/Utils
  * @type {Object}
  */
 (function(stargateModules){
-
     /**
      * @constructor
      * @alias module:src/modules/Logger
@@ -4019,23 +4018,135 @@
         this.level = Logger.levels[label];
     };
 
+    /**
+     * makeIterator
+     *
+     * make an iterator object from array
+     * @param {Array} array - the array you want to transform in iterator
+     * @returns {Object} - an iterator like object
+     * */
+    function Iterator(array){
+        var nextIndex = 0;
+
+        return {
+            next: function(reset){
+                if(reset){nextIndex = 0;}
+                return nextIndex < array.length ?
+                {value: array[nextIndex++], done: false} :
+                {done: true};
+            }
+        };
+    }
 
     /**
-     * A module representing a Logger class
-     * @exports Logger
-     */
-    if (stargateModules) {
-        stargateModules.Logger = Logger;
-    } else {
-        window.Logger = Logger;
+     * A function to compose query string
+     * @param {Strinq} api
+     * @param {Object} params
+     * @returns {String}
+     * */
+    function composeApiString(api, params){
+        api += "?";
+        var qs = "";
+
+        for(var key in params){
+            qs += encodeURIComponent(key) + "=" + encodeURIComponent(params[key]) + "&";
+        }
+
+        if (qs.length > 0){
+            qs = qs.substring(0, qs.length-1); //chop off last "&"
+        }
+        return api + qs;
     }
+
+    /**
+     * getJSON
+     *
+     * @param {String} url -
+     * @returns {Promise<Object|String>} the reject string is the statuscode
+     * */
+    function getJSON(url){
+        url = encodeURI(url);
+        var xhr = new window.XMLHttpRequest();
+        var daRequest = new Promise(function(resolve, reject){
+            xhr.onreadystatechange = function(){
+                if (xhr.readyState == 4 && xhr.status < 400) {
+                    resolve(xhr.response);
+                }else{
+                    reject(xhr.status);
+                }
+            };
+        });
+        xhr.open("GET", url, true);
+        xhr.setRequestHeader('Content-type', 'application/json; charset=UTF-8');
+        xhr.send();
+        return daRequest;
+    }
+
+    /**
+     * make a jsonp request, remember only GET
+     * usage: request = new jsonpRequest(url); request.then(...)
+     *
+     * @param {String} url - the url with querystring but without &callback at the end or &function
+     * @returns {Promise<Object|>}
+     * */
+    function jsonpRequest(url){
+        var self = this;
+        self.timeout = 3000;
+        self.called = false;
+        if(window.document) {
+            var ts = Date.now();
+            self.scriptTag = window.document.createElement("script");
+            url += "&callback=window.__jsonpHandler_" + ts;
+            self.scriptTag.src = url;
+            self.scriptTag.type = 'text/javascript';
+            self.scriptTag.async = true;
+
+            self.prom = new Promise(function(resolve, reject){
+                var functionName = "__jsonpHandler_" + ts;
+                window[functionName] = function(data){
+                    self.called = true;
+                    resolve(data);
+                    self.scriptTag.parentElement.removeChild(self.scriptTag);
+                    delete window[functionName];
+                };
+                //reject after a timeout
+                setTimeout(function(){
+                    if(!self.called){
+                        reject("Timeout jsonp request " + ts);
+                        self.scriptTag.parentElement.removeChild(self.scriptTag);
+                        delete window[functionName];
+                    }
+                }, self.timeout);
+            });
+            // the append start the call
+            window.document.getElementsByTagName("head")[0].appendChild(self.scriptTag);
+            //return self.daPromise;
+        }else{
+            return false;
+        }
+    }
+
+    var exp = {
+        Iterator:Iterator,
+        Logger:Logger,
+        composeApiString:composeApiString,
+        getJSON:getJSON,
+        jsonpRequest:jsonpRequest
+    };
+
+    if(stargateModules){
+        stargateModules.Utils = exp;
+    }else{
+        window.Utils = exp;
+    }
+
 })(stargateModules);
 /**
  * File module
  * @module src/modules/File
  * @type {Object}
  * @see cordova.file
- * @requires ./Logger.js
+ * @requires ./Utils.js
  */
 (function(_modules, Logger){
 
@@ -4429,16 +4540,23 @@
     _modules.file = File;
     return File;
 
-})(stargateModules, stargateModules.Logger);
+})(stargateModules, stargateModules.Utils.Logger);
 /**globals Promise, cordova **/
 /**
- * Game module
+ * Game module needs cordova-file cordova-file-transfer
  * @module src/modules/Game
  * @type {Object}
- * @requires ./Logger.js,./File.js
+ * @requires ./Utils.js,./File.js
  */
-(function(fileModule, Logger, _modules){
+(function(fileModule, Utils, _modules){
     "use strict";
+
+    var Logger = Utils.Logger,
+        composeApiString = Utils.composeApiString,
+        //Iterator = Utils.Iterator,
+        //getJSON = Utils.getJSON,
+        jsonpRequest = Utils.jsonpRequest;
+
     var baseDir,
         cacheDir,
         tempDirectory,
@@ -4446,15 +4564,32 @@
         wwwDir,
         dataDir,
         stargatejsDir,
-        SDK_URL = "http://s2.motime.com/js/wl/webstore_html5game/gfsdk/dist/gfsdk.js",
-        DIXIE_URL = "http://s2.motime.com/tbr/dixie.js?country=it-igames";
-    
-    // GAMEINFO object
-    //
-    // GET /gameplay?<content_id>
-    // fileModule.write(response)
-    // 
-    // inject in game fileModule.readFileAsJson(gameinfo.json)
+        SDK_URL = "http://s2.motime.com/js/wl/webstore_html5game/gfsdk/dist/gfsdk.js"+"?timestamp=" + Date.now(),
+        DIXIE_URL = "http://s2.motime.com/tbr/dixie.js?country=it-igames"+"&timestamp=" + Date.now(),
+        API = "http://resources2.buongiorno.com/lapis/apps/contents.getList",
+        CONF = {};
+
+    var obj = {
+        "content_id":"", // to fill
+        "formats":"html5applications",
+        "sort":"-born_date",
+        "category":"b940b384ff0565b06dde433e05dc3c93",
+        "publisher":"",
+        "size":6,
+        "offset":0,
+        "label":"",
+        "label_slug":"",
+        "access_type":"",
+        "real_customer_id":"xx_gameasy",
+        "lang":"en",
+        "use_cs_id":"",
+        "white_label":"xx_gameasy",
+        "main_domain":"http://www2.gameasy.com/ww",
+        "fw":"gameasy",
+        "vh":"ww.gameasy.com",
+        "check_compatibility_header":0
+    };
+
     var LOG = new Logger("ALL", "[Game - module]");
 
     /**
@@ -4466,16 +4601,17 @@
      *  Stargate.game.play(results[0]) // and you leave this planet
      * });
      * */
-    function Game(){}
+     function Game(){}
 
     /**
      * Init must be called after the 'deviceready' event
      * @returns {Promise<Array<boolean>>}
      * */
      function initialize(conf){
-        LOG.d("Initialized called with:", conf);
-        if(!fileModule){return Promise.reject("Missing file module!");}
 
+        LOG.d("Initialized called with:", conf);
+        CONF = conf;
+        if(!fileModule){return Promise.reject("Missing file module!");}
 
         try{
             baseDir = window.cordova.file.applicationStorageDirectory;
@@ -4512,9 +4648,10 @@
         constants.GAMEOVER_DIR = constants.BASE_DIR + "gameover_template/";
         constants.WWW_DIR = wwwDir;
 
-        /** expose games dir */
-        _modules.game._public.GAMES_DIR = constants.GAMES_DIR;
-        
+        /** expose */
+        _modules.game._public.BASE_DIR = constants.BASE_DIR;
+        _modules.game._public.OFFLINE_INDEX = constants.WWW_DIR + "index.html";
+
         function firstInit(){
             /**
              * Create directories
@@ -4530,14 +4667,15 @@
                     LOG.d("Getting SDK from:", SDK_URL);
                     return Promise.all([
                         fileModule.download(SDK_URL, results[1].path, "gfsdk.min.js"),
-                        fileModule.download(DIXIE_URL, results[1].path, "dixie.js"),
+                        fileModule.download(DIXIE_URL, results[1].path, "dixie.js"  ),
                         fileModule.copyDir(constants.WWW_DIR + "gameover_template", constants.BASE_DIR + "gameover_template"),
                         fileModule.copyDir(constants.WWW_DIR + "plugins", constants.SDK_DIR + "plugins"),
                         fileModule.copyFile(constants.CORDOVAJS, constants.SDK_DIR + "cordova.js"),
                         fileModule.copyFile(constants.CORDOVA_PLUGINS_JS, constants.SDK_DIR + "cordova_plugins.js"),
-                        fileModule.copyFile(constants.STARGATEJS, constants.SDK_DIR + "stargate.js")                    
-                    ]);                
-                });    
+                        fileModule.copyFile(constants.STARGATEJS, constants.SDK_DIR + "stargate.js"),
+                        fileModule.copyFile(constants.WWW_DIR + "js/gamesFixes.js", constants.SDK_DIR + "gamesFixes.js")
+                    ]);
+                });
         }
 
         //Object.freeze(constants);
@@ -4552,9 +4690,9 @@
                 if(!results[0] && !results[1]){
                     return firstInit();
                 }else{
-                    return Promise.resolve(true);
+                    return Promise.resolve("AlreadyInitialized");
                 }
-            });       
+            });
     }
 
     /**
@@ -4568,9 +4706,15 @@
      * @returns {Promise<boolean|FileError|Number>} - true if all has gone good, 403 if unathorized, FileError in case can write in the folder
      * */
     Game.prototype.download = function(gameObject, callbacks){
-        if(this.isDownloading()){ return Promise.reject(["Downloading...try later", fileModule.currentFileTransfer]);}
-        var alreadyExists = fileModule.dirExists(constants.GAMES_DIR + gameObject.id);
 
+        if(this.isDownloading()){ return Promise.reject(["Downloading...try later", fileModule.currentFileTransfer]);}
+        if(gameObject.response_api_dld.status !== 200){
+            callbacks.onEnd("response_api_dld.status not equal 200");
+            return Promise.reject("response_api_dld.status not equal 200");
+        }
+
+        var alreadyExists = this.isGameDownloaded(gameObject.id);
+        var self = this;
         // Defaults
         callbacks = callbacks ? callbacks : {};
         var _onProgress = callbacks.onProgress ? callbacks.onProgress : function(){};
@@ -4624,12 +4768,30 @@
                     return fileModule.moveDir(src, constants.GAMES_DIR + saveAsName);                   
                 })
                 .then(function(result){
-                    //Remove the zip in the temp directory
+                    // Remove the zip in the temp directory
                     LOG.d("Remove zip from:", constants.TEMP_DIR + saveAsName + ".zip", "last operation result", result);
                     return fileModule.removeFile(constants.TEMP_DIR + saveAsName + ".zip");
                 })
                 .then(function(){
+                    //GET COVER IMAGE FOR THE GAME!
+                    var info = {
+                        gameId:gameObject.id,
+                        size:{width:"240",height:"170",ratio:"1_4"},
+                        url:gameObject.images.cover.ratio_1_4,
+                        type:"cover"
+                    };
+                    return downloadImage(info);
+                })
+                .then(function(coverResult){
                     LOG.d("Save meta.json for:", gameObject.id);
+                    LOG.d("Download image result", coverResult);
+
+                    /**
+                     * Modify gameObject.images.cover.ratio_1_4
+                     * it point to the cover image with cdvfile:// protocol
+                     * TODO: Build a system for file caching also for webapp
+                     * **/
+                    gameObject.images.cover.ratio_1_4 = coverResult.internalURL;
                     return fileModule.createFile(constants.GAMES_DIR + saveAsName, "meta.json")
                         .then(function(entry){                            
                             return fileModule.write(entry.path, JSON.stringify(gameObject));
@@ -4637,21 +4799,26 @@
                 })
                 .then(function(result){
                     
-                    //TODO: inject gameover css
                     LOG.d("result last operation:save meta.json", result);
                     LOG.d("InjectScripts in game:", gameObject.id, wwwDir);                    
                     return injectScripts(gameObject.id, [
+                                constants.SDK_RELATIVE_DIR + "gamesFixes.js",
                                 constants.GAMEOVER_RELATIVE_DIR + "gameover.css",
                                 constants.SDK_RELATIVE_DIR + "cordova.js",
-                                constants.SDK_RELATIVE_DIR + "dixie.js",
                                 constants.SDK_RELATIVE_DIR + "cordova_plugins.js",
-                                constants.SDK_RELATIVE_DIR + "gfsdk.min.js",
-                                constants.SDK_RELATIVE_DIR + "stargate.js"
+                                constants.SDK_RELATIVE_DIR + "dixie.js",
+                                constants.SDK_RELATIVE_DIR + "stargate.js",
+                                constants.SDK_RELATIVE_DIR + "gfsdk.min.js"
                             ]);
                 }).then(function(results){
                     LOG.d("injectScripts result", results);
                     _onEnd({type:"download"});
                     return gameObject.id;
+                }).catch(function(reason){
+                    LOG.e(reason, "Cleaning...game not downloaded", gameObject.id);
+                    self.remove(gameObject.id);
+                    _onEnd({type:"error",description:reason});
+                    throw reason;
                 });
         }
 
@@ -4809,20 +4976,21 @@
             })
             .then(function(dom){
                 // TODO: injectLocalSDK and other scripts with one call
-
                 LOG.d("_injectScripts"); LOG.d(dom);
                 return _injectScriptsInDom(dom, sources);
-
             })
             .then(function(dom){
                 LOG.d("Serialize dom");
                 var result = new XMLSerializer().serializeToString(dom);
                 var toReplace = "<html xmlns=\"http:\/\/www.w3.org\/1999\/xhtml\"";
-                result = result.replace(toReplace, "<html");
+                //Remove BOM :( it's a space character it depends on config of the developer
+                result = result.replace(toReplace, "<html")
+                                .replace(RegExp(/[^\x20-\x7E\xA0-\xFF]/g), '');
                 return result;
             })
             .then(function(htmlAsString){
-                LOG.d("Write dom:",indexPath,htmlAsString);
+                htmlAsString = htmlAsString.trim();
+                LOG.d("Write dom:", indexPath, htmlAsString);
                 return fileModule.write(indexPath, htmlAsString);
             });
     }
@@ -4840,6 +5008,7 @@
      * @returns {Promise<boolean|FileError>}
      * */
     Game.prototype.remove = function(gameID){
+        LOG.d("Removing game", gameID);
         return fileModule.removeDir(constants.GAMES_DIR + gameID);
     };
 
@@ -4861,6 +5030,7 @@
      * */
     Game.prototype.abortDownload = function(){
         if(this.isDownloading()){
+            LOG.d("Abort last download");
             fileModule.currentFileTransfer.abort();
             fileModule.currentFileTransfer = null;
             return true;
@@ -4876,20 +5046,22 @@
      * @returns {Array<Object>} - Returns an array of metainfo game object
      * */
     Game.prototype.list = function(){
+        LOG.d("Get games list");
         return fileModule.readDir(constants.GAMES_DIR)
             .then(function(entries){
                 var _entries = Array.isArray(entries) ? entries : [entries];
-                return _entries.map(function(entry){
-                    //get the ids careful: there's / at the end
-                    return entry.path;
+                return _entries.filter(function(entry){
+                    //get the <id> folder. Careful: there's / at the end
+                    if(entry.isDirectory){
+                        return entry;
+                    }
                 });
-            }).then(function(ids){
-
-                var jsons = ids.map(function(id){
-                    return fileModule.readFileAsJSON(id + "meta.json");
+            }).then(function(gameEntries){
+                var metajsons = gameEntries.map(function(gameEntry){
+                    return fileModule.readFileAsJSON(gameEntry.path + "meta.json");
                 });
 
-                return Promise.all(jsons).then(function(results){
+                return Promise.all(metajsons).then(function(results){
                     return results;
                 });
             });
@@ -4912,21 +5084,139 @@
         
         LOG.d("Read meta.json:", metaJsonPath);
         LOG.d("GAMEOVER_TEMPLATE path", constants.GAMEOVER_DIR + "gameover.html");
-        
+        /***
+         * if needed
+         * return new window.DOMParser().parseFromString(documentAsString, "text/xml").firstChild
+         * **/
         return Promise.all([
             fileModule.readFileAsJSON(metaJsonPath),
             fileModule.readFile(constants.GAMEOVER_DIR + "gameover.html")
         ]).then(function(results){
                 var htmlString = results[1];
-                var metaJson = results[0];                
+                var metaJson = results[0];
+                LOG.i("Meta JSON:", metaJson);
                 return htmlString
                     .replace("{{score}}", datas.score)
                     .replace("{{url_share}}", metaJson.url_share)
-                    .replace("{{url_cover}}", metaJson.url_cover)                    
-                    .replace("{{startpage_url}}", constants.WWW_DIR + "startpage.html");              
+                    .replace("{{url_cover}}", metaJson.images.cover.ratio_1_4)
+                    .replace("{{startpage_url}}", constants.WWW_DIR + "index.html");
         });
     };
-    
+
+    /**
+     * isGameDownloaded
+     *
+     * @param {String} gameID - the id of the game
+     * @returns {Promise}
+     * */
+    Game.prototype.isGameDownloaded = function(gameID){
+        return fileModule.dirExists(constants.GAMES_DIR + gameID);
+    };
+
+    /**
+     * removeAll delete all games and recreate the games folder
+     *
+     * @returns {Promise}
+     * */
+    Game.prototype.removeAll = function(){
+        return fileModule.removeDir(constants.GAMES_DIR)
+            .then(function(result){
+                LOG.d("All games deleted!", result);
+                return fileModule.createDir(constants.BASE_DIR, "games");
+            });
+    };
+
+    /**
+     * downloadImage
+     * Save the image in games/<gameId>/images/<type>/<size.width>x<size.height>.png
+     *
+     * @param {String} info -
+     * @param {String} info.gameId -
+     * @param {Object} info.size -
+     * @param {String|Number} info.size.width -
+     * @param {String|Number} info.size.height -
+     * @param {String|Number} info.size.ratio - 1|2|1_5|1_4
+     * @param {String} info.url - the url with the [HSIZE] and [WSIZE] in it
+     * @param {String} info.type - possible values cover|screenshot|icon
+     * @returns {Promise<String|FileTransferError>} where string is the cdvfile:// path
+     * */
+    function downloadImage(info){
+        /* info = {
+            gameId:"",
+            size:{width:"",height:"",ratio:""},
+            url:"",
+            type:"cover"
+        };*/
+
+        //GET COVER IMAGE FOR THE GAME!
+        var toDld = info.url
+            .replace("[WSIZE]", info.size.width)
+            .replace("[HSIZE]", info.size.height);
+
+        toDld = encodeURI(toDld);
+        //toDld = "http://lorempixel.com/g/"+info.size.width+"/"+info.size.height+"/";
+        var gameFolder = constants.GAMES_DIR + info.gameId;
+        var imagesFolder = gameFolder + "/images/" + info.type + "/";
+        var imageName = info.size.width + "x" + info.size.height + ("_"+info.size.ratio || "") + ".png";
+        LOG.d("request Image to", toDld, "coverImageUrl", imageName, "imagesFolder", imagesFolder);
+        return fileModule.download(toDld, imagesFolder, imageName);
+    }
+
+    Game.prototype.getBundleGameObjects = function(){
+        var self = this;
+        if(CONF && CONF.bundleGames){
+            LOG.d("Games bundle in configuration", CONF.bundleGames);
+            var whichGameAlreadyHere = CONF.bundleGames.map(function(gameId){
+                return self.isGameDownloaded(gameId);
+            });
+
+            var filteredToDownload = Promise.all(whichGameAlreadyHere)
+                .then(function(results){
+                    LOG.d("alreadyDownloaded",results);
+                    for(var i = 0;i < results.length;i++){
+                        if(results[i]) CONF.bundleGames.splice(i, 1);
+                    }
+                    return CONF.bundleGames;
+                })
+                .then(function(bundlesGamesIds){
+                    return bundlesGamesIds.join(",");
+                });
+
+            var tmpBundleGameObjects;
+            return filteredToDownload
+                .then(function(bundleGamesIds){
+
+                    obj.content_id = bundleGamesIds;
+                    var api_string = composeApiString(API, obj);
+                    LOG.d("Request bundle games meta info:", api_string);
+
+                    return new jsonpRequest(api_string).prom;
+                }).then(function(bundleGameObjects){
+                    LOG.d("Games bundle response:", bundleGameObjects);
+                    tmpBundleGameObjects = bundleGameObjects;
+                    var jsonpRequests = bundleGameObjects.map(function(item){
+                        return new jsonpRequest(item.url_api_dld).prom;
+                    });
+                    LOG.d("jsonpRequests",jsonpRequests);
+                    return Promise.all(jsonpRequests);
+                })
+                .then(function(results){
+                    LOG.d("RESULTS", results);
+
+                    //extend with the response object
+                    for(var i = 0;i < results.length;i++){
+                        tmpBundleGameObjects[i].response_api_dld =  results[i];
+                    }
+
+                    LOG.d("GameObjects", tmpBundleGameObjects);
+                    return tmpBundleGameObjects;
+                })
+                .catch(function(reason){
+                    LOG.e("Games bundle meta fail:", reason);
+                });
+        }
+    };
+
     var _protected = {};
     _modules.game = {};
 
@@ -4934,7 +5224,7 @@
     _modules.game._protected = _protected;
     _modules.game._public = new Game();
 
-})(stargateModules.file, stargateModules.Logger, stargateModules);
+})(stargateModules.file, stargateModules.Utils, stargateModules);
 
 var webappsFixes = (function() {
 
@@ -5136,8 +5426,6 @@ stargatePublic.initializeOffline = function(options){
             .catch(function (error) {
                 err("initializeOffline() error: "+error);
             });
-
-            
         });
     });
     return initOfflinePromise;
@@ -5163,13 +5451,25 @@ stargatePublic.conf.getWebappStartUrl = function() {
  */
 stargatePublic.conf.getWebappOrigin = function() {
     var re = /http:\/\/[\w]{3,4}\..*\.[\w]{2,}/;
-    var origin = re.exec(stargateConf.webapp_start_url)[0];
-    return origin;
+    if(typeof stargateConf.webapp_start_url === "undefined"){
+        log("Stargate is initialized? Please call this method after it");
+        return "";
+    }else{
+        return re.exec(stargateConf.webapp_start_url)[0];
+    }
 };
 
 /**
-*
+* 
 * initialize(configurations, callback)
+* @param {object} [configurations={}] - an object with configurations
+* @param @deprecated [configurations.country=undefined] - MFP country @deprecated since 0.2.3
+* @param @deprecated [configurations.hybrid_conf={}] - old configuration of modules, used by IAP @deprecated since 0.2.3 
+* @param [configurations.modules=["mfp","iapbase","appsflyer"]] - array with one or more of: "mfp","iapbase","iap","appsflyer","game"
+* @param [configurations.modules_conf={}] - an object with configurations for modules
+* @param {Function} [callback=function(){}] - callback success
+* @returns {Promise<boolean>} - true if we're running inside hybrid
+*
 * @deprecated initialize(configurations, pubKey, forge, callback)
 */
 stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callback) {
@@ -5191,7 +5491,7 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
     // check callback type is function
     // if not return a failing promise 
     if (typeof callback !== 'function') {
-        log("Stargate.initialize() callback is not a function!");
+        war("Stargate.initialize() callback is not a function!");
         return Promise.reject(new Error("Stargate.initialize() callback is not a function!"));
     }
 
@@ -5201,7 +5501,7 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
     //  * execute the callback
     //  * return a resolving promise
     if (isStargateInitialized) {
-        err("Stargate.initialize() already called, executing callback.");
+        war("Stargate.initialize() already called, executing callback.");
         
         if(callback){callback(isStargateRunningInsideHybrid);}
 
@@ -5209,17 +5509,56 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
     }
 
     isStargateInitialized = true;
-
-
-    if(configurations.country){
-        country = configurations.country;
+    
+    if (typeof configurations !== 'object') {
+        configurations = {};
     }
     
+    // old configuration mechanism, used by IAP
     if(configurations.hybrid_conf){
         if (typeof configurations.hybrid_conf === 'object') {
             hybrid_conf = configurations.hybrid_conf;
         } else {
             hybrid_conf = JSON.parse(decodeURIComponent(configurations.hybrid_conf));
+        }
+    }
+    
+    if(configurations.modules){
+        // save modules requested by caller,
+        // initialization will be done oly for these modules
+        
+        // check type
+        if (configurations.modules.constructor !== Array) {
+            err("initialize() configurations.modules is not an array");
+        }
+        else {
+            requested_modules = configurations.modules;
+        }
+    } else {
+        // default modules
+        requested_modules = ["mfp","iapbase","appsflyer","game"];
+    }
+    if(configurations.modules_conf){
+        // check type
+        if (typeof configurations.modules_conf !== 'object') {
+            err("initialize() configurations.modules_conf is not an object");
+        }
+        else {
+            modules_conf = configurations.modules_conf;
+        }
+    }
+    
+    // old configuration mechanism, used by MFP module
+    if(configurations.country) {
+        // overwrite conf
+        if ("mfp" in hybrid_conf) {
+            hybrid_conf.mfp.country = configurations.country;        
+        }
+        // define conf
+        else {
+            hybrid_conf.mfp = {
+                "country": configurations.country
+            }; 
         }
     }
 
@@ -5270,7 +5609,7 @@ stargatePublic.openUrl = function(url) {
 	if (!isStargateInitialized) {
 		return err("Stargate not initialized, call Stargate.initialize first!");
     }
-    // FIXME: check that inappbrowser plugin is installed otherwise retunr error
+    // FIXME: check that inappbrowser plugin is installed otherwise return error
 
     window.open(url, "_system");
 };
@@ -5292,13 +5631,28 @@ var connectionStatus = {
     networkState: "unknown"
 };
 
+var onConnectionChange;
+/**
+ * Stargate.addListener
+ * @param {String} type - possible values: "connectionchange"
+ * @param {Function} _onConnectionChange
+ * **/
+stargatePublic.addListener = function(type, _onConnectionChange){
+    //if not already registered
+    if(type == "connectionchange" && (typeof _onConnectionChange === "function")){
+        log("onConnectionChange registered");
+        onConnectionChange = _onConnectionChange;
+    }
+};
+
 function updateConnectionStatus(theEvent){
     connectionStatus.type = theEvent.type;
     connectionStatus.networkState = navigator.connection.type;
+    if(typeof onConnectionChange === "function"){onConnectionChange(connectionStatus);}
 }
 
-window.addEventListener("online", updateConnectionStatus, false);
-window.addEventListener("offline", updateConnectionStatus, false);
+document.addEventListener("online", updateConnectionStatus, false);
+document.addEventListener("offline", updateConnectionStatus, false);
 
 function initializeConnectionStatus() {
     connectionStatus.networkState = navigator.connection.type;
@@ -5415,11 +5769,13 @@ stargatePublic.ad = new AdStargate();
 
 // current stargateVersion used by webapp to understand
 //  the version to load based on cookie or localstorage
+// @deprecated since 0.2.2
 var stargateVersion = "2";
 
 // logger function
 var log = console.log.bind(window.console, "[Stargate] ");
 var err = console.error.bind(window.console, "[Stargate] ");
+var war = console.warn.bind(window.console, "[Stargate] ");
 
 
 
@@ -5458,9 +5814,26 @@ var initDevice = function() {
 
 
 function getManifest() {
-
-    return stargateModules.file.readFileAsJSON(cordova.file.applicationDirectory + "www/manifest.json");
-
+    
+    if (window.cordova.file) {
+        return stargateModules.file.readFileAsJSON(window.cordova.file.applicationDirectory + "www/manifest.json");
+    }
+    
+    if (window.hostedwebapp) {
+        return new Promise(function(resolve,reject){
+            window.hostedwebapp.getManifest(
+                function(manifest){
+                    resolve(manifest);
+                },
+                function(error){
+                    err(error);
+                    reject(new Error(error));
+                }
+            );
+        });
+    }
+    
+    return Promise.reject(new Error("getManifest() no available reading mechanism!"));
 }
 
 var launchUrl = function (url) {
@@ -5481,8 +5854,9 @@ var appVersion = '';
  * variables sent by server configuration
  * 
  */
-var country = '',
-    hybrid_conf = {};
+var hybrid_conf = {},
+    requested_modules = [],
+    modules_conf = {};
 
 /**
  * 
@@ -5553,7 +5927,7 @@ var hydeSplashAndLoaders = function() {
     }
 };
 
-var onPluginReady = function (resolve, reject) {
+var onPluginReady = function (resolve) {
     
     // FIXME: this is needed ??
     document.title = stargateConf.title;
@@ -5568,19 +5942,39 @@ var onPluginReady = function (resolve, reject) {
     updateStatusBar();
 
     
-    if (hasFeature('mfp')) {
-        MFP.check();
+    if (hasFeature("mfp") && haveRequestedFeature("mfp")) {
+        var mfpModuleConf = getModuleConf("mfp");
+        
+        // configurations needed
+        //stargateConf.motime_apikey,
+	  	//stargateConf.namespace,
+        //stargateConf.label,
+        
+        // configurations needed
+        //moduleConf.country
+                  
+        // retrocompatibility
+        var keysOnStargateConf = ["motime_apikey", "namespace", "label"];
+        keysOnStargateConf.forEach(function(keyOnStargateConf) {
+            // if it's available in stargateConf but not in module conf
+            // copy it to module conf
+            if (!mfpModuleConf.hasOwnProperty(keyOnStargateConf) &&
+                stargateConf.hasOwnProperty(keyOnStargateConf)) {
+                    
+                mfpModuleConf[keyOnStargateConf] = stargateConf[keyOnStargateConf];
+            }
+        });
+        
+        MFP.check(mfpModuleConf);
     }
     
-    if (hasFeature('deltadna')) {
+    if (hasFeature("deltadna")) {
         window.deltadna.startSDK(
             stargateConf.deltadna.environmentKey,
             stargateConf.deltadna.collectApi,
             stargateConf.deltadna.engageApi,
-
             onDeltaDNAStartedSuccess,
             onDeltaDNAStartedError,
-
             stargateConf.deltadna.settings
         );
     }
@@ -5588,11 +5982,25 @@ var onPluginReady = function (resolve, reject) {
     // initialize all modules
 
     // In-app purchase initialization
-    IAP.initialize();
+    if (haveRequestedFeature("iapbase")) {
+        // base legacy iap implementation
+        IAP.initialize(
+            getModuleConf("iapbase")
+        );
+        
+    } else if (haveRequestedFeature("iap")) {
+        // if initialize ok...
+        if ( IAP.initialize( getModuleConf("iap") ) ) {
+            // ...then call refresh
+            IAP.doRefresh();            
+        }
+    }
 
     // receive appsflyer conversion data event
-    if (hasFeature('appsflyer')) {
-        appsflyer.init();
+    if (hasFeature('appsflyer') && haveRequestedFeature("appsflyer")) {
+        appsflyer.init(
+            getModuleConf("appsflyer")
+        );
     }
     
     // apply webapp fixes
@@ -5601,9 +6009,15 @@ var onPluginReady = function (resolve, reject) {
     var modulePromises = [];
     
     //Game Module Init
-    if (hasFeature('game') && stargateModules.game) {
+    // if requested by caller (haveRequestedFeature)
+    // if available in app (has feature)
+    // if included in code (stargateModules.game)
+    if (haveRequestedFeature("game") && hasFeature('game') && stargateModules.game) {
+        // save initialization promise, to wait for
         modulePromises.push(
-            stargateModules.game._protected.initialize({})
+            stargateModules.game._protected.initialize(
+                getModuleConf("game")
+            )
         );
     }
     
@@ -5613,26 +6027,31 @@ var onPluginReady = function (resolve, reject) {
             modulePromises
         )
         .then(function() {
-            hydeSplashAndLoaders();
             
-            // initialize finished
-            isStargateOpen = true;
-            
-            log("version "+stargatePackageVersion+" ready; "+
-                "loaded from server version: v"+stargateVersion+
-                " running in package version: "+appVersion);
-            
-            //execute callback
-            initializeCallback(true);
-
-            log("Stargate.initialize() done");
-            resolve(true);
+            onStargateReady(resolve);
             
         })
         .catch(function (error) {
-            err("onPluginReady() error: "+error);
-            reject("onPluginReady() error: "+error);
+            err("onPluginReady() error: ",error);
+            
+            onStargateReady(resolve);
         });
+};
+
+var onStargateReady = function(resolve) {
+    hydeSplashAndLoaders();
+            
+    // initialize finished
+    isStargateOpen = true;
+    
+    log("version "+stargatePackageVersion+" ready; "+
+        " running in package version: "+appVersion);
+    
+    //execute callback
+    initializeCallback(true);
+
+    log("Stargate.initialize() done");
+    resolve(true);
 };
 
 var onDeviceReady = function (resolve, reject) {
@@ -5717,11 +6136,64 @@ var stargateConf = {
     features: {}
 };
 
+/**
+ * getModuleConf(moduleName)
+ * @param {string} moduleName - name of module to return conf of
+ * @returns {object} - configuration for the module sent by Stargate implementator on Stargate.initialize()
+ */
+var getModuleConf = function(moduleName) {
+    // 1. new version -> modules_conf
+    // 2. old version -> hybrid_conf
+    
+    if (!moduleName) {
+        return err("getModuleConf() invalid module requested");
+    }
+    
+    if (moduleName in modules_conf) {
+        return modules_conf[moduleName];
+    }
+    
+    // covert modulesname
+    var mapConfLegacy = {
+        "iapbase": "IAP",
+        "iap": "IAP"
+    };
+    
+    var moduleNameLegacy = moduleName;
+    if (mapConfLegacy[moduleName]) {
+        moduleNameLegacy = mapConfLegacy[moduleName];
+    }
+    
+    if (moduleNameLegacy in hybrid_conf) {
+        return hybrid_conf[moduleNameLegacy];
+    }
+    
+    log("getModuleConf(): no configuration for module: "+moduleName+" ("+mapConfLegacy+")");
+    return {};
+};
+
+/**
+ * hasFeature(feature)
+ * @param {string} feature - name of feature to check
+ * @returns {boolean} - true if app have feature requested (it check inside the manifest compiled in the app) 
+ */
 var hasFeature = function(feature) {
     return (typeof stargateConf.features[feature] !== 'undefined' && stargateConf.features[feature]);
 };
 
-
+/**
+ * haveRequestedFeature(feature)
+ * @param {string} feature - name of feature to check
+ * @returns {boolean} - true if implementator of Stargate requested the feature (it check against the configuration.modules array sent as paramenter of Stargate.initialize())
+ * 
+ * possible values: "mfp","iapbase","iap","appsflyer","webappanalytics","game" 
+ */
+var haveRequestedFeature = function(feature) {
+    if (requested_modules && requested_modules.constructor === Array) {
+        return requested_modules.indexOf(feature) > -1;
+    }
+    return false;
+};
 
 
 
@@ -5757,20 +6229,28 @@ var MFP = (function(){
      * @memberof MFP
      *
      * @description Start the MFP check to see if user has a session on the server
+     * @param {object} initializeConf - configuration sent by
+     * @return {boolean} - true if init ok
      *
      */
-	MobileFingerPrint.check = function(){
+	MobileFingerPrint.check = function(initializeConf){
 
 		//if (window.localStorage.getItem('mfpCheckDone')){
 		//	return;
 		//}
 
 		// country defined on main stargate.js
-		if (!country) {		
-			return err("Country not defined!");
-		}
+        var neededConfs = ["motime_apikey", "namespace", "label", "country"];
+        neededConfs.forEach(function(neededConf) {
+            if (!initializeConf.hasOwnProperty(neededConf)) {		
+                return err("[MFP] Configuration '"+neededConf+"' not defined!");
+            }
+            if (!initializeConf[neededConf]) {		
+                return err("[MFP] Configuration: '"+neededConf+"' not valid!");
+            }
+        });
 
-		MobileFingerPrint.get(country);
+		MobileFingerPrint.get(initializeConf);
 	};
 
 	MobileFingerPrint.getContents = function(country, namespace, label, extData){
@@ -5824,7 +6304,7 @@ var MFP = (function(){
 		launchUrl(newUrl);
 	};
 
-	MobileFingerPrint.get = function(country){
+	MobileFingerPrint.get = function(initializeConf){
 		var expire = "";
 
 	    // stargateConf.api.mfpGetUriTemplate:
@@ -5832,9 +6312,9 @@ var MFP = (function(){
 
 		var mfpUrl = URITemplate(stargateConf.api.mfpGetUriTemplate)
 	  		.expand({
-	  			"apikey": stargateConf.motime_apikey,
-	  			"contents_inapp": MobileFingerPrint.getContents(country, stargateConf.namespace, stargateConf.label),
-	  			"country": country,
+	  			"apikey": initializeConf.motime_apikey,
+	  			"contents_inapp": MobileFingerPrint.getContents(initializeConf.country, initializeConf.namespace, initializeConf.label),
+	  			"country": initializeConf.country,
 	  			"expire": expire
 	  	});
 
@@ -6157,730 +6637,45 @@ var md5 = (function () {
 }());
 
 
-/*  */
-
-var stargateLoader = (function(){
-
-var loaderCss = 
-"#holdon-overlay {\n"+
-"    filter: alpha(opacity=80);\n"+
-"    position:fixed; \n"+
-"    width:100%; \n"+
-"    height:100%;\n"+
-"    left: 0;\n"+
-"    top: 0;\n"+
-"    bottom: 0;\n"+
-"    right: 0;\n"+
-"    background: #000;\n"+
-"    opacity: 0;\n"+
-"    z-index: 9999;\n"+
-"    transition: opacity 300ms linear;\n"+
-"    -moz-transition: opacity 300ms linear;\n"+
-"    -webkit-transition: opacity 300ms linear;\n"+
-"}\n"+
-
-"#holdon-overlay.show {\n"+
-"  opacity: 0.8;\n"+
-"}\n"+
-
-"#holdon-content-container{\n"+
-"    width: 100%;\n"+
-"    padding: 0;\n"+
-"    vertical-align: middle;\n"+
-"    display: table-cell !important;\n"+
-"    margin: 0;\n"+
-"    text-align: center;\n"+
-"}\n"+
-
-"#holdon-content {\n"+
-"    text-align: center;\n"+
-"    width: 50px;\n"+
-"    height: 57px;\n"+
-"    position: absolute;\n"+
-"    top: 50%;\n"+
-"    left: 50%;\n"+
-"    margin: -28px 0 0 -25px;\n"+
-"}\n"+
-
-"#holdon-message {\n"+
-"    width:100%;\n"+
-"    text-align: center;\n"+
-"    position: absolute;\n"+
-"    top: 55%;\n"+
-"    color:white;\n"+
-"}\n"+
-
-
-".sk-rect {\n"+
-"  width: 50px;\n"+
-"  height: 40px;\n"+
-"  text-align: center;\n"+
-"  font-size: 10px;\n"+
-"}\n"+
-
-".sk-rect > div {\n"+
-"  background-color: #333;\n"+
-"  height: 100%;\n"+
-"  width: 6px;\n"+
-"  display: inline-block;\n"+
-"  -webkit-animation: sk-rect-anim 1.2s infinite ease-in-out;\n"+
-"  animation: sk-rect-anim 1.2s infinite ease-in-out;\n"+
-"}\n"+
-
-".sk-rect .rect2 {\n"+
-"  -webkit-animation-delay: -1.1s;\n"+
-"  animation-delay: -1.1s;\n"+
-"}\n"+
-
-".sk-rect .rect3 {\n"+
-"  -webkit-animation-delay: -1.0s;\n"+
-"  animation-delay: -1.0s;\n"+
-"}\n"+
-
-".sk-rect .rect4 {\n"+
-"  -webkit-animation-delay: -0.9s;\n"+
-"  animation-delay: -0.9s;\n"+
-"}\n"+
-
-".sk-rect .rect5 {\n"+
-"  -webkit-animation-delay: -0.8s;\n"+
-"  animation-delay: -0.8s;\n"+
-"}\n"+
-
-"@-webkit-keyframes sk-rect-anim {\n"+
-"  0%, 40%, 100% { -webkit-transform: scaleY(0.4) }  \n"+
-"  20% { -webkit-transform: scaleY(1.0) }\n"+
-"}\n"+
-
-"@keyframes sk-rect-anim {\n"+
-"  0%, 40%, 100% { \n"+
-"    transform: scaleY(0.4);\n"+
-"    -webkit-transform: scaleY(0.4);\n"+
-"  }  20% { \n"+
-"    transform: scaleY(1.0);\n"+
-"    -webkit-transform: scaleY(1.0);\n"+
-"  }\n"+
-"}\n"+
-
-
-
-
-
-".sk-cube {\n"+
-"  width: 50px;\n"+
-"  height: 40px;\n"+
-"  text-align: center;\n"+
-"  font-size: 10px;\n"+
-"}\n"+
-
-".sk-cube1, .sk-cube2 {\n"+
-"  background-color: #333;\n"+
-"  width: 15px;\n"+
-"  height: 15px;\n"+
-"  position: absolute;\n"+
-"  top: 0;\n"+
-"  left: 0;\n"+
-"  \n"+
-"  -webkit-animation: sk-cube 1.8s infinite ease-in-out;\n"+
-"  animation: sk-cube 1.8s infinite ease-in-out;\n"+
-"}\n"+
-
-".sk-cube2 {\n"+
-"  -webkit-animation-delay: -0.9s;\n"+
-"  animation-delay: -0.9s;\n"+
-"}\n"+
-
-"@-webkit-keyframes sk-cube {\n"+
-"  25% { -webkit-transform: translateX(42px) rotate(-90deg) scale(0.5) }\n"+
-"  50% { -webkit-transform: translateX(42px) translateY(42px) rotate(-180deg) }\n"+
-"  75% { -webkit-transform: translateX(0px) translateY(42px) rotate(-270deg) scale(0.5) }\n"+
-"  100% { -webkit-transform: rotate(-360deg) }\n"+
-"}\n"+
-
-"@keyframes sk-cube {\n"+
-"  25% { \n"+
-"    transform: translateX(42px) rotate(-90deg) scale(0.5);\n"+
-"    -webkit-transform: translateX(42px) rotate(-90deg) scale(0.5);\n"+
-"  } 50% { \n"+
-"    transform: translateX(42px) translateY(42px) rotate(-179deg);\n"+
-"    -webkit-transform: translateX(42px) translateY(42px) rotate(-179deg);\n"+
-"  } 50.1% { \n"+
-"    transform: translateX(42px) translateY(42px) rotate(-180deg);\n"+
-"    -webkit-transform: translateX(42px) translateY(42px) rotate(-180deg);\n"+
-"  } 75% { \n"+
-"    transform: translateX(0px) translateY(42px) rotate(-270deg) scale(0.5);\n"+
-"    -webkit-transform: translateX(0px) translateY(42px) rotate(-270deg) scale(0.5);\n"+
-"  } 100% { \n"+
-"    transform: rotate(-360deg);\n"+
-"    -webkit-transform: rotate(-360deg);\n"+
-"  }\n"+
-"}\n"+
-".sk-dot {\n"+
-"    width: 50px;\n"+
-"    height: 40px;\n"+
-"    text-align: center;\n"+
-"    font-size: 10px;\n"+
-
-"    -webkit-animation: sk-dot-rotate 2.0s infinite linear;\n"+
-"    animation: sk-dot-rotate 2.0s infinite linear;\n"+
-"}\n"+
-".sk-dot1, .sk-dot2 {\n"+
-"  width: 60%;\n"+
-"  height: 60%;\n"+
-"  display: inline-block;\n"+
-"  position: absolute;\n"+
-"  top: 0;\n"+
-"  background-color: #333;\n"+
-"  border-radius: 100%;\n"+
-"  \n"+
-"  -webkit-animation: sk-dot-bounce 2.0s infinite ease-in-out;\n"+
-"  animation: sk-dot-bounce 2.0s infinite ease-in-out;\n"+
-"}\n"+
-
-".sk-dot2 {\n"+
-"  top: auto;\n"+
-"  bottom: 0;\n"+
-"  -webkit-animation-delay: -1.0s;\n"+
-"  animation-delay: -1.0s;\n"+
-"}\n"+
-
-"@-webkit-keyframes sk-dot-rotate { 100% { -webkit-transform: rotate(360deg) }}\n"+
-"@keyframes sk-dot-rotate { 100% { transform: rotate(360deg); -webkit-transform: rotate(360deg) }}\n"+
-
-"@-webkit-keyframes sk-dot-bounce {\n"+
-"  0%, 100% { -webkit-transform: scale(0.0) }\n"+
-"  50% { -webkit-transform: scale(1.0) }\n"+
-"}\n"+
-
-"@keyframes sk-dot-bounce {\n"+
-"  0%, 100% { \n"+
-"    transform: scale(0.0);\n"+
-"    -webkit-transform: scale(0.0);\n"+
-"  } 50% { \n"+
-"    transform: scale(1.0);\n"+
-"    -webkit-transform: scale(1.0);\n"+
-"  }\n"+
-"}\n"+
-
-
-
-".sk-bounce {\n"+
-"    width: 60px;\n"+
-"    height: 40px;\n"+
-"    text-align: center;\n"+
-"    font-size: 10px;\n"+
-"}\n"+
-
-".sk-bounce > div {\n"+
-"  width: 18px;\n"+
-"  height: 18px;\n"+
-"  background-color: #333;\n"+
-
-"  border-radius: 100%;\n"+
-"  display: inline-block;\n"+
-"  -webkit-animation: sk-bouncedelay 1.4s infinite ease-in-out both;\n"+
-"  animation: sk-bouncedelay 1.4s infinite ease-in-out both;\n"+
-"}\n"+
-
-".sk-bounce .bounce1 {\n"+
-"    -webkit-animation-delay: -0.32s;\n"+
-"    animation-delay: -0.32s;\n"+
-"}\n"+
-
-".sk-bounce .bounce2 {\n"+
-"  -webkit-animation-delay: -0.16s;\n"+
-"  animation-delay: -0.16s;\n"+
-"}\n"+
-
-"@-webkit-keyframes sk-bouncedelay {\n"+
-"  0%, 80%, 100% { -webkit-transform: scale(0) }\n"+
-"  40% { -webkit-transform: scale(1.0) }\n"+
-"}\n"+
-
-"@keyframes sk-bouncedelay {\n"+
-"  0%, 80%, 100% { \n"+
-"    -webkit-transform: scale(0);\n"+
-"    transform: scale(0);\n"+
-"  } 40% { \n"+
-"    -webkit-transform: scale(1.0);\n"+
-"    transform: scale(1.0);\n"+
-"  }\n"+
-"}\n"+
-
-
-
-
-".sk-circle {\n"+
-"    width: 60px;\n"+
-"    height: 40px;\n"+
-"    text-align: center;\n"+
-"    font-size: 10px;\n"+
-"}\n"+
-".sk-circle .sk-child {\n"+
-"  width: 100%;\n"+
-"  height: 100%;\n"+
-"  position: absolute;\n"+
-"  left: 0;\n"+
-"  top: 0;\n"+
-"}\n"+
-".sk-circle .sk-child:before {\n"+
-"  content: '';\n"+
-"  display: block;\n"+
-"  margin: 0 auto;\n"+
-"  width: 15%;\n"+
-"  height: 15%;\n"+
-"  background-color: #333;\n"+
-"  border-radius: 100%;\n"+
-"  -webkit-animation: sk-circleBounceDelay 1.2s infinite ease-in-out both;\n"+
-"          animation: sk-circleBounceDelay 1.2s infinite ease-in-out both;\n"+
-"}\n"+
-".sk-circle .sk-circle2 {\n"+
-"  -webkit-transform: rotate(30deg);\n"+
-"      -ms-transform: rotate(30deg);\n"+
-"          transform: rotate(30deg); }\n"+
-".sk-circle .sk-circle3 {\n"+
-"  -webkit-transform: rotate(60deg);\n"+
-"      -ms-transform: rotate(60deg);\n"+
-"          transform: rotate(60deg); }\n"+
-".sk-circle .sk-circle4 {\n"+
-"  -webkit-transform: rotate(90deg);\n"+
-"      -ms-transform: rotate(90deg);\n"+
-"          transform: rotate(90deg); }\n"+
-".sk-circle .sk-circle5 {\n"+
-"  -webkit-transform: rotate(120deg);\n"+
-"      -ms-transform: rotate(120deg);\n"+
-"          transform: rotate(120deg); }\n"+
-".sk-circle .sk-circle6 {\n"+
-"  -webkit-transform: rotate(150deg);\n"+
-"      -ms-transform: rotate(150deg);\n"+
-"          transform: rotate(150deg); }\n"+
-".sk-circle .sk-circle7 {\n"+
-"  -webkit-transform: rotate(180deg);\n"+
-"      -ms-transform: rotate(180deg);\n"+
-"          transform: rotate(180deg); }\n"+
-".sk-circle .sk-circle8 {\n"+
-"  -webkit-transform: rotate(210deg);\n"+
-"      -ms-transform: rotate(210deg);\n"+
-"          transform: rotate(210deg); }\n"+
-".sk-circle .sk-circle9 {\n"+
-"  -webkit-transform: rotate(240deg);\n"+
-"      -ms-transform: rotate(240deg);\n"+
-"          transform: rotate(240deg); }\n"+
-".sk-circle .sk-circle10 {\n"+
-"  -webkit-transform: rotate(270deg);\n"+
-"      -ms-transform: rotate(270deg);\n"+
-"          transform: rotate(270deg); }\n"+
-".sk-circle .sk-circle11 {\n"+
-"  -webkit-transform: rotate(300deg);\n"+
-"      -ms-transform: rotate(300deg);\n"+
-"          transform: rotate(300deg); }\n"+
-".sk-circle .sk-circle12 {\n"+
-"  -webkit-transform: rotate(330deg);\n"+
-"      -ms-transform: rotate(330deg);\n"+
-"          transform: rotate(330deg); }\n"+
-".sk-circle .sk-circle2:before {\n"+
-"  -webkit-animation-delay: -1.1s;\n"+
-"          animation-delay: -1.1s; }\n"+
-".sk-circle .sk-circle3:before {\n"+
-"  -webkit-animation-delay: -1s;\n"+
-"          animation-delay: -1s; }\n"+
-".sk-circle .sk-circle4:before {\n"+
-"  -webkit-animation-delay: -0.9s;\n"+
-"          animation-delay: -0.9s; }\n"+
-".sk-circle .sk-circle5:before {\n"+
-"  -webkit-animation-delay: -0.8s;\n"+
-"          animation-delay: -0.8s; }\n"+
-".sk-circle .sk-circle6:before {\n"+
-"  -webkit-animation-delay: -0.7s;\n"+
-"          animation-delay: -0.7s; }\n"+
-".sk-circle .sk-circle7:before {\n"+
-"  -webkit-animation-delay: -0.6s;\n"+
-"          animation-delay: -0.6s; }\n"+
-".sk-circle .sk-circle8:before {\n"+
-"  -webkit-animation-delay: -0.5s;\n"+
-"          animation-delay: -0.5s; }\n"+
-".sk-circle .sk-circle9:before {\n"+
-"  -webkit-animation-delay: -0.4s;\n"+
-"          animation-delay: -0.4s; }\n"+
-".sk-circle .sk-circle10:before {\n"+
-"  -webkit-animation-delay: -0.3s;\n"+
-"          animation-delay: -0.3s; }\n"+
-".sk-circle .sk-circle11:before {\n"+
-"  -webkit-animation-delay: -0.2s;\n"+
-"          animation-delay: -0.2s; }\n"+
-".sk-circle .sk-circle12:before {\n"+
-"  -webkit-animation-delay: -0.1s;\n"+
-"          animation-delay: -0.1s; }\n"+
-
-"@-webkit-keyframes sk-circleBounceDelay {\n"+
-"  0%, 80%, 100% {\n"+
-"    -webkit-transform: scale(0);\n"+
-"            transform: scale(0);\n"+
-"  } 40% {\n"+
-"    -webkit-transform: scale(1);\n"+
-"            transform: scale(1);\n"+
-"  }\n"+
-"}\n"+
-
-"@keyframes sk-circleBounceDelay {\n"+
-"  0%, 80%, 100% {\n"+
-"    -webkit-transform: scale(0);\n"+
-"            transform: scale(0);\n"+
-"  } 40% {\n"+
-"    -webkit-transform: scale(1);\n"+
-"            transform: scale(1);\n"+
-"  }\n"+
-"}\n"+
-
-
-
-
-".sk-cube-grid {\n"+
-"    width: 60px;\n"+
-"    height: 60px;\n"+
-"    text-align: center;\n"+
-"    font-size: 10px;\n"+
-"}\n"+
-
-".sk-cube-grid .sk-cube-child {\n"+
-"  width: 33%;\n"+
-"  height: 33%;\n"+
-"  background-color: #333;\n"+
-"  float: left;\n"+
-"  -webkit-animation: sk-cubeGridScaleDelay 1.3s infinite ease-in-out;\n"+
-"          animation: sk-cubeGridScaleDelay 1.3s infinite ease-in-out; \n"+
-"}\n"+
-".sk-cube-grid .sk-cube-grid1 {\n"+
-"  -webkit-animation-delay: 0.2s;\n"+
-"          animation-delay: 0.2s; }\n"+
-".sk-cube-grid .sk-cube-grid2 {\n"+
-"  -webkit-animation-delay: 0.3s;\n"+
-"          animation-delay: 0.3s; }\n"+
-".sk-cube-grid .sk-cube-grid3 {\n"+
-"  -webkit-animation-delay: 0.4s;\n"+
-"          animation-delay: 0.4s; }\n"+
-".sk-cube-grid .sk-cube-grid4 {\n"+
-"  -webkit-animation-delay: 0.1s;\n"+
-"          animation-delay: 0.1s; }\n"+
-".sk-cube-grid .sk-cube-grid5 {\n"+
-"  -webkit-animation-delay: 0.2s;\n"+
-"          animation-delay: 0.2s; }\n"+
-".sk-cube-grid .sk-cube-grid6 {\n"+
-"  -webkit-animation-delay: 0.3s;\n"+
-"          animation-delay: 0.3s; }\n"+
-".sk-cube-grid .sk-cube-grid7 {\n"+
-"  -webkit-animation-delay: 0s;\n"+
-"          animation-delay: 0s; }\n"+
-".sk-cube-grid .sk-cube-grid8 {\n"+
-"  -webkit-animation-delay: 0.1s;\n"+
-"          animation-delay: 0.1s; }\n"+
-".sk-cube-grid .sk-cube-grid9 {\n"+
-"  -webkit-animation-delay: 0.2s;\n"+
-"          animation-delay: 0.2s; }\n"+
-
-"@-webkit-keyframes sk-cubeGridScaleDelay {\n"+
-"  0%, 70%, 100% {\n"+
-"    -webkit-transform: scale3D(1, 1, 1);\n"+
-"            transform: scale3D(1, 1, 1);\n"+
-"  } 35% {\n"+
-"    -webkit-transform: scale3D(0, 0, 1);\n"+
-"            transform: scale3D(0, 0, 1); \n"+
-"  }\n"+
-"}\n"+
-
-"@keyframes sk-cubeGridScaleDelay {\n"+
-"  0%, 70%, 100% {\n"+
-"    -webkit-transform: scale3D(1, 1, 1);\n"+
-"            transform: scale3D(1, 1, 1);\n"+
-"  } 35% {\n"+
-"    -webkit-transform: scale3D(0, 0, 1);\n"+
-"            transform: scale3D(0, 0, 1);\n"+
-"  } \n"+
-"}\n"+
-
-
-".sk-folding-cube {\n"+
-"  margin: 20px auto;\n"+
-"  width: 40px;\n"+
-"  height: 40px;\n"+
-"  position: relative;\n"+
-"  -webkit-transform: rotateZ(45deg);\n"+
-"          transform: rotateZ(45deg);\n"+
-"}\n"+
-
-".sk-folding-cube .sk-cube-parent {\n"+
-"  float: left;\n"+
-"  width: 50%;\n"+
-"  height: 50%;\n"+
-"  position: relative;\n"+
-"  -webkit-transform: scale(1.1);\n"+
-"      -ms-transform: scale(1.1);\n"+
-"          transform: scale(1.1); \n"+
-"}\n"+
-".sk-folding-cube .sk-cube-parent:before {\n"+
-"  content: '';\n"+
-"  position: absolute;\n"+
-"  top: 0;\n"+
-"  left: 0;\n"+
-"  width: 100%;\n"+
-"  height: 100%;\n"+
-"  background-color: #333;\n"+
-"  -webkit-animation: sk-foldCubeAngle 2.4s infinite linear both;\n"+
-"          animation: sk-foldCubeAngle 2.4s infinite linear both;\n"+
-"  -webkit-transform-origin: 100% 100%;\n"+
-"      -ms-transform-origin: 100% 100%;\n"+
-"          transform-origin: 100% 100%;\n"+
-"}\n"+
-".sk-folding-cube .sk-cubechild2 {\n"+
-"  -webkit-transform: scale(1.1) rotateZ(90deg);\n"+
-"          transform: scale(1.1) rotateZ(90deg);\n"+
-"}\n"+
-".sk-folding-cube .sk-cubechild3 {\n"+
-"  -webkit-transform: scale(1.1) rotateZ(180deg);\n"+
-"          transform: scale(1.1) rotateZ(180deg);\n"+
-"}\n"+
-".sk-folding-cube .sk-cubechild4 {\n"+
-"  -webkit-transform: scale(1.1) rotateZ(270deg);\n"+
-"          transform: scale(1.1) rotateZ(270deg);\n"+
-"}\n"+
-".sk-folding-cube .sk-cubechild2:before {\n"+
-"  -webkit-animation-delay: 0.3s;\n"+
-"          animation-delay: 0.3s;\n"+
-"}\n"+
-".sk-folding-cube .sk-cubechild3:before {\n"+
-"  -webkit-animation-delay: 0.6s;\n"+
-"          animation-delay: 0.6s; \n"+
-"}\n"+
-".sk-folding-cube .sk-cubechild4:before {\n"+
-"  -webkit-animation-delay: 0.9s;\n"+
-"          animation-delay: 0.9s;\n"+
-"}\n"+
-"@-webkit-keyframes sk-foldCubeAngle {\n"+
-"  0%, 10% {\n"+
-"    -webkit-transform: perspective(140px) rotateX(-180deg);\n"+
-"            transform: perspective(140px) rotateX(-180deg);\n"+
-"    opacity: 0; \n"+
-"  } 25%, 75% {\n"+
-"    -webkit-transform: perspective(140px) rotateX(0deg);\n"+
-"            transform: perspective(140px) rotateX(0deg);\n"+
-"    opacity: 1; \n"+
-"  } 90%, 100% {\n"+
-"    -webkit-transform: perspective(140px) rotateY(180deg);\n"+
-"            transform: perspective(140px) rotateY(180deg);\n"+
-"    opacity: 0; \n"+
-"  } \n"+
-"}\n"+
-
-"@keyframes sk-foldCubeAngle {\n"+
-"  0%, 10% {\n"+
-"    -webkit-transform: perspective(140px) rotateX(-180deg);\n"+
-"            transform: perspective(140px) rotateX(-180deg);\n"+
-"    opacity: 0; \n"+
-"  } 25%, 75% {\n"+
-"    -webkit-transform: perspective(140px) rotateX(0deg);\n"+
-"            transform: perspective(140px) rotateX(0deg);\n"+
-"    opacity: 1; \n"+
-"  } 90%, 100% {\n"+
-"    -webkit-transform: perspective(140px) rotateY(180deg);\n"+
-"            transform: perspective(140px) rotateY(180deg);\n"+
-"    opacity: 0; \n"+
-"  }\n"+
-"}\n";
-
-
-	function addcss(css){
-		var head = document.getElementsByTagName('head')[0];
-		var s = document.createElement('style');
-		s.setAttribute('type', 'text/css');
-		if (s.styleSheet) {   // IE
-			s.styleSheet.cssText = css;
-		} else {                // the world
-			s.appendChild(document.createTextNode(css));
-		}
-		head.appendChild(s);
-	}
-
-	var cssAdded = false;
-
-
-	var createElement = function(html) {
-		var div = document.createElement('div');
-		div.innerHTML = html;
-		//var elements = div.childNodes;
-		//var element = div.firstChild
-		return div.firstChild;
-	};
-
-    
-	var sgl = {};
-    
-    sgl.start = function(properties){
-
-    	if (!cssAdded) {
-			addcss(loaderCss);
-			cssAdded = true;
-		}
-
-    	var oldOverlay = document.querySelector('#holdon-overlay');
-    	if (oldOverlay) {
-    		oldOverlay.parentNode.removeChild(oldOverlay);
-    		oldOverlay = null;
-    	}
-
-        var theme = "sk-rect";
-        var content = "";
-        var message = "";
-        
-        if(properties){
-            if(properties.hasOwnProperty("theme")){//Choose theme if given
-                theme = properties.theme;
-            }
-            
-            if(properties.hasOwnProperty("message")){//Choose theme if given
-                message = properties.message;
-            }
-        }
-        
-        switch(theme){
-            case "custom":
-                content = '<div style="text-align: center;">' + properties.content + "</div>";
-            break;
-            case "sk-dot":
-                content = '<div class="sk-dot"> <div class="sk-dot1"></div> <div class="sk-dot2"></div> </div>';
-            break;
-            case "sk-rect":
-                content = '<div class="sk-rect"> <div class="rect1"></div> <div class="rect2"></div> <div class="rect3"></div> <div class="rect4"></div> <div class="rect5"></div> </div>';
-            break;
-            case "sk-cube":
-                content = '<div class="sk-cube"> <div class="sk-cube1"></div> <div class="sk-cube2"></div> </div>';
-            break;
-            case "sk-bounce":
-                content = '<div class="sk-bounce"> <div class="bounce1"></div> <div class="bounce2"></div> <div class="bounce3"></div> </div>';
-            break;
-            case "sk-circle":
-                content = '<div class="sk-circle"> <div class="sk-circle1 sk-child"></div> <div class="sk-circle2 sk-child"></div> <div class="sk-circle3 sk-child"></div> <div class="sk-circle4 sk-child"></div> <div class="sk-circle5 sk-child"></div> <div class="sk-circle6 sk-child"></div> <div class="sk-circle7 sk-child"></div> <div class="sk-circle8 sk-child"></div> <div class="sk-circle9 sk-child"></div> <div class="sk-circle10 sk-child"></div> <div class="sk-circle11 sk-child"></div> <div class="sk-circle12 sk-child"></div> </div>';
-            break;
-            case "sk-cube-grid":
-                content = '<div class="sk-cube-grid"> <div class="sk-cube-child sk-cube-grid1"></div> <div class="sk-cube-child sk-cube-grid2"></div> <div class="sk-cube-child sk-cube-grid3"></div> <div class="sk-cube-child sk-cube-grid4"></div> <div class="sk-cube-child sk-cube-grid5"></div> <div class="sk-cube-child sk-cube-grid6"></div> <div class="sk-cube-child sk-cube-grid7"></div> <div class="sk-cube-child sk-cube-grid8"></div> <div class="sk-cube-child sk-cube-grid9"></div> </div>';
-            break;
-            case "sk-folding-cube":
-                content = '<div class="sk-folding-cube"> <div class="sk-cubechild1 sk-cube-parent"></div> <div class="sk-cubechild2 sk-cube-parent"></div> <div class="sk-cubechild4 sk-cube-parent"></div> <div class="sk-cubechild3 sk-cube-parent"></div> </div>';
-            break;
-            default:
-                content = '<div class="sk-rect"> <div class="rect1"></div> <div class="rect2"></div> <div class="rect3"></div> <div class="rect4"></div> <div class="rect5"></div> </div>';
-                err("[loading] " + theme + " doesn't exist");
-            break;
-        }
-        
-        var HolderHtml = '<div id="holdon-overlay">\n'+
-                         '   <div id="holdon-content-container">\n'+
-                         '       <div id="holdon-content">'+content+'</div>\n'+
-                         '       <div id="holdon-message">'+message+'</div>\n'+
-                         '   </div>\n'+
-                         '</div>';
-        
-        var body = document.getElementsByTagName('body')[0];
-        var holderElement = createElement(HolderHtml);
-
-        if(properties){
-            if(properties.backgroundColor){
-            	holderElement.style.backgroundColor = properties.backgroundColor;
-            	holderElement.querySelector('#holdon-message').style.color = properties.textColor;
-            }
-        }
-
-        body.appendChild(holderElement);
-        
-        holderElement = null;
-
-        // fade in
-        setTimeout(
-	        function() {
-	        	// remove
-				var ho = document.getElementById('holdon-overlay');
-				ho.classList.add('show');
-	        },
-	        1
-	    );
-        
-        
-    };
-    
-    sgl.stop = function(){
-    	var holdonOverlay = document.querySelector('#holdon-overlay');
-    	if (holdonOverlay) {
-
-        	holdonOverlay.classList.remove('show');
-
-    		setTimeout(
-		        function() {
-		        	// remove
-    				holdonOverlay.parentNode.removeChild(holdonOverlay);
-    				holdonOverlay = null;
-		        },
-		        500
-		    );
-    	}
-    };
-
-	return sgl;
-
-})();
-
-
-
 
 
 var startLoading = function(properties) {
-	if (typeof properties !== 'object') {
+	if (typeof window.SpinnerDialog === "undefined") {
+        return err("startLoading(): SpinnerDialog cordova plugin missing!");
+    }
+    
+    if (typeof properties !== 'object') {
 		properties = {};
 	}
-	if (! properties.theme) {
-		properties.theme = 'sk-circle';
-	}
-	stargateLoader.start(properties);
+	
+    var msg = null;
+    
+    if(properties.hasOwnProperty("message")){
+        msg = properties.message;
+    }
+    window.SpinnerDialog.show(null, msg);
+    return true;
 };
 
 var stopLoading = function() {
-	stargateLoader.stop();
+	if (typeof window.SpinnerDialog === "undefined") {
+        return err("startLoading(): SpinnerDialog cordova plugin missing!");
+    }
+    
+    window.SpinnerDialog.hide();
+    return true;
 };
 
+//jshint unused:false
 var changeLoadingMessage = function(newMessage) {
-	var hom = document.querySelector('#holdon-message');
-	if (hom) {
-		hom.textContent = newMessage;
-		return true;
-	}
-	return false;
+    if (typeof window.SpinnerDialog === "undefined") {
+        return err("startLoading(): SpinnerDialog cordova plugin missing!");
+    }
+    
+    window.SpinnerDialog.show(null, newMessage);
+    return true;
 };
 
-
-// ----- FIXME ---- only for testing purposes ----
-if (typeof stargatePublic.test !== 'object') {
-	stargatePublic.test = {};
-}
-if (typeof stargatePublic.test.loading !== 'object') {
-	stargatePublic.test.loading = {};
-}
-
-stargatePublic.test.loading.start = startLoading;
-stargatePublic.test.loading.stop = stopLoading;
-stargatePublic.test.loading.change = changeLoadingMessage;
-// ------------------------------------------------
-
-
-
-
-// - not used, enable if needed -
-//var timeoutLoading = function(t) {
-//    startLoading();
-//    setTimeout(
-//        function(){
-//            stopLoading();
-//        },
-//        t
-//    );
-//};
 
 // FIXME: used inside store.js
 window.startLoading = startLoading;
@@ -6909,22 +6704,38 @@ var IAP = {
     
     productsInfo: {},
     
-	initialize: function () {
+    /**
+     * @param {object} initializeConf - configuration sent by
+     * @return {boolean} - true if init ok
+     */
+	initialize: function (initializeConf) {
         if (!window.store) {
-            err('Store not available');
-            return;
+            err("[IAP] Store not available, missing cordova plugin.");
+            return false;
         }
 		
         // initialize with current url
         IAP.returnUrl = document.location.href;
 
-        if (hybrid_conf.IAP.id) {
-            IAP.id = hybrid_conf.IAP.id;
+        if (initializeConf.id) {
+            IAP.id = initializeConf.id;
+        } else {
+            if (isRunningOnAndroid()) {
+                IAP.id = initializeConf.id_android;
+            }
+            else if (isRunningOnIos()) {
+                IAP.id = initializeConf.id_ios;
+            }
+        }
+        
+        if (!IAP.id) {
+            err("[IAP] Configuration error, missing product id!");
+            return false;
         }
 
         // 
-        if (hybrid_conf.IAP.alias) {
-            IAP.alias = hybrid_conf.IAP.alias;
+        if (initializeConf.alias) {
+            IAP.alias = initializeConf.alias;
         }
 
         //  --- type ---
@@ -6932,8 +6743,8 @@ var IAP = {
         // store.PAID_SUBSCRIPTION = "paid subscription";
         // store.CONSUMABLE        = "consumable";
         // store.NON_CONSUMABLE    = "non consumable";
-        if (hybrid_conf.IAP.type) {
-            IAP.type = hybrid_conf.IAP.type;
+        if (initializeConf.type) {
+            IAP.type = initializeConf.type;
         }
 
         // Available values: DEBUG, INFO, WARNING, ERROR, QUIET
@@ -6968,6 +6779,7 @@ var IAP = {
         // When any product gets updated, refresh the HTML.
         window.store.when("product").updated(function(p){ IAP.saveProductInfo(p); });
         
+        return true;
     },
     
     saveProductInfo: function(params) {
@@ -7228,6 +7040,9 @@ stargatePublic.inAppPurchaseSubscription = function(callbackSuccess, callbackErr
     if (!isStargateInitialized) {
         return callbackError("Stargate not initialized, call Stargate.initialize first!");
     }
+    if (!isStargateOpen) {
+        return callbackError("Stargate closed, wait for Stargate.initialize to complete!");
+    }
     
     setBusy(true);
 
@@ -7250,6 +7065,9 @@ stargatePublic.inAppRestore = function(callbackSuccess, callbackError, subscript
 
     if (!isStargateInitialized) {
         return callbackError("Stargate not initialized, call Stargate.initialize first!");
+    }
+    if (!isStargateOpen) {
+        return callbackError("Stargate closed, wait for Stargate.initialize to complete!");
     }
 
     // no set busy needed for restore as it's usually fast and 
@@ -7280,6 +7098,9 @@ stargatePublic.inAppProductInfo = function(productId, callbackSuccess, callbackE
     if (!isStargateInitialized) {
         return callbackError("Stargate not initialized, call Stargate.initialize first!");
     }
+    if (!isStargateOpen) {
+        return callbackError("Stargate closed, wait for Stargate.initialize to complete!");
+    }
     
     if (! productId) {
         productId = IAP.id;
@@ -7290,6 +7111,7 @@ stargatePublic.inAppProductInfo = function(productId, callbackSuccess, callbackE
         return;
     }
     
+    IAP.requestedListingProductId = productId;
     IAP.callbackListingSuccess = callbackSuccess;
     IAP.callbackListingError = callbackError;
 
