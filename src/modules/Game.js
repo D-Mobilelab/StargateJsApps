@@ -106,7 +106,7 @@
         constants.WWW_DIR = wwwDir;
 
         /** expose */
-        _modules.game._public.GAMES_DIR = constants.GAMES_DIR;
+        _modules.game._public.BASE_DIR = constants.BASE_DIR;
         _modules.game._public.OFFLINE_INDEX = constants.WWW_DIR + "index.html";
 
         function firstInit(){
