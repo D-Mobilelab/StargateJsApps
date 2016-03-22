@@ -173,7 +173,7 @@
         // one download at time for now
         var self = this;
         this.ft = new window.FileTransfer();
-        this.onprogress = _onProgress;
+        this.ft.onprogress = _onProgress;
 
         self.promise = new Promise(function(resolve, reject){
             self.ft.download(window.encodeURI(url), filepath + saveAsName,
