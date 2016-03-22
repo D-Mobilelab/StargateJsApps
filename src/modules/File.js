@@ -171,19 +171,17 @@
      * */
     File.download = function(url, filepath, saveAsName, _onProgress){
         // one download at time for now
-        var ft = new window.FileTransfer();
-        ft.onprogress = _onProgress;
-        File.currentFileTransfer = ft;
+        var self = this;
+        this.ft = new window.FileTransfer();
+        this.onprogress = _onProgress;
 
-        return new Promise(function(resolve, reject){
-            ft.download(window.encodeURI(url), filepath + saveAsName,
+        self.promise = new Promise(function(resolve, reject){
+            self.ft.download(window.encodeURI(url), filepath + saveAsName,
                 function(entry){
                     resolve(__transform([entry]));
-                    File.currentFileTransfer = null;
                 },
                 function(reason){
                     reject(reason);
-                    File.currentFileTransfer = null;
                 },
                 true //trustAllHosts
             );
@@ -270,6 +268,7 @@
                 return new Promise(function(resolve, reject){
                     var reader = dirEntry.createReader();
                     reader.readEntries(function(entries){
+                        LOG.d("readDir:",entries);
                         resolve(__transform(entries));
                     }, reject);
                 });
