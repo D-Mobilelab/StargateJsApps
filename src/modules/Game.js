@@ -24,7 +24,8 @@
         SDK_URL = "http://s2.motime.com/js/wl/webstore_html5game/gfsdk/dist/gfsdk.js"+"?timestamp=" + Date.now(),
         DIXIE_URL = "http://s2.motime.com/tbr/dixie.js?country=it-igames"+"&timestamp=" + Date.now(),
         API = "http://resources2.buongiorno.com/lapis/apps/contents.getList",
-        CONF = {};
+        CONF = {},
+        downloading = false;
 
     var obj = {
         "content_id":"", // to fill
@@ -115,7 +116,7 @@
              * */
             var gamesDirTask = fileModule.createDir(constants.BASE_DIR, "games");
             var scriptsDirTask = fileModule.createDir(constants.BASE_DIR, "scripts");
-        
+
             return Promise.all([
                     gamesDirTask, 
                     scriptsDirTask
@@ -123,8 +124,8 @@
                     LOG.d("GamesDir and ScriptsDir created", results);
                     LOG.d("Getting SDK from:", SDK_URL);
                     return Promise.all([
-                        fileModule.download(SDK_URL, results[1].path, "gfsdk.min.js"),
-                        fileModule.download(DIXIE_URL, results[1].path, "dixie.js"  ),
+                        new fileModule.download(SDK_URL, results[1].path, "gfsdk.min.js").promise,
+                        new fileModule.download(DIXIE_URL, results[1].path, "dixie.js").promise,
                         fileModule.copyDir(constants.WWW_DIR + "gameover_template", constants.BASE_DIR + "gameover_template"),
                         fileModule.copyDir(constants.WWW_DIR + "plugins", constants.SDK_DIR + "plugins"),
                         fileModule.copyFile(constants.CORDOVAJS, constants.SDK_DIR + "cordova.js"),
@@ -164,11 +165,13 @@
      * */
     Game.prototype.download = function(gameObject, callbacks){
 
-        if(this.isDownloading()){ return Promise.reject(["Downloading...try later", fileModule.currentFileTransfer]);}
+        if(this.isDownloading()){ return Promise.reject("Downloading...try later");}
         if(gameObject.response_api_dld.status !== 200){
             callbacks.onEnd("response_api_dld.status not equal 200");
             return Promise.reject("response_api_dld.status not equal 200");
         }
+
+        downloading = true;
 
         var alreadyExists = this.isGameDownloaded(gameObject.id);
         var self = this;
@@ -193,7 +196,8 @@
         function start(){
             _onStart({type:"download"});
             LOG.d("Download:", gameObject.id, gameObject.response_api_dld.binary_url);
-            return fileModule.download(gameObject.response_api_dld.binary_url, constants.TEMP_DIR, saveAsName + ".zip", wrapProgress("download"))
+            var downloadPromise = new fileModule.download(gameObject.response_api_dld.binary_url, constants.TEMP_DIR, saveAsName + ".zip", wrapProgress("download")).promise;
+            return downloadPromise
                 .then(function(entry){
                     //Unpack
                     _onStart({type:"unzip"});
@@ -270,9 +274,11 @@
                 }).then(function(results){
                     LOG.d("injectScripts result", results);
                     _onEnd({type:"download"});
+                    downloading = false;
                     return gameObject.id;
                 }).catch(function(reason){
                     LOG.e(reason, "Cleaning...game not downloaded", gameObject.id);
+                    downloading = false;
                     self.remove(gameObject.id);
                     _onEnd({type:"error",description:reason});
                     throw reason;
@@ -476,7 +482,7 @@
      * @returns {boolean}
      * */
     Game.prototype.isDownloading = function(){
-        return (fileModule.currentFileTransfer !== null || fileModule.currentFileTransfer === undefined);
+        return downloading;
     };
 
     /**
@@ -610,13 +616,14 @@
             .replace("[WSIZE]", info.size.width)
             .replace("[HSIZE]", info.size.height);
 
-        toDld = encodeURI(toDld);
         //toDld = "http://lorempixel.com/g/"+info.size.width+"/"+info.size.height+"/";
+        //toDld = encodeURI(toDld);
+
         var gameFolder = constants.GAMES_DIR + info.gameId;
         var imagesFolder = gameFolder + "/images/" + info.type + "/";
-        var imageName = info.size.width + "x" + info.size.height + ("_"+info.size.ratio || "") + ".png";
+        var imageName = info.size.width + "x" + info.size.height + ("_"+info.size.ratio || "") + ".jpeg";
         LOG.d("request Image to", toDld, "coverImageUrl", imageName, "imagesFolder", imagesFolder);
-        return fileModule.download(toDld, imagesFolder, imageName);
+        return new fileModule.download(toDld, imagesFolder, imageName, function(){}).promise;
     }
 
     Game.prototype.getBundleGameObjects = function(){
