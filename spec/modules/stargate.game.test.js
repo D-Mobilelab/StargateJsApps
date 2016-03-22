@@ -353,7 +353,7 @@ function manualDownload(){
                 writeJson("cookie.json", cookiejson),
                 writeJson("user.json", userjson),
                 writeJson("config.json", configjson),
-                writeJson("dict.json", configjson)
+                writeJson("dict.json", dictjson)
             ]);
-        });
+        }).catch(console.error.bind(console));
 }
