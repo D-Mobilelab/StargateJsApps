@@ -235,13 +235,25 @@
                 })
                 .then(function(){
                     //GET COVER IMAGE FOR THE GAME!
+                    LOG.d("Save meta.json for:", gameObject.id);
                     var info = {
                         gameId:gameObject.id,
                         size:{width:"240",height:"170",ratio:"1_4"},
                         url:gameObject.images.cover.ratio_1_4,
                         type:"cover"
                     };
-                    return downloadImage(info);
+
+                    //GET COVER IMAGE FOR THE GAME!
+                    var toDld = info.url
+                        .replace("[WSIZE]", info.size.width)
+                        .replace("[HSIZE]", info.size.height);
+
+                    var gameFolder = constants.GAMES_DIR + info.gameId;
+                    var imagesFolder = gameFolder + "/images/" + info.type + "/";
+                    var imageName = info.size.width + "x" + info.size.height + ("_"+info.size.ratio || "") + ".jpeg";
+                    LOG.d("request Image to", toDld, "coverImageUrl", imageName, "imagesFolder", imagesFolder);
+                    return new fileModule.download(toDld, imagesFolder, imageName, function(){}).promise;
+
                 })
                 .then(function(coverResult){
                     LOG.d("Save meta.json for:", gameObject.id);
