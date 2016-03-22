@@ -5912,7 +5912,13 @@
      * @returns {Promise<boolean|FileError|Number>} - true if all has gone good, 403 if unathorized, FileError in case can write in the folder
      * */
     Game.prototype.download = function(gameObject, callbacks){
+
         if(this.isDownloading()){ return Promise.reject(["Downloading...try later", fileModule.currentFileTransfer]);}
+        if(gameObject.response_api_dld.status !== 200){
+            callbacks.onEnd("response_api_dld.status not equal 200");
+            return Promise.reject("response_api_dld.status not equal 200");
+        }
+
         var alreadyExists = this.isGameDownloaded(gameObject.id);
         var self = this;
         // Defaults
@@ -6250,19 +6256,18 @@
         return fileModule.readDir(constants.GAMES_DIR)
             .then(function(entries){
                 var _entries = Array.isArray(entries) ? entries : [entries];
-                return _entries.map(function(entry){
+                return _entries.filter(function(entry){
                     //get the <id> folder. Careful: there's / at the end
                     if(entry.isDirectory){
-                        return entry.path;
+                        return entry;
                     }
                 });
-            }).then(function(ids){
-
-                var jsons = ids.map(function(id){
-                    return fileModule.readFileAsJSON(id + "meta.json");
+            }).then(function(gameEntries){
+                var metajsons = gameEntries.map(function(gameEntry){
+                    return fileModule.readFileAsJSON(gameEntry.path + "meta.json");
                 });
 
-                return Promise.all(jsons).then(function(results){
+                return Promise.all(metajsons).then(function(results){
                     return results;
                 });
             });
@@ -6355,7 +6360,7 @@
             .replace("[HSIZE]", info.size.height);
 
         toDld = encodeURI(toDld);
-
+        //toDld = "http://lorempixel.com/g/"+info.size.width+"/"+info.size.height+"/";
         var gameFolder = constants.GAMES_DIR + info.gameId;
         var imagesFolder = gameFolder + "/images/" + info.type + "/";
         var imageName = info.size.width + "x" + info.size.height + ("_"+info.size.ratio || "") + ".png";
