@@ -7149,11 +7149,20 @@ var updateStatusBar = function() {
 var setIsHybrid = function() {
 
     window.Cookies.set("hybrid", "1");
-    window.Cookies.set("stargateVersion", getStargateVersionToLoad());
 
     if (!window.localStorage.getItem('hybrid')) {
         window.localStorage.setItem('hybrid', 1);
     }
+};
+
+/**
+* Set on webapp what version we need to load
+* (this will be called only after manifest is loaded on stargate)
+*/
+var setHybridVersion = function() {
+
+    window.Cookies.set("stargateVersion", getStargateVersionToLoad());
+
     if (!window.localStorage.getItem('stargateVersion')) {
         window.localStorage.setItem('stargateVersion', getStargateVersionToLoad());
     }
@@ -7180,6 +7189,8 @@ var onPluginReady = function (resolve) {
         exec.setJsToNativeBridgeMode(exec.jsToNativeModes.IFRAME_NAV);
     }
     
+    // save stargate version to load on webapp 
+    setHybridVersion();
 
     updateStatusBar();
 
