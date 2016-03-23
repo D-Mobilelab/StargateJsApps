@@ -170,7 +170,6 @@
      * @returns {Promise}
      * */
     File.download = function(url, filepath, saveAsName, _onProgress){
-        // one download at time for now
         var self = this;
         this.ft = new window.FileTransfer();
         this.ft.onprogress = _onProgress;
@@ -179,9 +178,11 @@
             self.ft.download(window.encodeURI(url), filepath + saveAsName,
                 function(entry){
                     resolve(__transform([entry]));
+                    self.ft = null;
                 },
                 function(reason){
                     reject(reason);
+                    self.ft = null;
                 },
                 true //trustAllHosts
             );
