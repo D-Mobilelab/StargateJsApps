@@ -38,7 +38,7 @@ function writeJson(name, object){
             return stargateModules.file.write(result.path,JSON.stringify(object))
         });
 }
-var gameObject =
+var juicy =
 {
     "id":"4de756a55ac71f45c5b7b4211b71219e",
     "title":"Fruit Slicer",
@@ -106,6 +106,70 @@ var gameObject =
         "binary_md5":"e8a852d5b1cee637d5b17ce813113083",
         "message":"WEBAPP_CONTENT_DOWNLOAD_STARTED"
     }
+};
+
+var majong = {
+    "id": "74990332995a695e0dba36441ff7f631",
+    "title": "Monsterjong",
+    "description": "Be the best Mahjong player ever while defating epic monsters",
+    "publisher": {
+    "title_publisher": "konstantinBoronenkov",
+        "url_publisher": "#!\/publisher\/konstantinBoronenkov"
+},
+    "description_short": "Be the best Mahjong player ever while defating epic monsters",
+    "images": {
+    "screenshot": ["http:\/\/s.motime.com\/p\/bcontents\/absimageappscreenshot0_8\/h[HSIZE]\/w[WSIZE]\/xx_gameasy\/mnt\/alfresco_content_prod\/contentstore\/2014\/8\/26\/11\/25\/a88be4e2-2fc3-4838-9083-31a67a241196\/monsterjong.bin?v=1458093862", "http:\/\/s.motime.com\/p\/bcontents\/absimageappscreenshot0_8\/h[HSIZE]\/w[WSIZE]\/xx_gameasy\/mnt\/alfresco_content_prod\/contentstore\/2014\/8\/26\/11\/25\/ca5cf1f4-dcb4-4670-8279-a3dec5b4eff2\/monsterjong.bin?v=1458093862", "http:\/\/s.motime.com\/p\/bcontents\/absimageappscreenshot0_8\/h[HSIZE]\/w[WSIZE]\/xx_gameasy\/mnt\/alfresco_content_prod\/contentstore\/2014\/8\/26\/11\/25\/986eafbf-5ffe-4b5f-89c2-afc595480bdf\/monsterjong.bin?v=1458093862"],
+        "cover": {
+        "ratio_0_7": "http:\/\/s.motime.com\/p\/bcontents\/absimageapp0_7\/h[HSIZE]\/w[WSIZE]\/xx_gameasy\/mnt\/alfresco_content_prod\/contentstore\/2014\/8\/26\/11\/24\/78fa9c26-d04d-45c9-9b51-7a333695e2c5\/monsterjong.bin?v=1458093862",
+            "ratio_1_4": "http:\/\/s.motime.com\/p\/bcontents\/absimageapp1_4\/h[HSIZE]\/w[WSIZE]\/xx_gameasy\/mnt\/alfresco_content_prod\/contentstore\/2014\/8\/26\/11\/23\/97b9e366-7ab1-458c-9f7e-20826d39b7af\/monsterjong.bin?v=1458093862",
+            "ratio_1": "http:\/\/s.motime.com\/p\/bcontents\/absimageapp1\/h[HSIZE]\/w[WSIZE]\/xx_gameasy\/mnt\/alfresco_content_prod\/contentstore\/2014\/8\/26\/11\/24\/7ca50dc0-4dba-401b-9a1f-f0b49fca0048\/monsterjong.bin?v=1458093862",
+            "ratio_2": "http:\/\/s.motime.com\/p\/bcontents\/absimageapp2\/h[HSIZE]\/w[WSIZE]\/xx_gameasy\/mnt\/alfresco_content_prod\/contentstore\/2014\/8\/26\/11\/24\/3eaa528f-01f8-4fa6-99b0-cfce1d992806\/monsterjong.bin?v=1458093862",
+            "ratio_1_5": "http:\/\/s.motime.com\/p\/bcontents\/absimageapp1_5\/h[HSIZE]\/w[WSIZE]\/xx_gameasy\/mnt\/alfresco_content_prod\/contentstore\/2014\/8\/26\/11\/24\/a41df621-32de-41d9-a5d9-2df7890b0060\/monsterjong.bin?v=1458093862"
+    },
+    "icon": "http:\/\/s.motime.com\/p\/bcontents\/absimageappicon\/h[HSIZE]\/w[WSIZE]\/xx_gameasy\/mnt\/alfresco_content_prod\/contentstore\/2014\/8\/26\/11\/24\/c5ba2fdf-62a3-4234-8620-fc908451c8f3\/monsterjong.bin?v=1458093862"
+},
+    "category": {
+    "id_category": "d9fb770158b841958e1c868c1c410fe8",
+        "name_category": "Puzzle",
+        "cs_id": "60353c07-2b2e-40ef-9959-b448c20e7f9c",
+        "born_date_category": "Mon, 16 Nov 2015 10:58:45 -0000",
+        "inserted_date_category": "Tue, 02 Feb 2016 10:02:08 -0000",
+        "source_id": "alfresco_xx_gameasy_Puzzle",
+        "supplier_id": "alfresco",
+        "url_cover": "http:\/\/s.motime.com\/p\/bcontents\/absimageappraw\/h1\/w1\/xx_gameasy\/mnt\/alfresco_content_prod\/contentstore\/2016\/2\/15\/12\/53\/a543605c-db28-4c87-a6c3-1e0dce0b268a\/puzzle.bin?v=1458558446",
+        "url_category": "#!\/category\/d9fb770158b841958e1c868c1c410fe8\/Puzzle",
+        "url_leaf_engine_subscription_category": "",
+        "url_preview_big_category": "",
+        "url_preview_small_category": ""
+},
+    "url_zoom": "#!\/games\/monsterjong_74990332995a695e0dba36441ff7f631",
+    "url_zoom_simple": "monsterjong_74990332995a695e0dba36441ff7f631",
+    "img_qrcode": "http:\/\/www.gameasy.com\/ww\/\/qrcode?text=http%3A%2F%2Fwww.gameasy.com%2Fww%2F%2Fsetwelcome%3Freturn_url%3Dhttp%253A%252F%252Fwww.gameasy.com%252Fww%252F%252F%2523%2521%252Fgames%252Fmonsterjong_HA990001690",
+    "url_share": "http:\/\/www.gameasy.com\/ww\/\/share\/games\/monsterjong_HA990001690",
+    "url_leaf_engine_subscription": "http:\/\/www.gameasy.com\/ww\/\/subscribe\/content\/HA990001690",
+    "url_api_dld": "http:\/\/www.gameasy.com\/ww\/\/v01\/contents\/74990332995a695e0dba36441ff7f631\/download?formats=html5applications",
+    "size": "7,23 MB",
+    "compatibility": true,
+    "alfresco_id": "HA990001690",
+    "counters_matches": 0,
+    "counters_favourites": 0,
+    "cs_id": "HA990001690",
+    "url_play": "http:\/\/www.gameasy.com\/ww\/\/html5gameplay\/74990332995a695e0dba36441ff7f631\/game\/monsterjong",
+    "has_sdk": true,
+    "format": "html5applications",
+    "access_type": {
+    "guest": false,
+        "free": false,
+        "premium": true
+},
+    "offline_available": true,
+    "response_api_dld": {
+    "status": 200,
+        "url_download": "http://www.gameasy.com/ww/html5gameplay/74/99/74990332995a695e0dba36441ff7f631/xx_gameasy/game/monsterjong_index.html",
+        "binary_url": "http://s.motime.com/p/bcontents/appsdownload/xx_gameasy/2015/11/10/12/26/c14dc898-672a-46a1-9d01-17249d9067d2/monsterjong.bin?v=1458698711",
+        "binary_md5": "1d699f60ff43bdc0e60e14296941e71f",
+        "message": "WEBAPP_CONTENT_DOWNLOAD_STARTED"
+}
 };
 
 function createFolder(where, name){
@@ -343,10 +407,14 @@ function clean(){
 }
 
 function manualDownload(){
+    var cbks = {
+        onStart:console.log.bind(console),
+        onProgress:console.log.bind(console)
+    };
     stargateModules.game._protected.initialize(conf)
         .then(console.log.bind(console))
         .then(function(){
-            return stargateModules.game._public.download(gameObject);
+            return stargateModules.game._public.download(majong, cbks);
         })
         .then(function(){
             return Promise.all([
