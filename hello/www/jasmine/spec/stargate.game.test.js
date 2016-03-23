@@ -8,7 +8,37 @@ function isRunningOnIos(){
 function isRunningOnAndroid(){
     return window.device.platform.toLowerCase() == "android";
 }
-var gameObject =
+
+var conf = {
+    bundleGames:
+    [
+        "7329ebbdf49065552dac00f4f6e1be10",
+        "fd9ac2e5c1aeba0b89270688569d8f6e",
+        "4cf74f31e3cf4f75d33d191b78639a57"
+    ]
+};
+
+
+var GAMES_DIR = "";
+
+var userjson = {"data_iscr":"2016-03-11","modo_billing":null,"destinatario":"+12345678","numero":"+12345678","phone_company":"fake.xx","crediti_nonpremium":10,"crediti_nonpremium_extra":null,"data_scadenza_abb":"2016-04-18","premium_extra":null,"crediti_premium1":null,"crediti_nonpremium_rimasti":null,"points":null,"sweeps_opt_in":null,"subscription_start_date":null,"data_prossimo_rinnovo":"2016-03-18","operator":"fake.xx","mlist":null,"email":null,"privacy_agreed":false,"date_privacy_cookie_agree":null,"date_privacy_cookie_disagree":null,"data_ultimo_billing":"2016-03-11","downloads":null,"capid":null,"creativityid":null,"subscription_profile":"","chk":"","livello_utente":false,"stato_utente":1,"crediti_premium2":0,"id_operatore":0,"canDownload":true,"crediti_token_abbonamento_rimasti":10,"data_scadenza_abbonamento":"2016-03-18","data_iscr_utc":1457654400,"data_scadenza_abb_utc":1458259200,"data_prossimo_rinnovo_utc":1458259200,"data_ultimo_billing_utc":1457654400,"data_scadenza_abbonamento_utc":1458259200,"data_iscr_GMDATE":"2016-03-11T00:00:00+00:00","data_iscr_DATE":"2016-03-11T00:00:00+00:00","data_iscr_YEAR":2016,"data_iscr_HH":0,"data_iscr_MM":0,"data_iscr_SS":0,"data_iscr_MONTH":3,"data_iscr_DAY":11,"data_iscr_CDAY":11,"data_iscr_CMONTH":null,"data_iscr_postDate":"2016-03-11","data_iscr_postTime":"00:00:00","data_iscr_postSince":"10  ","data_iscr_formatted":"11  2016","data_iscr_numeric_formatted":"11\/3\/2016","data_scadenza_abb_GMDATE":"2016-03-18T00:00:00+00:00","data_scadenza_abb_DATE":"2016-03-18T00:00:00+00:00","data_scadenza_abb_YEAR":2016,"data_scadenza_abb_HH":0,"data_scadenza_abb_MM":0,"data_scadenza_abb_SS":0,"data_scadenza_abb_MONTH":3,"data_scadenza_abb_DAY":18,"data_scadenza_abb_CDAY":18,"data_scadenza_abb_CMONTH":null,"data_scadenza_abb_postDate":"2016-03-18","data_scadenza_abb_postTime":"00:00:00","data_scadenza_abb_postSince":"1  ","data_scadenza_abb_formatted":"18  2016","data_scadenza_abb_numeric_formatted":"18\/3\/2016","data_prossimo_rinnovo_GMDATE":"2016-03-18T00:00:00+00:00","data_prossimo_rinnovo_DATE":"2016-03-18T00:00:00+00:00","data_prossimo_rinnovo_YEAR":2016,"data_prossimo_rinnovo_HH":0,"data_prossimo_rinnovo_MM":0,"data_prossimo_rinnovo_SS":0,"data_prossimo_rinnovo_MONTH":3,"data_prossimo_rinnovo_DAY":18,"data_prossimo_rinnovo_CDAY":18,"data_prossimo_rinnovo_CMONTH":null,"data_prossimo_rinnovo_postDate":"2016-03-18","data_prossimo_rinnovo_postTime":"00:00:00","data_prossimo_rinnovo_postSince":"1  ","data_prossimo_rinnovo_formatted":"18  2016","data_prossimo_rinnovo_numeric_formatted":"18\/3\/2016","data_ultimo_billing_GMDATE":"2016-03-11T00:00:00+00:00","data_ultimo_billing_DATE":"2016-03-11T00:00:00+00:00","data_ultimo_billing_YEAR":2016,"data_ultimo_billing_HH":0,"data_ultimo_billing_MM":0,"data_ultimo_billing_SS":0,"data_ultimo_billing_MONTH":3,"data_ultimo_billing_DAY":11,"data_ultimo_billing_CDAY":11,"data_ultimo_billing_CMONTH":null,"data_ultimo_billing_postDate":"2016-03-11","data_ultimo_billing_postTime":"00:00:00","data_ultimo_billing_postSince":"10  ","data_ultimo_billing_formatted":"11  2016","data_ultimo_billing_numeric_formatted":"11\/3\/2016","data_scadenza_abbonamento_GMDATE":"2016-03-18T00:00:00+00:00","data_scadenza_abbonamento_DATE":"2016-03-18T00:00:00+00:00","data_scadenza_abbonamento_YEAR":2016,"data_scadenza_abbonamento_HH":0,"data_scadenza_abbonamento_MM":0,"data_scadenza_abbonamento_SS":0,"data_scadenza_abbonamento_MONTH":3,"data_scadenza_abbonamento_DAY":18,"data_scadenza_abbonamento_CDAY":18,"data_scadenza_abbonamento_CMONTH":null,"data_scadenza_abbonamento_postDate":"2016-03-18","data_scadenza_abbonamento_postTime":"00:00:00","data_scadenza_abbonamento_postSince":"1  ","data_scadenza_abbonamento_formatted":"18  2016","data_scadenza_abbonamento_numeric_formatted":"18\/3\/2016","user_billed_":true,"checkmail":0,"user":"903833c2c35a11e589cb005056b60712","msisdn":"+12345678","description_remaining_credits":"","mipuser_email":null,"fb_name":null,"auth_id":null,"nickname":"psql","avatar":"virgilio.png","subscribed":true,"logged":1,
+ponyUrl:"&_PONY=13-b0c925a4c405718e7ba731340c018044000719127.000.000.0017VRNi9swEP0tq4MP22yRLH9IAV8KZVko3UKvATOWxo2ILRlZLkmX%2FPfKdja5pH%2BgrW8z8zTz5r3Bb8TY1tVTQBuQbAnNxgDhPVGxRHnUJph68NibqU8rmmgIUJtR%2BSqlrHii%2FImxxOjaDejjW48RM%2BydxVq5fgB7qlo44Mfj8drMOnvpV7FLv1GBRvsLamiaW1%2BRaByDsRHhjas%2BsJRneVGKxE49elddY7U%2FVDktKdc5SJ1q2fJCZkiZarkuCqpTkZMN0aDBYphG9MuyoFtv0Oqxnteexsg8dLqKVGEK%2Bzq4A9rq4fHb6%2FPzy%2Bvjw9uOzE9f9I5sd%2BR9%2BI5sdiSmfxqFl9K88CWzVOOK%2BH1qomZmCMbZBXRT74r5AmP4ZLrO2B9%2FgnzF432IuDvps9X3YIN3relwKS2Jd%2FOu9KNfK9KsbGX81k0XpVYFlkQk5CHGF3XqJrLDdeppAay2z08YPc%2Bxm2zwpwUxTzknCrvuZqYbbhcTfVVCKFmy6GILIKmQOedKZ1wURUt1SaOvyxHPTcjWTl23Gj3iOEYFotElZ5hKmWeoVQucpyVkIk8hizmtKMYOdUO2QhQZlYzTDRnAQ1%2BD93CKi%2F2%2Fm7%2F5bv6Vn19vhssBS8pF1CJVPAfGMBdSNZTmNC%2BagpYsJefzbw%3D%3DEND"
+};
+
+var dictjson = {};
+var configjson = {
+    MOA_API_APPLICATION_OBJECTS_GET:"http://resources.buongiorno.com/lapis/apps/application-object.get?external_token=:EXTERNAL_TOKEN&access_token=:ACCESS_TOKEN&collection=:COLLECTION&id=:ID&query=:QUERY&white_label=xx_gameasy&fw=gameasy&vh=ww.gameasy.com",
+    MOA_API_APPLICATION_OBJECTS_SET:"http://resources.buongiorno.com/lapis/apps/application-object.set?external_token=:EXTERNAL_TOKEN&access_token=:ACCESS_TOKEN&collection=:COLLECTION&id=:ID&white_label=xx_gameasy&fw=gameasy&vh=ww.gameasy.com"
+};
+
+var cookiejson = {"_ga":"GA1.2.1113339269.1453287779","trkdada":"fwAAAVaeSdR7HHxvAwNKAg==","prvcflag":1,"newton-session":"%229HiA%3D1v)*ErJ%22","operator":"fake.it","mipuser":"aac3121ebf5111e5a728005056b60712","_gat":1,"b_test_id":"10003220160310_ff916827ad09d6ff90896fa27af347f0"};
+function writeJson(name, object){
+    return stargateModules.file.createFile(cordova.file.applicationStorageDirectory, name)
+        .then(function(result){
+            return stargateModules.file.write(result.path,JSON.stringify(object))
+        });
+}
+var juicy =
 {
     "id":"4de756a55ac71f45c5b7b4211b71219e",
     "title":"Fruit Slicer",
@@ -76,6 +106,70 @@ var gameObject =
         "binary_md5":"e8a852d5b1cee637d5b17ce813113083",
         "message":"WEBAPP_CONTENT_DOWNLOAD_STARTED"
     }
+};
+
+var majong = {
+    "id": "74990332995a695e0dba36441ff7f631",
+    "title": "Monsterjong",
+    "description": "Be the best Mahjong player ever while defating epic monsters",
+    "publisher": {
+    "title_publisher": "konstantinBoronenkov",
+        "url_publisher": "#!\/publisher\/konstantinBoronenkov"
+},
+    "description_short": "Be the best Mahjong player ever while defating epic monsters",
+    "images": {
+    "screenshot": ["http:\/\/s.motime.com\/p\/bcontents\/absimageappscreenshot0_8\/h[HSIZE]\/w[WSIZE]\/xx_gameasy\/mnt\/alfresco_content_prod\/contentstore\/2014\/8\/26\/11\/25\/a88be4e2-2fc3-4838-9083-31a67a241196\/monsterjong.bin?v=1458093862", "http:\/\/s.motime.com\/p\/bcontents\/absimageappscreenshot0_8\/h[HSIZE]\/w[WSIZE]\/xx_gameasy\/mnt\/alfresco_content_prod\/contentstore\/2014\/8\/26\/11\/25\/ca5cf1f4-dcb4-4670-8279-a3dec5b4eff2\/monsterjong.bin?v=1458093862", "http:\/\/s.motime.com\/p\/bcontents\/absimageappscreenshot0_8\/h[HSIZE]\/w[WSIZE]\/xx_gameasy\/mnt\/alfresco_content_prod\/contentstore\/2014\/8\/26\/11\/25\/986eafbf-5ffe-4b5f-89c2-afc595480bdf\/monsterjong.bin?v=1458093862"],
+        "cover": {
+        "ratio_0_7": "http:\/\/s.motime.com\/p\/bcontents\/absimageapp0_7\/h[HSIZE]\/w[WSIZE]\/xx_gameasy\/mnt\/alfresco_content_prod\/contentstore\/2014\/8\/26\/11\/24\/78fa9c26-d04d-45c9-9b51-7a333695e2c5\/monsterjong.bin?v=1458093862",
+            "ratio_1_4": "http:\/\/s.motime.com\/p\/bcontents\/absimageapp1_4\/h[HSIZE]\/w[WSIZE]\/xx_gameasy\/mnt\/alfresco_content_prod\/contentstore\/2014\/8\/26\/11\/23\/97b9e366-7ab1-458c-9f7e-20826d39b7af\/monsterjong.bin?v=1458093862",
+            "ratio_1": "http:\/\/s.motime.com\/p\/bcontents\/absimageapp1\/h[HSIZE]\/w[WSIZE]\/xx_gameasy\/mnt\/alfresco_content_prod\/contentstore\/2014\/8\/26\/11\/24\/7ca50dc0-4dba-401b-9a1f-f0b49fca0048\/monsterjong.bin?v=1458093862",
+            "ratio_2": "http:\/\/s.motime.com\/p\/bcontents\/absimageapp2\/h[HSIZE]\/w[WSIZE]\/xx_gameasy\/mnt\/alfresco_content_prod\/contentstore\/2014\/8\/26\/11\/24\/3eaa528f-01f8-4fa6-99b0-cfce1d992806\/monsterjong.bin?v=1458093862",
+            "ratio_1_5": "http:\/\/s.motime.com\/p\/bcontents\/absimageapp1_5\/h[HSIZE]\/w[WSIZE]\/xx_gameasy\/mnt\/alfresco_content_prod\/contentstore\/2014\/8\/26\/11\/24\/a41df621-32de-41d9-a5d9-2df7890b0060\/monsterjong.bin?v=1458093862"
+    },
+    "icon": "http:\/\/s.motime.com\/p\/bcontents\/absimageappicon\/h[HSIZE]\/w[WSIZE]\/xx_gameasy\/mnt\/alfresco_content_prod\/contentstore\/2014\/8\/26\/11\/24\/c5ba2fdf-62a3-4234-8620-fc908451c8f3\/monsterjong.bin?v=1458093862"
+},
+    "category": {
+    "id_category": "d9fb770158b841958e1c868c1c410fe8",
+        "name_category": "Puzzle",
+        "cs_id": "60353c07-2b2e-40ef-9959-b448c20e7f9c",
+        "born_date_category": "Mon, 16 Nov 2015 10:58:45 -0000",
+        "inserted_date_category": "Tue, 02 Feb 2016 10:02:08 -0000",
+        "source_id": "alfresco_xx_gameasy_Puzzle",
+        "supplier_id": "alfresco",
+        "url_cover": "http:\/\/s.motime.com\/p\/bcontents\/absimageappraw\/h1\/w1\/xx_gameasy\/mnt\/alfresco_content_prod\/contentstore\/2016\/2\/15\/12\/53\/a543605c-db28-4c87-a6c3-1e0dce0b268a\/puzzle.bin?v=1458558446",
+        "url_category": "#!\/category\/d9fb770158b841958e1c868c1c410fe8\/Puzzle",
+        "url_leaf_engine_subscription_category": "",
+        "url_preview_big_category": "",
+        "url_preview_small_category": ""
+},
+    "url_zoom": "#!\/games\/monsterjong_74990332995a695e0dba36441ff7f631",
+    "url_zoom_simple": "monsterjong_74990332995a695e0dba36441ff7f631",
+    "img_qrcode": "http:\/\/www.gameasy.com\/ww\/\/qrcode?text=http%3A%2F%2Fwww.gameasy.com%2Fww%2F%2Fsetwelcome%3Freturn_url%3Dhttp%253A%252F%252Fwww.gameasy.com%252Fww%252F%252F%2523%2521%252Fgames%252Fmonsterjong_HA990001690",
+    "url_share": "http:\/\/www.gameasy.com\/ww\/\/share\/games\/monsterjong_HA990001690",
+    "url_leaf_engine_subscription": "http:\/\/www.gameasy.com\/ww\/\/subscribe\/content\/HA990001690",
+    "url_api_dld": "http:\/\/www.gameasy.com\/ww\/\/v01\/contents\/74990332995a695e0dba36441ff7f631\/download?formats=html5applications",
+    "size": "7,23 MB",
+    "compatibility": true,
+    "alfresco_id": "HA990001690",
+    "counters_matches": 0,
+    "counters_favourites": 0,
+    "cs_id": "HA990001690",
+    "url_play": "http:\/\/www.gameasy.com\/ww\/\/html5gameplay\/74990332995a695e0dba36441ff7f631\/game\/monsterjong",
+    "has_sdk": true,
+    "format": "html5applications",
+    "access_type": {
+    "guest": false,
+        "free": false,
+        "premium": true
+},
+    "offline_available": true,
+    "response_api_dld": {
+    "status": 200,
+        "url_download": "http://www.gameasy.com/ww/html5gameplay/74/99/74990332995a695e0dba36441ff7f631/xx_gameasy/game/monsterjong_index.html",
+        "binary_url": "http://s.motime.com/p/bcontents/appsdownload/xx_gameasy/2015/11/10/12/26/c14dc898-672a-46a1-9d01-17249d9067d2/monsterjong.bin?v=1458698711",
+        "binary_md5": "1d699f60ff43bdc0e60e14296941e71f",
+        "message": "WEBAPP_CONTENT_DOWNLOAD_STARTED"
+}
 };
 
 function createFolder(where, name){
@@ -151,162 +245,183 @@ function readDir(url){
         }, reject);
     });
 }
-var GamifiveInfo = {"label":"it_igames",
-    "contentId":"4de756a55ac71f45c5b7b4211b71219e",
-    "userId":"aac3121ebf5111e5a728005056b60712",
-    "fbUserId":null,
-    "fbAppId":"497938953670292",
-    "fbConnected":false,
-    "requireFbConnect":true,
-    "fbExternal":false,
-    "userFreemium":false,
-    "challenge":{"id":null},
-    "game":{"title":"Fruit Slicer"},
-    "dictionary": {
-        "messageOfFbChallenge":"Il mio punteggio \u00e8 %s, prova a battermi!",
-        "matchLeftSingular":"hai ancora solo <span>%s<\/span> partita",
-        "matchLeftPlural":"hai ancora <span>%s<\/span> partite per allenarti!",
-        "matchLeftNone":"Non hai pi\u00f9 crediti! :("
-    },
-    "user":
-    {"userId":"aac3121ebf5111e5a728005056b60712",
-        "fbUserId":null,
-        "fbConnected":false,
-        "userFreemium":false,
-        "nickname":"william_40e33",
-        "avatar":{
-            "src":"http:\/\/s2.motime.com\/img\/wl\/webstore_html5game\/images\/avatar\/big\/avatar_05.png?v=20150610133322",
-            "name":"avatar_05.png"}
-    }
-};
 
 function removeFolders(paths){
-        return new Promise(function(resolve, reject){
-            
-            var counter = 0;
-            for(var i = 0; i < paths.length;i++){
-                console.log("Deleting...", paths[i]);
-                window.resolveLocalFileSystemURL(paths[i], function(entry){
-                    entry.removeRecursively(function(result){
-                        console.log("Cleaned", result);
-                        counter += 1;
-                        if(counter == paths.length){
-                            console.log("Now i'm finished");
-                            resolve(paths);
-                        }
-                    },reject);
-                }, reject);
-            }
-        });        
+    return new Promise(function(resolve, reject){
+
+        var counter = 0;
+        for(var i = 0; i < paths.length;i++){
+            console.log("Deleting...", paths[i]);
+            window.resolveLocalFileSystemURL(paths[i], function(entry){
+                entry.removeRecursively(function(result){
+                    console.log("Cleaned", result);
+                    counter += 1;
+                    if(counter == paths.length){
+                        console.log("Now i'm finished");
+                        resolve(paths);
+                    }
+                },function(err){
+                    console.error(err);
+                    reject(err);
+                });
+            },function(err){
+                console.error(err);
+                reject(err);
+            });
+        }
+    });
 }
-describe("Game module tests", function() {
-    
-    var game = stargateModules.game._public;
-    game.initialize = stargateModules.game._protected.initialize;
-    var TEST_FOLDER_DIR,
-        STORAGE_DIR,
-        GAMES_DIR,
-        SDK_DIR,
-        TEST_FOLDER_NAME = "Test";
+
+var deviceReady;
+function waitDeviceReady(){
+
+    if(deviceReady){return deviceReady;}
+    deviceReady = new Promise(function(resolve, reject){
+        document.addEventListener("deviceready", resolve);
+        setTimeout(reject,50000);
+    });
+    return deviceReady;
+}
+
+game = stargateModules.game._public;
+game.initialize = stargateModules.game._protected.initialize;
+var STORAGE_DIR,
+    SDK_DIR,
+    GAMEOVER_DIR,
+    deviceReady;
+
+fdescribe("Game module tests", function() {
 
     beforeAll(function(done){
-        document.addEventListener("deviceready", function(readyEvent){
-            STORAGE_DIR = cordova.file.applicationStorageDirectory;
-            if(isRunningOnIos()){ STORAGE_DIR += "Documents/"; }
-            SDK_DIR = STORAGE_DIR + "scripts/";
-            GAMES_DIR = STORAGE_DIR + "games/";
+        console.log("beforeAll");
+        deviceReady = waitDeviceReady();
+        deviceReady.then(function(readyEvent){
+                STORAGE_DIR = cordova.file.applicationStorageDirectory;
+                if(isRunningOnIos()){ STORAGE_DIR += "Documents/"; }
+                SDK_DIR = STORAGE_DIR + "scripts/";
+                GAMES_DIR = STORAGE_DIR + "games/";
+                GAMEOVER_DIR = STORAGE_DIR + "gameover_template";
+                console.log("Ready!",readyEvent, SDK_DIR, GAMES_DIR, GAMEOVER_DIR);
+                done();
+            });
+    });
+
+    beforeEach(function(){
+
+    });
+
+    afterEach(function(){
+    });
+
+    it("Game should exists", function(done) {
+        expect(game).toBeDefined();
+        done();
+    });
+
+    it("Game should return already initialized if called twice", function(done) {
+        var first = game.initialize({});
+        var second = game.initialize({});
+        second.then(function(result){
+            expect(result).toEqual("AlreadyInitialized");
             done();
         });
     });
 
-    beforeEach(function() {
-       console.log("beforeEach");
-    });
-
-    afterEach(function(done){
-        removeFolders([SDK_DIR, GAMES_DIR, STORAGE_DIR + "gameover_template"]).then(function(results){
-            console.log("afterEach:", results);
+    it("Should expose GAMES_DIR and OFFLINE_INDEX", function(done){
+        var afterInit = game.initialize({});
+        afterInit.then(function(results){
+            expect(stargateModules.game._public.GAMES_DIR).toBeDefined();
+            expect(stargateModules.game._public.OFFLINE_INDEX).toBeDefined();
             done();
-        }).catch(function(){done();});
-    });
-
-    it("Game should exists", function() {
-        expect(game).toBeDefined();        
-    });
-
-    it("Test abortDownload", function(done){
-
-        game.initialize(GamifiveInfo.user)
-            .then(function(){
-                game.download(gameObject);
-
-                setTimeout(function pippo(){
-                    var res = game.abortDownload();
-                    expect(res).toBe(true);
-                    done();
-                }, 100);
-            });
+        });
     });
 
     it("Test abortDownload should not to abort if is not downloading", function(done){
+        var afterInit = game.initialize({});
+        afterInit.then(function(){
+            var res = game.abortDownload();
+            expect(res).toBe(false);
+            done();
+        }).catch(function(){
+            done();
+        });
 
-        game.initialize(GamifiveInfo.user);
-
-                setTimeout(function pippo(){
-                    var res = game.abortDownload();
-                    expect(res).toBe(false);
-                    done();
-                }, 500);
     });
 
     it("Test download game already exists", function(done){
+        function check(reason){
+            console.log(reason);
+            expect(reason).toEqual({12:"AlreadyExists", gameID:gameObject.id});
+            done();
+        }
 
-        game.initialize(GamifiveInfo.user)
-            .then(function(results){
-               console.log(results);
-               return createFolder(GAMES_DIR, gameObject.id);
+        var afterInit = game.initialize({});
+        afterInit.then(function(results){
+                return createFolder(GAMES_DIR, gameObject.id);
             })
             .then(function(result){
                 return game.download(gameObject);
             })
-            .catch(function(reason){
-                expect(reason).toEqual({12:"AlreadyExists",gameID:gameObject.id});
+            .catch(check);
+
+
+    });
+
+    it("Test removeAll games", function(done){
+        var afterInit = game.initialize({});
+        afterInit.then(function(results){
+                return game.removeAll();
+            })
+            .then(function(result){
+                expect(result).toBeDefined();
+                expect(result.path).toBeDefined();
+                expect(result.path.indexOf(GAMES_DIR)).not.toEqual(-1);
+                done();
+            }).catch(function(){
+                expect(true).toBeFalsy();
                 done();
             });
     });
 
-    fit("Game folders test",function(done){
-        game.initialize().then(function(){
-
-        }).then(function(gameID){
-            expect(gameID).toEqual(gameObject.id);
-            done();
-        });
-    });
-
-    it("Gameover template test", function(done){
-        game.initialize()
-            .then(function(results){
-                console.log("Initialize test results", results);
-                return game.download(gameObject, 
-                    {
-                        onEnd:function(e){
-                            console.log(e);
-                        }
-                    });
+    fit("Download Bundle games", function(done){
+        var afterInit = game.initialize(conf);
+        afterInit
+            .then(function(){
+                return game.getBundleGameObjects();
             })
             .then(function(results){
-                console.log("Download results", results);
-                return game.buildGameOver(
-                    {   score:50, 
-                        start:0, 
-                        duration:0,
-                        content_id:gameObject.id
-                    });
+                expect(results[0]["response_api_dld"]).toBeDefined();
+                expect(results[0]["response_api_dld"]["status"]).toEqual(200);
+                done();
             })
-            .then(function(result){
-                expect(result).toContain(50);
+            .catch(function(reason){
+                console.log(reason);
+                expect(true).toBeFalsy();
                 done();
             });
     });
 });
+
+function clean(){
+    return removeFolders([GAMES_DIR, GAMEOVER_DIR, SDK_DIR]);
+}
+
+function manualDownload(){
+    var cbks = {
+        onStart:console.log.bind(console),
+        onProgress:console.log.bind(console)
+    };
+    stargateModules.game._protected.initialize(conf)
+        .then(console.log.bind(console))
+        .then(function(){
+            return stargateModules.game._public.download(majong, cbks);
+        })
+        .then(function(){
+            return Promise.all([
+                writeJson("cookie.json", cookiejson),
+                writeJson("user.json", userjson),
+                writeJson("config.json", configjson),
+                writeJson("dict.json", dictjson)
+            ]);
+        }).catch(console.error.bind(console));
+}

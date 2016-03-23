@@ -413,7 +413,6 @@
      * @returns {Promise}
      * */
     File.download = function(url, filepath, saveAsName, _onProgress){
-        // one download at time for now
         var self = this;
         this.ft = new window.FileTransfer();
         this.ft.onprogress = _onProgress;
@@ -422,9 +421,11 @@
             self.ft.download(window.encodeURI(url), filepath + saveAsName,
                 function(entry){
                     resolve(__transform([entry]));
+                    self.ft = null;
                 },
                 function(reason){
                     reject(reason);
+                    self.ft = null;
                 },
                 true //trustAllHosts
             );
@@ -885,16 +886,7 @@
                         type:"cover"
                     };
 
-                    //GET COVER IMAGE FOR THE GAME!
-                    var toDld = info.url
-                        .replace("[WSIZE]", info.size.width)
-                        .replace("[HSIZE]", info.size.height);
-
-                    var gameFolder = constants.GAMES_DIR + info.gameId;
-                    var imagesFolder = gameFolder + "/images/" + info.type + "/";
-                    var imageName = info.size.width + "x" + info.size.height + ("_"+info.size.ratio || "") + ".jpeg";
-                    LOG.d("request Image to", toDld, "coverImageUrl", imageName, "imagesFolder", imagesFolder);
-                    return new fileModule.download(toDld, imagesFolder, imageName, function(){}).promise;
+                    return downloadImage(info);
 
                 })
                 .then(function(coverResult){
