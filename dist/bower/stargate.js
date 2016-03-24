@@ -226,12 +226,60 @@
         }
     }
 
+    /**
+     * getImageRaw from a specific url
+     *
+     * @param {Object} options - the options object
+     * @param {String} options.url - http or whatever
+     * @param {String} [options.responseType="blob"] - possible values arraybuffer|blob
+     * @param {String} [options.mimeType="image/jpeg"] - possible values "image/png"|"image/jpeg" used only if "blob" is set as responseType
+     * @param {Function} [onProgress=function(){}]
+     @returns {Promise<Blob|ArrayBuffer|Error>}
+     */
+    function getImageRaw(options){
+        var onProgress = arguments.length <= 1 || arguments[1] === undefined ? function () {} : arguments[1];
+        return new Promise(function(resolve, reject){
+            var request = new XMLHttpRequest();
+            request.open ("GET", options.url, true);
+            request.responseType = options.responseType || "blob";
+            request.withCredentials = true;
+            function transferComplete(){
+                var result;
+                switch(options.responseType){
+                    case "blob":
+                        result = new Blob([this.response], {type: options.mimeType || "image/jpeg"});
+                        break;
+                    case "arraybuffer":
+                        result = this.response;
+                        break;
+                    default:
+                        result = this.response;
+                        resolve(result);
+                        break;
+
+                }
+            }
+
+            var transferCanceled = reject;
+            var transferFailed = reject;
+
+            request.addEventListener("progress", onProgress, false);
+            request.addEventListener("load", transferComplete, false);
+            request.addEventListener("error", transferFailed, false);
+            request.addEventListener("abort", transferCanceled, false);
+
+            request.send(null);
+        });
+
+    }
+
     var exp = {
         Iterator:Iterator,
         Logger:Logger,
         composeApiString:composeApiString,
         getJSON:getJSON,
-        jsonpRequest:jsonpRequest
+        jsonpRequest:jsonpRequest,
+        getImageRaw:getImageRaw
     };
 
     if(stargateModules){
@@ -293,9 +341,10 @@
      * @param {string} [overwrite=false] - overwrite
      * @returns {Promise<String|FileError>} where string is a filepath
      */
-    File.appendToFile = function(filePath, data, overwrite){
+    File.appendToFile = function(filePath, data, overwrite, mimeType){
         //Default
         overwrite = arguments[2] === undefined ? false : arguments[2];
+        mimeType = arguments[3] === undefined ? "text/plain" : arguments[3];
         return File.resolveFS(filePath)
             .then(function(fileEntry){
 
@@ -304,7 +353,14 @@
                         if(!overwrite){
                             fileWriter.seek(fileWriter.length);
                         }
-                        var blob = new Blob([data], {type:'text/plain'});
+
+                        var blob;
+                        if(!(data instanceof Blob)){
+                            blob = new Blob([data], {type:mimeType});
+                        }else{
+                            blob = data;
+                        }
+
                         fileWriter.write(blob);
                         fileWriter.onerror = reject;
                         fileWriter.onabort = reject;
@@ -883,7 +939,8 @@
                         gameId:gameObject.id,
                         size:{width:"240",height:"170",ratio:"1_4"},
                         url:gameObject.images.cover.ratio_1_4,
-                        type:"cover"
+                        type:"cover",
+                        method:"xhr" //!important!
                     };
 
                     return downloadImage(info);
@@ -1247,6 +1304,7 @@
      * @param {String|Number} info.size.ratio - 1|2|1_5|1_4
      * @param {String} info.url - the url with the [HSIZE] and [WSIZE] in it
      * @param {String} info.type - possible values cover|screenshot|icon
+     * @param {String} info.method - possible values "xhr"
      * @returns {Promise<String|FileTransferError>} where string is the cdvfile:// path
      * */
     function downloadImage(info){
@@ -1254,22 +1312,36 @@
             gameId:"",
             size:{width:"",height:"",ratio:""},
             url:"",
-            type:"cover"
+            type:"cover",
+            method:"xhr"
         };*/
 
         //GET COVER IMAGE FOR THE GAME!
         var toDld = info.url
             .replace("[WSIZE]", info.size.width)
-            .replace("[HSIZE]", info.size.height);
+            .replace("[HSIZE]", info.size.height)
+            .split("?")[0];
 
         //toDld = "http://lorempixel.com/g/"+info.size.width+"/"+info.size.height+"/";
         //toDld = encodeURI(toDld);
 
         var gameFolder = constants.GAMES_DIR + info.gameId;
-        var imagesFolder = gameFolder + "/images/" + info.type + "/";
-        var imageName = info.size.width + "x" + info.size.height + ("_"+info.size.ratio || "") + ".jpeg";
-        LOG.d("request Image to", toDld, "coverImageUrl", imageName, "imagesFolder", imagesFolder);
-        return new fileModule.download(toDld, imagesFolder, imageName, function(){}).promise;
+        // var imagesFolder = gameFolder + "/images/" + info.type + "/";
+        var imageName = info.type + "_" + info.size.width + "x" + info.size.height + ("_"+info.size.ratio || "") + ".jpeg";
+        LOG.d("request Image to", toDld, "coverImageUrl", imageName, "imagesFolder", gameFolder);
+        if(info.method === "xhr"){
+            return Promise.all([
+                    fileModule.createFile(gameFolder, imageName),
+                    Utils.getImageRaw({url:toDld})
+                ]).then(function(results){
+                    var entry = results[0];
+                    var blob = results[1];
+
+                    return fileModule.appendToFile(entry.path, blob, true, "image/jpeg");
+                });
+        }else{
+            return new fileModule.download(toDld, gameFolder, imageName, function(){}).promise;
+        }
     }
 
     Game.prototype.getBundleGameObjects = function(){
@@ -1333,6 +1405,7 @@
     _protected.initialize = initialize;
     _modules.game._protected = _protected;
     _modules.game._public = new Game();
+
 
 })(stargateModules.file, stargateModules.Utils, stargateModules);
 
