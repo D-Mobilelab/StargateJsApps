@@ -641,7 +641,7 @@
                     return fileModule.appendToFile(entry.path, blob, true, "image/jpeg");
                 });
         }else{
-            return new fileModule.download(toDld, imagesFolder, imageName, function(){}).promise;
+            return new fileModule.download(toDld, gameFolder, imageName, function(){}).promise;
         }
     }
 

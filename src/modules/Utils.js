@@ -216,7 +216,7 @@
             request.open ("GET", options.url, true);
             request.responseType = options.responseType || "blob";
             request.withCredentials = true;
-            function transferComplete(evt){
+            function transferComplete(){
                 var result;
                 switch(options.responseType){
                     case "blob":
@@ -233,7 +233,8 @@
                 }
             }
 
-            var transferCanceled = transferFailed = reject;
+            var transferCanceled = reject;
+            var transferFailed = reject;
 
             request.addEventListener("progress", onProgress, false);
             request.addEventListener("load", transferComplete, false);
