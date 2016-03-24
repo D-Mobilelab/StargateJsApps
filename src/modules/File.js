@@ -50,9 +50,10 @@
      * @param {string} [overwrite=false] - overwrite
      * @returns {Promise<String|FileError>} where string is a filepath
      */
-    File.appendToFile = function(filePath, data, overwrite){
+    File.appendToFile = function(filePath, data, overwrite, mimeType){
         //Default
         overwrite = arguments[2] === undefined ? false : arguments[2];
+        mimeType = arguments[3] === undefined ? "text/plain" : arguments[3];
         return File.resolveFS(filePath)
             .then(function(fileEntry){
 
@@ -61,7 +62,14 @@
                         if(!overwrite){
                             fileWriter.seek(fileWriter.length);
                         }
-                        var blob = new Blob([data], {type:'text/plain'});
+
+                        var blob;
+                        if(!(data instanceof Blob)){
+                            blob = new Blob([data], {type:mimeType});
+                        }else{
+                            blob = data;
+                        }
+
                         fileWriter.write(blob);
                         fileWriter.onerror = reject;
                         fileWriter.onabort = reject;

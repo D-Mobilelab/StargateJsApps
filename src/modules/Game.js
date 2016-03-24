@@ -240,7 +240,8 @@
                         gameId:gameObject.id,
                         size:{width:"240",height:"170",ratio:"1_4"},
                         url:gameObject.images.cover.ratio_1_4,
-                        type:"cover"
+                        type:"cover",
+                        method:"xhr" //!important!
                     };
 
                     return downloadImage(info);
@@ -604,6 +605,7 @@
      * @param {String|Number} info.size.ratio - 1|2|1_5|1_4
      * @param {String} info.url - the url with the [HSIZE] and [WSIZE] in it
      * @param {String} info.type - possible values cover|screenshot|icon
+     * @param {String} info.method - possible values "xhr"
      * @returns {Promise<String|FileTransferError>} where string is the cdvfile:// path
      * */
     function downloadImage(info){
@@ -611,22 +613,36 @@
             gameId:"",
             size:{width:"",height:"",ratio:""},
             url:"",
-            type:"cover"
+            type:"cover",
+            method:"xhr"
         };*/
 
         //GET COVER IMAGE FOR THE GAME!
         var toDld = info.url
             .replace("[WSIZE]", info.size.width)
-            .replace("[HSIZE]", info.size.height);
+            .replace("[HSIZE]", info.size.height)
+            .split("?")[0];
 
         //toDld = "http://lorempixel.com/g/"+info.size.width+"/"+info.size.height+"/";
         //toDld = encodeURI(toDld);
 
         var gameFolder = constants.GAMES_DIR + info.gameId;
-        var imagesFolder = gameFolder + "/images/" + info.type + "/";
-        var imageName = info.size.width + "x" + info.size.height + ("_"+info.size.ratio || "") + ".jpeg";
-        LOG.d("request Image to", toDld, "coverImageUrl", imageName, "imagesFolder", imagesFolder);
-        return new fileModule.download(toDld, imagesFolder, imageName, function(){}).promise;
+        // var imagesFolder = gameFolder + "/images/" + info.type + "/";
+        var imageName = info.type + "_" + info.size.width + "x" + info.size.height + ("_"+info.size.ratio || "") + ".jpeg";
+        LOG.d("request Image to", toDld, "coverImageUrl", imageName, "imagesFolder", gameFolder);
+        if(info.method === "xhr"){
+            return Promise.all([
+                    fileModule.createFile(gameFolder, imageName),
+                    Utils.getImageRaw({url:toDld})
+                ]).then(function(results){
+                    var entry = results[0];
+                    var blob = results[1];
+
+                    return fileModule.appendToFile(entry.path, blob, true, "image/jpeg");
+                });
+        }else{
+            return new fileModule.download(toDld, imagesFolder, imageName, function(){}).promise;
+        }
     }
 
     Game.prototype.getBundleGameObjects = function(){
@@ -690,5 +706,6 @@
     _protected.initialize = initialize;
     _modules.game._protected = _protected;
     _modules.game._public = new Game();
+
 
 })(stargateModules.file, stargateModules.Utils, stargateModules);

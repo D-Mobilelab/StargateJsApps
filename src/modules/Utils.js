@@ -199,12 +199,59 @@
         }
     }
 
+    /**
+     * getImageRaw from a specific url
+     *
+     * @param {Object} options - the options object
+     * @param {String} options.url - http or whatever
+     * @param {String} [options.responseType="blob"] - possible values arraybuffer|blob
+     * @param {String} [options.mimeType="image/jpeg"] - possible values "image/png"|"image/jpeg" used only if "blob" is set as responseType
+     * @param {Function} [onProgress=function(){}]
+     @returns {Promise<Blob|ArrayBuffer|Error>}
+     */
+    function getImageRaw(options){
+        var onProgress = arguments.length <= 1 || arguments[1] === undefined ? function () {} : arguments[1];
+        return new Promise(function(resolve, reject){
+            var request = new XMLHttpRequest();
+            request.open ("GET", options.url, true);
+            request.responseType = options.responseType || "blob";
+            request.withCredentials = true;
+            function transferComplete(evt){
+                var result;
+                switch(options.responseType){
+                    case "blob":
+                        result = new Blob([this.response], {type: options.mimeType || "image/jpeg"});
+                        break;
+                    case "arraybuffer":
+                        result = this.response;
+                        break;
+                    default:
+                        result = this.response;
+                        resolve(result);
+                        break;
+
+                }
+            }
+
+            var transferCanceled = transferFailed = reject;
+
+            request.addEventListener("progress", onProgress, false);
+            request.addEventListener("load", transferComplete, false);
+            request.addEventListener("error", transferFailed, false);
+            request.addEventListener("abort", transferCanceled, false);
+
+            request.send(null);
+        });
+
+    }
+
     var exp = {
         Iterator:Iterator,
         Logger:Logger,
         composeApiString:composeApiString,
         getJSON:getJSON,
-        jsonpRequest:jsonpRequest
+        jsonpRequest:jsonpRequest,
+        getImageRaw:getImageRaw
     };
 
     if(stargateModules){
