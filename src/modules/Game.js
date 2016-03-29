@@ -497,12 +497,31 @@
      * remove the game directory
      *
      * @public
-     * @param {string} gameID - the game id to delete on filesystem
-     * @returns {Promise<boolean|FileError>}
+     * @param {String} gameID - the game id to delete on filesystem
+     * @returns {Promise<Array>}
      * */
     Game.prototype.remove = function(gameID){
         LOG.d("Removing game", gameID);
-        return fileModule.removeDir(constants.GAMES_DIR + gameID);
+        var isCached = fileModule.dirExists(constants.CACHE_DIR + gameID + ".zip");
+        var isInGameDir = fileModule.dirExists(constants.GAMES_DIR + gameID);
+        return Promise.all([isCached, isInGameDir])
+            .then(function(results){
+                var finalResults = [];
+                if(results[0]){
+                    LOG.d("Removed in cache", results[0]);
+                    finalResults.push(fileModule.removeFile(constants.CACHE_DIR + gameID + ".zip"));
+                }
+
+                if(results[1]){
+                    LOG.d("Removed", results[1]);
+                    finalResults.push(fileModule.removeDir(constants.GAMES_DIR + gameID));
+                }
+
+                if(finalResults.length === 0){
+                    LOG.i("Nothing to remove", finalResults);
+                }
+                return finalResults;
+            });
     };
 
     /**
