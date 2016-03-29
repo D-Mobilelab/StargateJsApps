@@ -24,8 +24,19 @@
         SDK_URL = "http://s2.motime.com/js/wl/webstore_html5game/gfsdk/dist/gfsdk.js"+"?timestamp=" + Date.now(),
         DIXIE_URL = "http://s2.motime.com/tbr/dixie.js?country=it-igames"+"&timestamp=" + Date.now(),
         API = "http://resources2.buongiorno.com/lapis/apps/contents.getList",
+        GA_FOR_GAME_URL = "http://www2.gameasy.com/ww-it/ga_for_games.js",
         CONF = {},
         downloading = false;
+
+    var emptyOfflineData = {
+        GaForGame: {},
+        GamifiveInfo: {},
+        queues: {}
+    };
+
+    var ga_for_games_qs = {
+        print_json_response:1
+    };
 
     var obj = {
         "content_id":"", // to fill
@@ -116,12 +127,18 @@
              * */
             var gamesDirTask = fileModule.createDir(constants.BASE_DIR, "games");
             var scriptsDirTask = fileModule.createDir(constants.BASE_DIR, "scripts");
+            var createOfflineDataTask = fileModule.createFile(constants.BASE_DIR, "offlineData.json")
+                                        .then(function(entry){
+                                            LOG.d("offlineData", entry);
+                                            return fileModule.write(entry.path, JSON.stringify(emptyOfflineData));
+                                        });
 
             return Promise.all([
                     gamesDirTask, 
-                    scriptsDirTask
+                    scriptsDirTask,
+                    createOfflineDataTask
                 ]).then(function(results){
-                    LOG.d("GamesDir and ScriptsDir created", results);
+                    LOG.d("GamesDir, ScriptsDir, offlineData.json created", results);
                     LOG.d("Getting SDK from:", SDK_URL);
                     return Promise.all([
                         new fileModule.download(SDK_URL, results[1].path, "gfsdk.min.js").promise,
@@ -195,7 +212,16 @@
         var saveAsName = gameObject.id;
         function start(){
             _onStart({type:"download"});
-            LOG.d("Download:", gameObject.id, gameObject.response_api_dld.binary_url);
+            LOG.d("Start Download:", gameObject.id, gameObject.response_api_dld.binary_url);
+
+            var apiGaForGames = composeApiString(GA_FOR_GAME_URL, ga_for_games_qs);
+
+            new jsonpRequest(apiGaForGames).prom
+                .then(function(ga_for_game){
+                    LOG.d("apiGaForGames:",apiGaForGames,"ga_for_game:", ga_for_game);
+                    return updateOfflineData({id:saveAsName, ga_for_game:ga_for_game});
+                });
+
             var downloadPromise = new fileModule.download(gameObject.response_api_dld.binary_url, constants.TEMP_DIR, saveAsName + ".zip", wrapProgress("download")).promise;
             return downloadPromise
                 .then(function(entry){
@@ -702,6 +728,18 @@
                 });
         }
     };
+
+    function updateOfflineData(object){
+        return fileModule.readFileAsJSON(constants.BASE_DIR + "offlineData.json")
+            .then(function(offlineData){
+                offlineData.GaForGame[object.id] = object.ga_for_game;
+                return offlineData;
+            })
+            .then(function(offlineDataUpdated){
+                LOG.d("writing object", offlineDataUpdated);
+                return fileModule.write(constants.BASE_DIR + "offlineData.json", JSON.stringify(offlineDataUpdated));
+            });
+    }
 
     var _protected = {};
     _modules.game = {};
