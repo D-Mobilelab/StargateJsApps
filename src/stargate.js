@@ -99,7 +99,7 @@ var hybrid_conf = {},
 
 /**
  * 
- * this is got from manifest
+ * this is get from manifest
  * 
  */
 var baseUrl;
@@ -242,7 +242,9 @@ var onPluginReady = function (resolve) {
         // if initialize ok...
         if ( IAP.initialize( getModuleConf("iap") ) ) {
             // ...then call refresh
-            IAP.doRefresh();            
+            // this doesn't works, so we do it when needed in iap module
+            //IAP.doRefresh();
+            log("Init IAP done.");
         }
     }
 
