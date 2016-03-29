@@ -188,8 +188,6 @@
             return Promise.reject("response_api_dld.status not equal 200");
         }
 
-        downloading = true;
-
         var alreadyExists = this.isGameDownloaded(gameObject.id);
         var self = this;
         // Defaults
@@ -318,8 +316,10 @@
         return alreadyExists.then(function(exists){
             LOG.d("Exists", exists);
             if(exists){
+                downloading = false;
                 return Promise.reject({12:"AlreadyExists",gameID:gameObject.id});
             }else{
+                downloading = true;
                 return start();
             }
         });
