@@ -48,7 +48,7 @@
         "check_compatibility_header":0
     };
 
-    var LOG = new Logger("ALL", "[Game - module]");
+    var LOG = new Logger("ALL", "[Game - module]", {background:"black",color:"green"});
 
     /**
      * @constructor

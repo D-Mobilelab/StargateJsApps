@@ -9,14 +9,45 @@
      * @alias module:src/modules/Logger
      * @param {String} label - OFF|DEBUG|INFO|WARN|ERROR|ALL
      * @param {String} tag - a tag to identify a log group. it will be prepended to any log function
+     * @param {Object} [styles={background:"white",color:"black"}] -
+     * @param {String} styles.background - background color CSS compatibile
+     * @param {String} styles.color - color text CSS compatible
      * @example
-     * var myLogger = new Logger("ALL", "TAG");
+     * var myLogger = new Logger("ALL", "TAG",{background:"black",color:"blue"});
      * myLogger.i("Somenthing", 1); // output will be > ["TAG"], "Somenthing", 1
      * myLogger.setLevel("off") // other values OFF|DEBUG|INFO|WARN|ERROR|ALL
      * */
-    function Logger(label, tag){
+    function Logger(label, tag, styles){
         this.level = Logger.levels[label.toUpperCase()];
-        this.tag = tag;
+        this.styles = styles || {background:"white",color:"black"}; //default
+        this.tag = "%c " + tag + " ";
+
+        this.styleString = "background:" + this.styles.background + ";" + "color:" + this.styles.color + ";";
+        //private and immutable
+        Object.defineProperties(this, {
+            "__d": {
+                value: window.console.log.bind(window.console, this.tag, this.styleString),
+                writable: false,
+                enumerable:false,
+                configurable:false
+            },
+            "__i": {
+                value: window.console.info.bind(window.console, this.tag, this.styleString),
+                writable: false,
+                enumerable:false,
+                configurable:false
+            },"__e": {
+                value: window.console.error.bind(window.console, this.tag, this.styleString),
+                writable: false,
+                enumerable:false,
+                configurable:false
+            },"__w": {
+                value: window.console.warn.bind(window.console, this.tag, this.styleString),
+                writable: false,
+                enumerable:false,
+                configurable:false
+            }
+        });
     }
 
     //Logger.prototype.group
@@ -36,11 +67,9 @@
      * @param {*} [arguments]
      * */
     Logger.prototype.e = function(){
-        var _arguments = Array.prototype.slice.call(arguments);
-        _arguments.unshift(this.tag);
 
         if(this.level !== 0 && this.level >= Logger.levels.ERROR){
-            window.console.error.apply(console, _arguments);
+            this.__e(arguments);
         }
     };
 
@@ -49,11 +78,9 @@
      * @param {*} [arguments]
      * */
     Logger.prototype.i = function(){
-        var _arguments = Array.prototype.slice.call(arguments);
-        _arguments.unshift(this.tag);
 
         if(this.level !== 0 && this.level >= Logger.levels.WARN){
-            window.console.info.apply(console, _arguments);
+            this.__i(arguments);
         }
     };
 
@@ -62,11 +89,8 @@
      * @param {*} [arguments]
      * */
     Logger.prototype.w = function(){
-        var _arguments = Array.prototype.slice.call(arguments);
-        _arguments.unshift(this.tag);
-
         if(this.level !== 0 && this.level >= Logger.levels.INFO){
-            window.console.warn.apply(console, _arguments);
+            this.__w(arguments);
         }
     };
 
@@ -75,11 +99,9 @@
      * @param {*} [arguments]
      * */
     Logger.prototype.d = function(){
-        var _arguments = Array.prototype.slice.call(arguments);
-        _arguments.unshift(this.tag);
 
         if(this.level !== 0 && this.level >= Logger.levels.DEBUG){
-            window.console.log.apply(console, _arguments);
+            this.__d(arguments);
         }
     };
 
