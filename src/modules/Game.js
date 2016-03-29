@@ -693,6 +693,14 @@
         }
     }
 
+    /**
+     * getBundleObjects
+     *
+     * make the jsonpRequest to get the gameObjects. This method is called only
+     * if configuration key bundle_objects is set with an array of gameIDs
+     *
+     * @returns {Array<Object>} the gameObject with response_api_dld key
+     * */
     Game.prototype.getBundleGameObjects = function(){
         var self = this;
         if(CONF && CONF.bundleGames){

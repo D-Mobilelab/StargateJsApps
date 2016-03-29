@@ -318,7 +318,7 @@
      *
      * @param {String} directory - filepath file:// like string
      * @param {String} filename - the filename including the .txt
-     * @returns {Promise.<FileEntry|FileError>}
+     * @returns {Promise<FileEntry|FileError>}
      * */
     File.createFile = function(directory, filename){
         return File.resolveFS(directory)
