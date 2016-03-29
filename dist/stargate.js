@@ -3936,14 +3936,45 @@
      * @alias module:src/modules/Logger
      * @param {String} label - OFF|DEBUG|INFO|WARN|ERROR|ALL
      * @param {String} tag - a tag to identify a log group. it will be prepended to any log function
+     * @param {Object} [styles={background:"white",color:"black"}] -
+     * @param {String} styles.background - background color CSS compatibile
+     * @param {String} styles.color - color text CSS compatible
      * @example
-     * var myLogger = new Logger("ALL", "TAG");
+     * var myLogger = new Logger("ALL", "TAG",{background:"black",color:"blue"});
      * myLogger.i("Somenthing", 1); // output will be > ["TAG"], "Somenthing", 1
      * myLogger.setLevel("off") // other values OFF|DEBUG|INFO|WARN|ERROR|ALL
      * */
-    function Logger(label, tag){
+    function Logger(label, tag, styles){
         this.level = Logger.levels[label.toUpperCase()];
-        this.tag = tag;
+        this.styles = styles || {background:"white",color:"black"}; //default
+        this.tag = "%c " + tag + " ";
+
+        this.styleString = "background:" + this.styles.background + ";" + "color:" + this.styles.color + ";";
+        //private and immutable
+        Object.defineProperties(this, {
+            "__d": {
+                value: window.console.log.bind(window.console, this.tag, this.styleString),
+                writable: false,
+                enumerable:false,
+                configurable:false
+            },
+            "__i": {
+                value: window.console.info.bind(window.console, this.tag, this.styleString),
+                writable: false,
+                enumerable:false,
+                configurable:false
+            },"__e": {
+                value: window.console.error.bind(window.console, this.tag, this.styleString),
+                writable: false,
+                enumerable:false,
+                configurable:false
+            },"__w": {
+                value: window.console.warn.bind(window.console, this.tag, this.styleString),
+                writable: false,
+                enumerable:false,
+                configurable:false
+            }
+        });
     }
 
     //Logger.prototype.group
@@ -3963,11 +3994,9 @@
      * @param {*} [arguments]
      * */
     Logger.prototype.e = function(){
-        var _arguments = Array.prototype.slice.call(arguments);
-        _arguments.unshift(this.tag);
 
         if(this.level !== 0 && this.level >= Logger.levels.ERROR){
-            window.console.error.apply(console, _arguments);
+            this.__e(arguments);
         }
     };
 
@@ -3976,11 +4005,9 @@
      * @param {*} [arguments]
      * */
     Logger.prototype.i = function(){
-        var _arguments = Array.prototype.slice.call(arguments);
-        _arguments.unshift(this.tag);
 
         if(this.level !== 0 && this.level >= Logger.levels.WARN){
-            window.console.info.apply(console, _arguments);
+            this.__i(arguments);
         }
     };
 
@@ -3989,11 +4016,8 @@
      * @param {*} [arguments]
      * */
     Logger.prototype.w = function(){
-        var _arguments = Array.prototype.slice.call(arguments);
-        _arguments.unshift(this.tag);
-
         if(this.level !== 0 && this.level >= Logger.levels.INFO){
-            window.console.warn.apply(console, _arguments);
+            this.__w(arguments);
         }
     };
 
@@ -4002,11 +4026,9 @@
      * @param {*} [arguments]
      * */
     Logger.prototype.d = function(){
-        var _arguments = Array.prototype.slice.call(arguments);
-        _arguments.unshift(this.tag);
 
         if(this.level !== 0 && this.level >= Logger.levels.DEBUG){
-            window.console.log.apply(console, _arguments);
+            this.__d(arguments);
         }
     };
 
@@ -4372,6 +4394,7 @@
         var self = this;
         this.ft = new window.FileTransfer();
         this.ft.onprogress = _onProgress;
+        File.currentFileTransfer = self.ft;
 
         self.promise = new Promise(function(resolve, reject){
             self.ft.download(window.encodeURI(url), filepath + saveAsName,
@@ -4508,7 +4531,7 @@
      *
      * @param {String} directory - filepath file:// like string
      * @param {String} filename - the filename including the .txt
-     * @returns {Promise.<FileEntry|FileError>}
+     * @returns {Promise<FileEntry|FileError>}
      * */
     File.createFile = function(directory, filename){
         return File.resolveFS(directory)
@@ -4623,8 +4646,19 @@
         SDK_URL = "http://s2.motime.com/js/wl/webstore_html5game/gfsdk/dist/gfsdk.js"+"?timestamp=" + Date.now(),
         DIXIE_URL = "http://s2.motime.com/tbr/dixie.js?country=it-igames"+"&timestamp=" + Date.now(),
         API = "http://resources2.buongiorno.com/lapis/apps/contents.getList",
+        GA_FOR_GAME_URL = "http://www2.gameasy.com/ww-it/ga_for_games.js",
         CONF = {},
         downloading = false;
+
+    var emptyOfflineData = {
+        GaForGame: {},
+        GamifiveInfo: {},
+        queues: {}
+    };
+
+    var ga_for_games_qs = {
+        print_json_response:1
+    };
 
     var obj = {
         "content_id":"", // to fill
@@ -4647,7 +4681,7 @@
         "check_compatibility_header":0
     };
 
-    var LOG = new Logger("ALL", "[Game - module]");
+    var LOG = new Logger("ALL", "[Game - module]", {background:"black",color:"green"});
 
     /**
      * @constructor
@@ -4715,12 +4749,18 @@
              * */
             var gamesDirTask = fileModule.createDir(constants.BASE_DIR, "games");
             var scriptsDirTask = fileModule.createDir(constants.BASE_DIR, "scripts");
+            var createOfflineDataTask = fileModule.createFile(constants.BASE_DIR, "offlineData.json")
+                                        .then(function(entry){
+                                            LOG.d("offlineData", entry);
+                                            return fileModule.write(entry.path, JSON.stringify(emptyOfflineData));
+                                        });
 
             return Promise.all([
                     gamesDirTask, 
-                    scriptsDirTask
+                    scriptsDirTask,
+                    createOfflineDataTask
                 ]).then(function(results){
-                    LOG.d("GamesDir and ScriptsDir created", results);
+                    LOG.d("GamesDir, ScriptsDir, offlineData.json created", results);
                     LOG.d("Getting SDK from:", SDK_URL);
                     return Promise.all([
                         new fileModule.download(SDK_URL, results[1].path, "gfsdk.min.js").promise,
@@ -4770,8 +4810,6 @@
             return Promise.reject("response_api_dld.status not equal 200");
         }
 
-        downloading = true;
-
         var alreadyExists = this.isGameDownloaded(gameObject.id);
         var self = this;
         // Defaults
@@ -4794,7 +4832,16 @@
         var saveAsName = gameObject.id;
         function start(){
             _onStart({type:"download"});
-            LOG.d("Download:", gameObject.id, gameObject.response_api_dld.binary_url);
+            LOG.d("Start Download:", gameObject.id, gameObject.response_api_dld.binary_url);
+
+            var apiGaForGames = composeApiString(GA_FOR_GAME_URL, ga_for_games_qs);
+
+            new jsonpRequest(apiGaForGames).prom
+                .then(function(ga_for_game){
+                    LOG.d("apiGaForGames:",apiGaForGames,"ga_for_game:", ga_for_game);
+                    return updateOfflineData({id:saveAsName, ga_for_game:ga_for_game});
+                });
+
             var downloadPromise = new fileModule.download(gameObject.response_api_dld.binary_url, constants.TEMP_DIR, saveAsName + ".zip", wrapProgress("download")).promise;
             return downloadPromise
                 .then(function(entry){
@@ -4891,8 +4938,10 @@
         return alreadyExists.then(function(exists){
             LOG.d("Exists", exists);
             if(exists){
+                downloading = false;
                 return Promise.reject({12:"AlreadyExists",gameID:gameObject.id});
             }else{
+                downloading = true;
                 return start();
             }
         });
@@ -5070,12 +5119,31 @@
      * remove the game directory
      *
      * @public
-     * @param {string} gameID - the game id to delete on filesystem
-     * @returns {Promise<boolean|FileError>}
+     * @param {String} gameID - the game id to delete on filesystem
+     * @returns {Promise<Array>}
      * */
     Game.prototype.remove = function(gameID){
         LOG.d("Removing game", gameID);
-        return fileModule.removeDir(constants.GAMES_DIR + gameID);
+        var isCached = fileModule.dirExists(constants.CACHE_DIR + gameID + ".zip");
+        var isInGameDir = fileModule.dirExists(constants.GAMES_DIR + gameID);
+        return Promise.all([isCached, isInGameDir])
+            .then(function(results){
+                var finalResults = [];
+                if(results[0]){
+                    LOG.d("Removed in cache", results[0]);
+                    finalResults.push(fileModule.removeFile(constants.CACHE_DIR + gameID + ".zip"));
+                }
+
+                if(results[1]){
+                    LOG.d("Removed", results[1]);
+                    finalResults.push(fileModule.removeDir(constants.GAMES_DIR + gameID));
+                }
+
+                if(finalResults.length === 0){
+                    LOG.i("Nothing to remove", finalResults);
+                }
+                return finalResults;
+            });
     };
 
     /**
@@ -5097,8 +5165,11 @@
     Game.prototype.abortDownload = function(){
         if(this.isDownloading()){
             LOG.d("Abort last download");
-            fileModule.currentFileTransfer.abort();
-            fileModule.currentFileTransfer = null;
+            if(fileModule.currentFileTransfer){
+                fileModule.currentFileTransfer.abort();
+                fileModule.currentFileTransfer = null;
+            }
+
             return true;
         }
         LOG.w("There's not a download operation to abort");
@@ -5244,6 +5315,14 @@
         }
     }
 
+    /**
+     * getBundleObjects
+     *
+     * make the jsonpRequest to get the gameObjects. This method is called only
+     * if configuration key bundle_objects is set with an array of gameIDs
+     *
+     * @returns {Array<Object>} the gameObject with response_api_dld key
+     * */
     Game.prototype.getBundleGameObjects = function(){
         var self = this;
         if(CONF && CONF.bundleGames){
@@ -5298,6 +5377,18 @@
                 });
         }
     };
+
+    function updateOfflineData(object){
+        return fileModule.readFileAsJSON(constants.BASE_DIR + "offlineData.json")
+            .then(function(offlineData){
+                offlineData.GaForGame[object.id] = object.ga_for_game;
+                return offlineData;
+            })
+            .then(function(offlineDataUpdated){
+                LOG.d("writing object", offlineDataUpdated);
+                return fileModule.write(constants.BASE_DIR + "offlineData.json", JSON.stringify(offlineDataUpdated));
+            });
+    }
 
     var _protected = {};
     _modules.game = {};
