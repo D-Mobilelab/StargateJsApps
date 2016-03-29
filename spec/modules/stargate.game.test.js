@@ -327,16 +327,16 @@ fdescribe("Game module tests", function() {
         });
     });
 
-    it("Should expose GAMES_DIR and OFFLINE_INDEX", function(done){
+    it("Should expose BASE_DIR and OFFLINE_INDEX", function(done){
         var afterInit = game.initialize({});
         afterInit.then(function(results){
-            expect(stargateModules.game._public.GAMES_DIR).toBeDefined();
+            expect(stargateModules.game._public.BASE_DIR).toBeDefined();
             expect(stargateModules.game._public.OFFLINE_INDEX).toBeDefined();
             done();
         });
     });
 
-    it("Test abortDownload should not to abort if is not downloading", function(done){
+    it("AbortDownload should not to abort if is not downloading", function(done){
         var afterInit = game.initialize({});
         afterInit.then(function(){
             var res = game.abortDownload();
@@ -348,23 +348,48 @@ fdescribe("Game module tests", function() {
 
     });
 
+    it("AbortDownload should abort downloading", function(done){
+        var afterInit = game.initialize({});
+        var _onCatch = jasmine.createSpy('_onCatch');
+        afterInit.then(function(){
+
+            game.download(juicy)
+                .then(function(results){
+                    console.log("Download test results", results);
+                })
+                .catch(function(reason){
+                    console.log("Download test catch", reason);
+                });
+
+            setTimeout(function(){
+                var res = game.abortDownload();
+                expect(res).toBe(true);
+                done();
+            },1000);
+
+        }).catch(function(reason){
+            console.log(reason);
+            expect(true).toBe(false);
+            done();
+        });
+
+    });
+
     it("Test download game already exists", function(done){
         function check(reason){
             console.log(reason);
-            expect(reason).toEqual({12:"AlreadyExists", gameID:gameObject.id});
+            expect(reason).toEqual({12:"AlreadyExists", gameID:juicy.id});
             done();
         }
 
         var afterInit = game.initialize({});
         afterInit.then(function(results){
-                return createFolder(GAMES_DIR, gameObject.id);
+                return createFolder(GAMES_DIR, juicy.id);
             })
             .then(function(result){
-                return game.download(gameObject);
+                return game.download(juicy);
             })
             .catch(check);
-
-
     });
 
     it("Test removeAll games", function(done){
@@ -383,7 +408,7 @@ fdescribe("Game module tests", function() {
             });
     });
 
-    fit("Download Bundle games", function(done){
+    it("Download Bundle games", function(done){
         var afterInit = game.initialize(conf);
         afterInit
             .then(function(){

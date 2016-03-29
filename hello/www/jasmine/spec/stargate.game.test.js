@@ -336,13 +336,40 @@ fdescribe("Game module tests", function() {
         });
     });
 
-    it("Test abortDownload should not to abort if is not downloading", function(done){
+    it("AbortDownload should not to abort if is not downloading", function(done){
         var afterInit = game.initialize({});
         afterInit.then(function(){
             var res = game.abortDownload();
             expect(res).toBe(false);
             done();
         }).catch(function(){
+            done();
+        });
+
+    });
+
+    it("AbortDownload should abort downloading", function(done){
+        var afterInit = game.initialize({});
+        var _onCatch = jasmine.createSpy('_onCatch');
+        afterInit.then(function(){
+
+            game.download(juicy)
+                .then(function(results){
+                    console.log("Download test results", results);
+                })
+                .catch(function(reason){
+                    console.log("Download test catch", reason);
+                });
+
+            setTimeout(function(){
+                var res = game.abortDownload();
+                expect(res).toBe(true);
+                done();
+            },1000);
+
+        }).catch(function(reason){
+            console.log(reason);
+            expect(true).toBe(false);
             done();
         });
 

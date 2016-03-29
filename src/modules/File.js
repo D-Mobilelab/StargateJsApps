@@ -181,6 +181,7 @@
         var self = this;
         this.ft = new window.FileTransfer();
         this.ft.onprogress = _onProgress;
+        File.currentFileTransfer = self.ft;
 
         self.promise = new Promise(function(resolve, reject){
             self.ft.download(window.encodeURI(url), filepath + saveAsName,

@@ -498,8 +498,11 @@
     Game.prototype.abortDownload = function(){
         if(this.isDownloading()){
             LOG.d("Abort last download");
-            fileModule.currentFileTransfer.abort();
-            fileModule.currentFileTransfer = null;
+            if(fileModule.currentFileTransfer){
+                fileModule.currentFileTransfer.abort();
+                fileModule.currentFileTransfer = null;
+            }
+
             return true;
         }
         LOG.w("There's not a download operation to abort");
