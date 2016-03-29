@@ -19,6 +19,7 @@ var IAP = {
     createUserAttempt: 0,
     maxCreateUserAttempt: 6,
     
+    refreshInProgress: false,
     productsInfo: {},
     
     /**
@@ -100,6 +101,7 @@ var IAP = {
     },
     
     saveProductInfo: function(params) {
+        IAP.refreshInProgress = false;
         if (typeof params !== "object") {
             err("[IAP] saveProductInfo() got invalid data");
             return;
@@ -120,9 +122,14 @@ var IAP = {
     },
     
     doRefresh: function(force) {
+        if (IAP.refreshInProgress) {
+            war("[IAP] doRefresh() refresh in progress, skipping...");
+        }
         if (!IAP.refreshDone || force) {
             window.store.refresh();
             IAP.refreshDone = true;
+            IAP.refreshInProgress = true;
+            log("[IAP] doRefresh() refreshing...");            
         }
     },
 
