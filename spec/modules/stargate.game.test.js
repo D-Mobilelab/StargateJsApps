@@ -97,8 +97,6 @@ var juicy =
         "premium":true
     },
     "offline_available":true,
-
-
     response_api_dld: {
         "status":200,
         "url_download":"http:\/\/www2.gameasy.com\/ww\/html5gameplay\/01\/93\/019315303f5014ee53877ca1ff9d96b3\/xx_gameasy\/game\/Juicy_dash_boungourno\/juicy_dash_index.html",
@@ -434,7 +432,8 @@ function clean(){
 function manualDownload(){
     var cbks = {
         onStart:console.log.bind(console),
-        onProgress:console.log.bind(console)
+        onProgress:console.log.bind(console),
+        onEnd:console.log.bind(console)
     };
     stargateModules.game._protected.initialize(conf)
         .then(console.log.bind(console))
