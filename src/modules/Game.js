@@ -25,6 +25,7 @@
         DIXIE_URL = "http://s2.motime.com/tbr/dixie.js?country=it-igames"+"&timestamp=" + Date.now(),
         API = "http://resources2.buongiorno.com/lapis/apps/contents.getList",
         GA_FOR_GAME_URL = "http://www2.gameasy.com/ww-it/ga_for_games.js",
+        GAMIFIVE_INFO_API = "http://www2.gameasy.com/ww-it/v01/gameplay_proxy",
         CONF = {},
         downloading = false;
 
@@ -212,13 +213,7 @@
             _onStart({type:"download"});
             LOG.d("Start Download:", gameObject.id, gameObject.response_api_dld.binary_url);
 
-            var apiGaForGames = composeApiString(GA_FOR_GAME_URL, ga_for_games_qs);
-
-            new jsonpRequest(apiGaForGames).prom
-                .then(function(ga_for_game){
-                    LOG.d("apiGaForGames:",apiGaForGames,"ga_for_game:", ga_for_game);
-                    return updateOfflineData({id:saveAsName, ga_for_game:ga_for_game});
-                });
+            storeOfflineData(saveAsName);
 
             var downloadPromise = new fileModule.download(gameObject.response_api_dld.binary_url, constants.TEMP_DIR, saveAsName + ".zip", wrapProgress("download")).promise;
             return downloadPromise
@@ -756,14 +751,51 @@
         }
     };
 
+    function storeOfflineData(content_id){
+        /**
+         * Calls for offlineData.json
+         * putting GamifiveInfo and GaForGame in this file for each game
+         * {
+         *  GaForGame:<content_id>:{<ga_for_game>},
+         *  GamifiveInfo:<content_id>:{<gamifive_info>},
+         *  queues:{}
+         * }
+         * */
+        var apiGaForGames = composeApiString(GA_FOR_GAME_URL, ga_for_games_qs);
+        var getGaForGamesTask = new jsonpRequest(apiGaForGames).prom;
+
+        getGaForGamesTask.then(function(ga_for_game){
+            LOG.d("apiGaForGames:", apiGaForGames, "ga_for_game:", ga_for_game);
+            return ga_for_game;
+
+        }).then(function(ga_for_game){
+            LOG.d("ga_for_game:", ga_for_game);
+            var gamifive_api = composeApiString(GAMIFIVE_INFO_API, {
+                content_id:content_id,
+                _PONY:ga_for_game._PONYVALUE,
+                format:"jsonp"
+            });
+
+            LOG.d("gamifive_info_api",gamifive_api);
+            return [new jsonpRequest(gamifive_api).prom, ga_for_game];
+
+        }).then(function(results){
+            return results[0].then(function(gamifive_info){
+                LOG.d("gamifiveInfo:", gamifive_info, "ga_for_game", results[1]);
+                return updateOfflineData({content_id:content_id, ga_for_game:results[1], gamifive_info:gamifive_info.game_info});
+            });
+        });
+    }
+
     function updateOfflineData(object){
         return fileModule.readFileAsJSON(constants.BASE_DIR + "offlineData.json")
             .then(function(offlineData){
-                offlineData.GaForGame[object.id] = object.ga_for_game;
+                offlineData.GaForGame[object.content_id] = object.ga_for_game;
+                offlineData.GamifiveInfo[object.content_id] = object.gamifive_info;
                 return offlineData;
             })
             .then(function(offlineDataUpdated){
-                LOG.d("writing object", offlineDataUpdated);
+                LOG.d("writing offlineData.json", offlineDataUpdated);
                 return fileModule.write(constants.BASE_DIR + "offlineData.json", JSON.stringify(offlineDataUpdated));
             });
     }
