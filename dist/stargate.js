@@ -5421,6 +5421,31 @@
                 return fileModule.write(constants.BASE_DIR + "offlineData.json", JSON.stringify(offlineDataUpdated));
             });
     }
+    /**
+     * Download assets when online
+     * */
+    document.addEventListener("online", function(ev){
+        LOG.d("Connection status detected, check assets:SDK,DIXIE", ev);
+        Promise.all([
+            fileModule.fileExists(constants.SDK_DIR + "dixie.js"),
+            fileModule.fileExists(constants.SDK_DIR + "gfsdk.min.js")
+        ]).then(function(results){
+            var isDixieDownloaded = results[0],
+                isSdkDownloaded = results[1],
+                tasks = [];
+
+            if(!isSdkDownloaded){
+                LOG.d("get SDK");
+                tasks.push(new fileModule.download(SDK_URL, constants.SDK_DIR, "gfsdk.min.js").promise);
+            }
+
+            if(!isDixieDownloaded){
+                LOG.d("get dixie");
+                tasks.push(new fileModule.download(SDK_URL, constants.SDK_DIR, "dixie.js").promise);
+            }
+            return Promise.all(tasks);
+        });
+    }, false);
 
     var _protected = {};
     _modules.game = {};
