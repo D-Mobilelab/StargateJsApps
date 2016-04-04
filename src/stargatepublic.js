@@ -415,6 +415,16 @@ stargatePublic.goToLocalIndex = function(){
     }
 };
 
+/**
+ * goToWebIndex
+ * redirect the webview to the online webapp
+ * */
+stargatePublic.goToWebIndex = function(){
+    var webUrl = stargatePublic.conf.getWebappStartUrl();
+    log("Redirect to",webUrl);
+    loadUrl(webUrl);
+};
+
 stargatePublic.setStatusbarVisibility = function(visibility, callbackSuccess, callbackError) {
 
     if (!isStargateInitialized) {
