@@ -26,14 +26,14 @@
 
 
 /**
- * Logger module
+ * Utils module
  * @module src/modules/Utils
  * @type {Object}
  */
 (function(stargateModules){
     /**
-     * @constructor
-     * @alias module:src/modules/Logger
+     * @class
+     * @alias module:src/modules/Utils.Logger
      * @param {String} label - OFF|DEBUG|INFO|WARN|ERROR|ALL
      * @param {String} tag - a tag to identify a log group. it will be prepended to any log function
      * @param {Object} [styles={background:"white",color:"black"}] -
@@ -141,11 +141,17 @@
     };
 
     /**
-     * makeIterator
+     * Iterator
      *
-     * make an iterator object from array
+     * @alias module:src/modules/Utils.Iterator
+     * @example
+     * var myArray = ["pippo", "pluto", "paperino"];
+     * var it = Utils.Iterator(myArray);
+     * it.next().value === "pippo"; //true
+     * it.next().value === "pluto"; //true
+     * it.next(true).value === "paperino" //false because with true you can reset it!
      * @param {Array} array - the array you want to transform in iterator
-     * @returns {Object} - an iterator like object
+     * @returns {Object} - an iterator-like object
      * */
     function Iterator(array){
         var nextIndex = 0;
@@ -162,9 +168,15 @@
 
     /**
      * A function to compose query string
+     *
+     * @alias module:src/modules/Utils.composeApiString
+     * @example
+     * var API = "http://jsonplaceholder.typicode.com/comments"
+     * var url = composeApiString(API, {postId:1});
+     * // url will be "http://jsonplaceholder.typicode.com/comments?postId=1"
      * @param {Strinq} api
-     * @param {Object} params
-     * @returns {String}
+     * @param {Object} params - a key value object: will be append to <api>?key=value&key2=value2
+     * @returns {String} the string composed
      * */
     function composeApiString(api, params){
         api += "?";
@@ -183,8 +195,9 @@
     /**
      * getJSON
      *
-     * @param {String} url -
-     * @returns {Promise<Object|String>} the reject string is the statuscode
+     * @alias module:src/modules/Utils.getJSON
+     * @param {String} url - for example http://jsonplaceholder.typicode.com/comments?postId=1
+     * @returns {Promise<Object|String>} the string error is the statuscode
      * */
     function getJSON(url){
         url = encodeURI(url);
@@ -205,11 +218,17 @@
     }
 
     /**
-     * make a jsonp request, remember only GET
-     * usage: request = new jsonpRequest(url); request.then(...)
+     * Make a jsonp request, remember only GET
+     * The function create a tag script and append a callback param in querystring.
+     * The promise will be reject after 3s if the url fail to respond
      *
+     * @class
+     * @alias module:src/modules/Utils.jsonpRequest
+     * @example
+     * request = new jsonpRequest("http://www.someapi.com/asd?somequery=1");
+     * request.then(...)
      * @param {String} url - the url with querystring but without &callback at the end or &function
-     * @returns {Promise<Object|>}
+     * @returns {Promise<Object|String>}
      * */
     function jsonpRequest(url){
         var self = this;
@@ -243,23 +262,22 @@
             // the append start the call
             window.document.getElementsByTagName("head")[0].appendChild(self.scriptTag);
             //return self.daPromise;
-        }else{
-            return false;
         }
     }
 
     /**
      * getImageRaw from a specific url
      *
+     * @alias module:src/modules/Utils.getImageRaw
      * @param {Object} options - the options object
      * @param {String} options.url - http or whatever
      * @param {String} [options.responseType="blob"] - possible values arraybuffer|blob
      * @param {String} [options.mimeType="image/jpeg"] - possible values "image/png"|"image/jpeg" used only if "blob" is set as responseType
-     * @param {Function} [onProgress=function(){}]
-     @returns {Promise<Blob|ArrayBuffer|Error>}
+     * @param {Function} [_onProgress=function(){}]
+     * @returns {Promise<Blob|ArrayBuffer|Error>}
      */
-    function getImageRaw(options){
-        var onProgress = arguments.length <= 1 || arguments[1] === undefined ? function () {} : arguments[1];
+    function getImageRaw(options, _onProgress){
+        var onProgress = _onProgress || function(){};
         return new Promise(function(resolve, reject){
             var request = new XMLHttpRequest();
             request.open ("GET", options.url, true);
@@ -315,17 +333,18 @@
  * File module
  * @module src/modules/File
  * @type {Object}
- * @see cordova.file
+ * @see https://github.com/apache/cordova-plugin-file
  * @requires ./Utils.js
  */
-(function(_modules, Logger){
+(function(_modules, Utils){
 
     var File = {};
     var LOG;
-    File.LOG = LOG = new Logger("ALL", "[File - module]");
+    File.LOG = LOG = new Utils.Logger("ALL", "[File - module]");
+    window.requestFileSystem  = window.requestFileSystem || window.webkitRequestFileSystem;
     /**
      * ERROR_MAP
-     * File.ERROR_MAP
+     * Stargate.file.ERROR_MAP
      * */
     File.ERROR_MAP = {
         1:"NOT_FOUND_ERR",
@@ -343,8 +362,9 @@
     };
 
     File.currentFileTransfer = null;
+
     /**
-     * stargateProtected.file.resolveFS
+     * File.resolveFS
      *
      * @param {String} url - the path to load see cordova.file.*
      * @returns {Promise<Entry|FileError>}
@@ -359,8 +379,9 @@
      * File.appendToFile
      *
      * @param {String} filePath - the filepath file:// url like
-     * @param {String} data - the string to write into the file
-     * @param {string} [overwrite=false] - overwrite
+     * @param {String|Blob} data - the string to write into the file
+     * @param {String} [overwrite=false] - overwrite
+     * @param {String} mimeType: text/plain | image/jpeg | image/png
      * @returns {Promise<String|FileError>} where string is a filepath
      */
     File.appendToFile = function(filePath, data, overwrite, mimeType){
@@ -398,7 +419,7 @@
     /**
      * File.readFileAsHTML
      * @param {String} indexPath - the path to the file to read
-     * @returns {Promise<DOM|FileError>}
+     * @returns {Promise<Document|FileError>}
      */
     File.readFileAsHTML = function(indexPath){
 
@@ -600,6 +621,7 @@
 
     /**
      * File.readFile
+     *
      * @param {String} filePath - the file entry to readAsText
      * @returns {Promise<String|FileError>}
      */
@@ -645,12 +667,22 @@
     };
 
     /**
+     * write a file in the specified path
+     *
+     * @param {String} filepath - file:// path-like
+     * @param {String|Blob} content
+     * @returns {Promise<Object|FileError>}
      * */
     File.write = function(filepath, content){
         return File.appendToFile(filepath, content, true);
     };
 
     /**
+     * moveDir
+     *
+     * @param {String} source
+     * @param {String} destination
+     * @returns {Promise<FileEntry|FileError>}
      * */
     File.moveDir = function(source, destination){
         var newFolderName = destination.substring(destination.lastIndexOf('/')+1);
@@ -667,6 +699,10 @@
     };
 
     /**
+     * copyFile
+     * @param {String} source
+     * @param {String} destination
+     * @returns {Promise<FileEntry|FileError>}
      * */
     File.copyFile = function(source, destination){
         var newFilename = destination.substring(destination.lastIndexOf('/')+1);
@@ -683,6 +719,10 @@
     };
 
     /**
+     * copyDir
+     * @param {String} source
+     * @param {String} destination
+     * @returns {Promise<FileEntry|FileError>}
      * */
     File.copyDir = function(source, destination){
         var newFolderName = destination.substring(destination.lastIndexOf('/')+1);
@@ -716,13 +756,17 @@
         });
         return (arr.length == 1) ? arr[0] : arr;
     }
-    _modules.file = File;
-    return File;
 
-})(stargateModules, stargateModules.Utils.Logger);
+    if(_modules){
+        _modules.file = File;
+    }else{
+        window.file = File;
+    }
+
+})(stargateModules, stargateModules.Utils);
 /**globals Promise, cordova **/
 /**
- * Game module needs cordova-file cordova-file-transfer
+ * Game module needs cordova-plugin-file cordova-plugin-file-transfer
  * @module src/modules/Game
  * @type {Object}
  * @requires ./Utils.js,./File.js
@@ -782,15 +826,30 @@
         "check_compatibility_header":0
     };
 
-    var LOG = new Logger("ALL", "[Game - module]", {background:"black",color:"green"});
+    var LOG = new Logger("ALL", "[Game - module]", {background:"black",color:"#5aa73a"});
 
     /**
      * @constructor
      * @alias module:src/modules/Game
      * @example
-     * Stargate.game.download(gameObject, {onStart:function(){},onEnd:function(){},onProgress:function(){}})
-     * .then(function(results){
-     *  Stargate.game.play(results[0]) // and you leave this planet
+     *
+     * var sgConf = modules: ["game"],
+     *     modules_conf: {
+     *           "game": {
+     *               "bundleGames": [
+     *                   "<content_id>",
+     *                   "<content_id>"
+     *               ]
+     *           }
+     *       };
+     *
+     * var afterSgInit = Stargate.initialize(sgConf);
+     * afterSgInit
+     * .then(function(){
+     *      return Stargate.game.download(gameObject, {onStart:function(ev){}, onEnd:function(ev){}, onProgress:function(ev){}})
+     * })
+     * .then(function(gameID){
+     *      Stargate.game.play(gameID);
      * });
      * */
      function Game(){}
@@ -1275,7 +1334,7 @@
      * list
      *
      * @public
-     * @returns {Array<Object>} - Returns an array of metainfo game object
+     * @returns {Promise<Array>} - Returns an array of metainfo gameObject
      * */
     Game.prototype.list = function(){
         LOG.d("Get games list");
@@ -1413,10 +1472,10 @@
     /**
      * getBundleObjects
      *
-     * make the jsonpRequest to get the gameObjects. This method is called only
-     * if configuration key bundle_objects is set with an array of gameIDs
+     * make the jsonpRequests to get the gameObjects.
+     * This method is called only if configuration key "bundle_objects" is set with an array of gameIDs
      *
-     * @returns {Array<Object>} the gameObject with response_api_dld key
+     * @returns {Promise<Array>} the gameObject with response_api_dld key
      * */
     Game.prototype.getBundleGameObjects = function(){
         var self = this;
@@ -1523,6 +1582,7 @@
     }
     /**
      * Download assets when online
+     * maybe it's better to check it out on play action
      * */
     document.addEventListener("online", function(ev){
         LOG.d("Connection status detected, check assets:SDK,DIXIE", ev);
@@ -2068,6 +2128,32 @@ stargatePublic.getDeviceID = function(callbackSuccess, callbackError) {
 
     var deviceID = runningDevice.uuid;
     callbackSuccess({'deviceID': deviceID});
+};
+
+/**
+ * loadUrl
+ * @protected
+ * @param {String} url - an uri string
+ * */
+function loadUrl(url){
+
+    if(window.device.platform.toLowerCase() == "android"){
+        window.navigator.app.loadUrl(url);
+    }else{
+        window.location.href = url;
+    }
+}
+
+/**
+ * goToLocalIndex
+ * redirect the webview to the local index.html
+ * */
+stargatePublic.goToLocalIndex = function(){
+    if(window.cordova.file.applicationDirectory !== "undefined"){
+        var LOCAL_INDEX = window.cordova.file.applicationDirectory + "www/index.html?hybrid=1";
+        log("Redirect to", LOCAL_INDEX);
+        loadUrl(LOCAL_INDEX);
+    }
 };
 
 stargatePublic.setStatusbarVisibility = function(visibility, callbackSuccess, callbackError) {
