@@ -389,6 +389,32 @@ stargatePublic.getDeviceID = function(callbackSuccess, callbackError) {
     callbackSuccess({'deviceID': deviceID});
 };
 
+/**
+ * loadUrl
+ * @protected
+ * @param {String} url - an uri string
+ * */
+function loadUrl(url){
+
+    if(window.device.platform.toLowerCase() == "android"){
+        window.navigator.app.loadUrl(url);
+    }else{
+        window.location.href = url;
+    }
+}
+
+/**
+ * goToLocalIndex
+ * redirect the webview to the local index.html
+ * */
+stargatePublic.goToLocalIndex = function(){
+    if(window.cordova.file.applicationDirectory !== "undefined"){
+        var LOCAL_INDEX = window.cordova.file.applicationDirectory + "www/index.html?hybrid=1";
+        log("Redirect to", LOCAL_INDEX);
+        loadUrl(LOCAL_INDEX);
+    }
+};
+
 stargatePublic.setStatusbarVisibility = function(visibility, callbackSuccess, callbackError) {
 
     if (!isStargateInitialized) {
