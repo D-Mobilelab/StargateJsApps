@@ -2,17 +2,18 @@
  * File module
  * @module src/modules/File
  * @type {Object}
- * @see cordova.file
+ * @see https://github.com/apache/cordova-plugin-file
  * @requires ./Utils.js
  */
-(function(_modules, Logger){
+(function(_modules, Utils){
 
     var File = {};
     var LOG;
-    File.LOG = LOG = new Logger("ALL", "[File - module]");
+    File.LOG = LOG = new Utils.Logger("ALL", "[File - module]");
+    window.requestFileSystem  = window.requestFileSystem || window.webkitRequestFileSystem;
     /**
      * ERROR_MAP
-     * File.ERROR_MAP
+     * Stargate.file.ERROR_MAP
      * */
     File.ERROR_MAP = {
         1:"NOT_FOUND_ERR",
@@ -30,8 +31,9 @@
     };
 
     File.currentFileTransfer = null;
+
     /**
-     * stargateProtected.file.resolveFS
+     * File.resolveFS
      *
      * @param {String} url - the path to load see cordova.file.*
      * @returns {Promise<Entry|FileError>}
@@ -46,8 +48,9 @@
      * File.appendToFile
      *
      * @param {String} filePath - the filepath file:// url like
-     * @param {String} data - the string to write into the file
-     * @param {string} [overwrite=false] - overwrite
+     * @param {String|Blob} data - the string to write into the file
+     * @param {String} [overwrite=false] - overwrite
+     * @param {String} mimeType: text/plain | image/jpeg | image/png
      * @returns {Promise<String|FileError>} where string is a filepath
      */
     File.appendToFile = function(filePath, data, overwrite, mimeType){
@@ -85,7 +88,7 @@
     /**
      * File.readFileAsHTML
      * @param {String} indexPath - the path to the file to read
-     * @returns {Promise<DOM|FileError>}
+     * @returns {Promise<Document|FileError>}
      */
     File.readFileAsHTML = function(indexPath){
 
@@ -287,6 +290,7 @@
 
     /**
      * File.readFile
+     *
      * @param {String} filePath - the file entry to readAsText
      * @returns {Promise<String|FileError>}
      */
@@ -332,12 +336,22 @@
     };
 
     /**
+     * write a file in the specified path
+     *
+     * @param {String} filepath - file:// path-like
+     * @param {String|Blob} content
+     * @returns {Promise<Object|FileError>}
      * */
     File.write = function(filepath, content){
         return File.appendToFile(filepath, content, true);
     };
 
     /**
+     * moveDir
+     *
+     * @param {String} source
+     * @param {String} destination
+     * @returns {Promise<FileEntry|FileError>}
      * */
     File.moveDir = function(source, destination){
         var newFolderName = destination.substring(destination.lastIndexOf('/')+1);
@@ -354,6 +368,10 @@
     };
 
     /**
+     * copyFile
+     * @param {String} source
+     * @param {String} destination
+     * @returns {Promise<FileEntry|FileError>}
      * */
     File.copyFile = function(source, destination){
         var newFilename = destination.substring(destination.lastIndexOf('/')+1);
@@ -370,6 +388,10 @@
     };
 
     /**
+     * copyDir
+     * @param {String} source
+     * @param {String} destination
+     * @returns {Promise<FileEntry|FileError>}
      * */
     File.copyDir = function(source, destination){
         var newFolderName = destination.substring(destination.lastIndexOf('/')+1);
@@ -403,7 +425,11 @@
         });
         return (arr.length == 1) ? arr[0] : arr;
     }
-    _modules.file = File;
-    return File;
 
-})(stargateModules, stargateModules.Utils.Logger);
+    if(_modules){
+        _modules.file = File;
+    }else{
+        window.file = File;
+    }
+
+})(stargateModules, stargateModules.Utils);

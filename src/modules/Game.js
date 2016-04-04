@@ -1,6 +1,6 @@
 /**globals Promise, cordova **/
 /**
- * Game module needs cordova-file cordova-file-transfer
+ * Game module needs cordova-plugin-file cordova-plugin-file-transfer
  * @module src/modules/Game
  * @type {Object}
  * @requires ./Utils.js,./File.js
@@ -60,15 +60,30 @@
         "check_compatibility_header":0
     };
 
-    var LOG = new Logger("ALL", "[Game - module]", {background:"black",color:"green"});
+    var LOG = new Logger("ALL", "[Game - module]", {background:"black",color:"#5aa73a"});
 
     /**
      * @constructor
      * @alias module:src/modules/Game
      * @example
-     * Stargate.game.download(gameObject, {onStart:function(){},onEnd:function(){},onProgress:function(){}})
-     * .then(function(results){
-     *  Stargate.game.play(results[0]) // and you leave this planet
+     *
+     * var sgConf = modules: ["game"],
+     *     modules_conf: {
+     *           "game": {
+     *               "bundleGames": [
+     *                   "<content_id>",
+     *                   "<content_id>"
+     *               ]
+     *           }
+     *       };
+     *
+     * var afterSgInit = Stargate.initialize(sgConf);
+     * afterSgInit
+     * .then(function(){
+     *      return Stargate.game.download(gameObject, {onStart:function(ev){}, onEnd:function(ev){}, onProgress:function(ev){}})
+     * })
+     * .then(function(gameID){
+     *      Stargate.game.play(gameID);
      * });
      * */
      function Game(){}
@@ -553,7 +568,7 @@
      * list
      *
      * @public
-     * @returns {Array<Object>} - Returns an array of metainfo game object
+     * @returns {Promise<Array>} - Returns an array of metainfo gameObject
      * */
     Game.prototype.list = function(){
         LOG.d("Get games list");
@@ -691,10 +706,10 @@
     /**
      * getBundleObjects
      *
-     * make the jsonpRequest to get the gameObjects. This method is called only
-     * if configuration key bundle_objects is set with an array of gameIDs
+     * make the jsonpRequests to get the gameObjects.
+     * This method is called only if configuration key "bundle_objects" is set with an array of gameIDs
      *
-     * @returns {Array<Object>} the gameObject with response_api_dld key
+     * @returns {Promise<Array>} the gameObject with response_api_dld key
      * */
     Game.prototype.getBundleGameObjects = function(){
         var self = this;
@@ -801,6 +816,7 @@
     }
     /**
      * Download assets when online
+     * maybe it's better to check it out on play action
      * */
     document.addEventListener("online", function(ev){
         LOG.d("Connection status detected, check assets:SDK,DIXIE", ev);
