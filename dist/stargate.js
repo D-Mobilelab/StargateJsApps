@@ -6061,8 +6061,8 @@ stargatePublic.goToLocalIndex = function(){
  * redirect the webview to the online webapp
  * */
 stargatePublic.goToWebIndex = function(){
-    var webUrl = stargatePublic.conf.getWebappStartUrl();
-    log("Redirect to",webUrl);
+    var webUrl = stargatePublic.conf.getWebappStartUrl() + "";
+    log("Redirect to", webUrl);
     loadUrl(webUrl);
 };
 
