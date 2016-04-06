@@ -70,7 +70,7 @@
      * var sgConf = modules: ["game"],
      *     modules_conf: {
      *           "game": {
-     *               "bundleGames": [
+     *               "bundle_games": [
      *                   "<content_id>",
      *                   "<content_id>"
      *               ]
@@ -173,12 +173,14 @@
 
         var gamesDirTaskExists = fileModule.dirExists(constants.GAMES_DIR);
         var SDKExists = fileModule.fileExists(constants.SDK_DIR + "gfsdk.min.js");
-        
+        var DixieExists = fileModule.fileExists(constants.SDK_DIR + "dixie.js");
+
         return Promise.all([
                 gamesDirTaskExists, 
-                SDKExists])
+                SDKExists,
+                DixieExists])
             .then(function(results){
-                if(!results[0] && !results[1]){
+                if(!results[0] && !results[1] && !results[2]){
                     return firstInit();
                 }else{
                     return Promise.resolve("AlreadyInitialized");
@@ -730,15 +732,15 @@
      * getBundleObjects
      *
      * make the jsonpRequests to get the gameObjects.
-     * This method is called only if configuration key "bundle_objects" is set with an array of gameIDs
+     * This method is called only if configuration key "bundle_games" is set with an array of gameIDs
      *
      * @returns {Promise<Array>} the gameObject with response_api_dld key
      * */
     Game.prototype.getBundleGameObjects = function(){
         var self = this;
-        if(CONF && CONF.bundleGames){
-            LOG.d("Games bundle in configuration", CONF.bundleGames);
-            var whichGameAlreadyHere = CONF.bundleGames.map(function(gameId){
+        if(CONF && CONF.bundle_games){
+            LOG.d("Games bundle in configuration", CONF.bundle_games);
+            var whichGameAlreadyHere = CONF.bundle_games.map(function(gameId){
                 return self.isGameDownloaded(gameId);
             });
 
@@ -746,9 +748,9 @@
                 .then(function(results){
                     LOG.d("alreadyDownloaded",results);
                     for(var i = 0;i < results.length;i++){
-                        if(results[i]) CONF.bundleGames.splice(i, 1);
+                        if(results[i]) CONF.bundle_games.splice(i, 1);
                     }
-                    return CONF.bundleGames;
+                    return CONF.bundle_games;
                 })
                 .then(function(bundlesGamesIds){
                     return bundlesGamesIds.join(",");

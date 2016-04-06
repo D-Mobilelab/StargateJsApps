@@ -10,14 +10,18 @@ function isRunningOnAndroid(){
 }
 
 var conf = {
-    bundleGames:
+    bundle_games:
     [
         "7329ebbdf49065552dac00f4f6e1be10",
         "fd9ac2e5c1aeba0b89270688569d8f6e",
         "4cf74f31e3cf4f75d33d191b78639a57"
-    ]
+    ],
+    sdk_url:"http://s2.motime.com/js/wl/webstore_html5game/gfsdk/dist/gfsdk.js"+"?timestamp=" + Date.now(),
+    dixie_url:"http://s2.motime.com/tbr/dixie.js?country=it-igames"+"&timestamp=" + Date.now(),
+    ga_for_game_url:"http://www2.gameasy.com/ww-it/ga_for_games.js",
+    gamifive_info_api:"http://www2.gameasy.com/ww-it/v01/gameplay_proxy",
+    api:"http://resources2.buongiorno.com/lapis/apps/contents.getList"
 };
-
 
 var GAMES_DIR = "";
 
