@@ -111,7 +111,6 @@
         }
 
 
-        LOG.i("cordova JS dir to include", constants.CORDOVAJS);
         /**
          * Putting games under Documents r/w. ApplicationStorage is read only
          * on android ApplicationStorage is r/w
@@ -132,6 +131,8 @@
         constants.DATA_DIR = dataDir;
         constants.GAMEOVER_DIR = constants.BASE_DIR + "gameover_template/";
         constants.WWW_DIR = wwwDir;
+
+        LOG.i("cordova JS dir to include", constants.CORDOVAJS);
 
         /** expose */
         _modules.game._public.BASE_DIR = constants.BASE_DIR;
