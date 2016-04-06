@@ -460,6 +460,28 @@
         return dom;
     }
 
+    function removeOldGmenu(dom){
+        var toRemove = [];
+        toRemove.push(dom.querySelector("link[href='/gmenu/frame.css']"));
+        toRemove.push(dom.querySelector("iframe#menu"));
+        toRemove.push(dom.querySelector("script[src='/gmenu/toggle.js']"));
+        var scripts = dom.querySelectorAll("script");
+
+        for(var i = scripts.length - 1;i >= 0; i--){
+            if(scripts[i].innerHTML.indexOf("function open") !== -1){
+                toRemove.push(scripts[i]);
+                //scripts[i].parentNode.removeChild(scripts[i]);
+                break;
+            }
+        }
+
+        for(var j = 0; j < toRemove.length;j++){
+            toRemove[j].parentNode.removeChild(toRemove[j]);
+        }
+
+        return dom;
+    }
+
     /**
      * injectScripts in game index
      *
@@ -482,6 +504,7 @@
                 LOG.d("_injectScripts"); LOG.d(dom);
                 return _injectScriptsInDom(dom, sources);
             })
+            .then(removeOldGmenu)
             .then(function(dom){
                 LOG.d("Serialize dom");
                 var result = new XMLSerializer().serializeToString(dom);
