@@ -1245,7 +1245,9 @@
         }
 
         for(var j = 0; j < toRemove.length;j++){
-            toRemove[j].parentNode.removeChild(toRemove[j]);
+            if(toRemove[j]){
+                toRemove[j].parentNode.removeChild(toRemove[j]);
+            }
         }
 
         return dom;
