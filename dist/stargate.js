@@ -3918,7 +3918,7 @@
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.3.0";
+    var stargatePackageVersion = "0.3.1";
     var stargatePublic = {};
     
     var stargateModules = {};       
@@ -5181,8 +5181,8 @@
                 var result = new XMLSerializer().serializeToString(dom);
                 var toReplace = "<html xmlns=\"http:\/\/www.w3.org\/1999\/xhtml\"";
                 //Remove BOM :( it's a space character it depends on config of the developer
-                result = result.replace(toReplace, "<html")
-                                .replace(RegExp(/[^\x20-\x7E\xA0-\xFF]/g), '');
+                result = result.replace(toReplace, "<html");
+                                /*.replace(RegExp(/[^\x20-\x7E\xA0-\xFF]/g), '');*/
                 return result;
             })
             .then(function(htmlAsString){
