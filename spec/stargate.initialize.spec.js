@@ -98,6 +98,12 @@ var cordova_mock = {
 	getAppVersion: {
 		getVersionNumber: function() {
             return Promise.resolve("0.0.1");
+		},
+        getPackageName: function() {
+            return Promise.resolve("com.stargatejs.testapp");
+		},
+        getVersionCode: function() {
+            return Promise.resolve("0.0.1-test");
 		}
 	}
 };
@@ -291,7 +297,7 @@ describe("Stargate initialize", function() {
 			//console.log("jasmine.Ajax.requests.mostRecent(): ",request);
 
 			expect(cbFinish).toHaveBeenCalled();
-			expect(cbFinish).toHaveBeenCalledWith(true);
+			expect(cbFinish).toHaveBeenCalledWith(true, jasmine.any(Object));
 			done();
 		});
 		

@@ -21,28 +21,68 @@
         this.level = Logger.levels[label.toUpperCase()];
         this.styles = styles || {background:"white",color:"black"}; //default
         this.tag = "%c " + tag + " ";
+        this.isstaging = ("IS_STAGING = 1".slice(-1) === "1");
 
         this.styleString = "background:" + this.styles.background + ";" + "color:" + this.styles.color + ";";
+        
+        var argsToString = function() {
+            if (arguments.length < 1) {
+                return "";
+            }
+            var args = Array.prototype.slice.call(arguments[0]);
+            var result = '';
+            for (var i=0; i<args.length; i++) {
+                if (typeof (args[i]) === 'object') {
+                    result += " " + JSON.stringify(args[i]);
+                }
+                else {
+                    result += " " + args[i];
+                }
+            }
+            return result;
+        };
+        
+        var consoleLog = window.console.log.bind(window.console, this.tag, this.styleString);
+        var consoleInfo = window.console.info.bind(window.console, this.tag, this.styleString);
+        var consoleError = window.console.error.bind(window.console, this.tag, this.styleString);
+        var consoleWarn = window.console.warn.bind(window.console, this.tag, this.styleString);
+        
+        if (!this.isstaging) {
+            consoleLog = function(){
+                window.console.log("[D] [Stargate] "+argsToString.apply(null, arguments));
+            };
+            consoleInfo = function(){
+                window.console.log("[I] [Stargate] "+argsToString.apply(null, arguments));
+            };
+            consoleError = function(){
+                window.console.log("[E] [Stargate] "+argsToString.apply(null, arguments));
+            };
+            consoleWarn = function(){
+                window.console.log("[W] [Stargate] "+argsToString.apply(null, arguments));
+            };
+        }
         //private and immutable
         Object.defineProperties(this, {
             "__d": {
-                value: window.console.log.bind(window.console, this.tag, this.styleString),
+                value: consoleLog,
                 writable: false,
                 enumerable:false,
                 configurable:false
             },
             "__i": {
-                value: window.console.info.bind(window.console, this.tag, this.styleString),
+                value: consoleInfo,
                 writable: false,
                 enumerable:false,
                 configurable:false
-            },"__e": {
-                value: window.console.error.bind(window.console, this.tag, this.styleString),
+            },
+            "__e": {
+                value: consoleError,
                 writable: false,
                 enumerable:false,
                 configurable:false
-            },"__w": {
-                value: window.console.warn.bind(window.console, this.tag, this.styleString),
+            },
+            "__w": {
+                value: consoleWarn,
                 writable: false,
                 enumerable:false,
                 configurable:false

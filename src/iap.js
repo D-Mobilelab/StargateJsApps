@@ -64,6 +64,10 @@ var IAP = {
         if (initializeConf.type) {
             IAP.type = initializeConf.type;
         }
+        
+        if (initializeConf.api_createuser) {
+            IAP.subscribeMethod = initializeConf.api_createuser;
+        }
 
         // Available values: DEBUG, INFO, WARNING, ERROR, QUIET
         IAP.verbosity = 'INFO';
@@ -238,9 +242,9 @@ var IAP = {
 	
 	error: function(error) {
         setBusy(false);
-        IAP.callbackError({'iap_error': 1, 'return_url' : IAP.returnUrl});
-
 		err('[IAP] error: '+error);	
+        
+        IAP.callbackError({'iap_error': 1, 'return_url' : IAP.returnUrl});
 	},
 	
 
