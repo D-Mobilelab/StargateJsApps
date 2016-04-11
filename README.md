@@ -1,12 +1,12 @@
-[![Travis](http://img.shields.io/travis/BuongiornoMIP/StargateJsApps.svg?branch=master&style=flat)](https://travis-ci.org/BuongiornoMIP/StargateJsApps)
+[![Travis](http://img.shields.io/travis/D-Mobilelab/StargateJsApps.svg?branch=master&style=flat)](https://travis-ci.org/BuongiornoMIP/StargateJsApps)
 
-[![Coverage Status](https://coveralls.io/repos/BuongiornoMIP/StargateJsApps/badge.svg?branch=master&service=github)](https://coveralls.io/github/BuongiornoMIP/StargateJsApps?branch=master)
+[![Coverage Status](https://coveralls.io/repos/D-Mobilelab/StargateJsApps/badge.svg?branch=master&service=github)](https://coveralls.io/github/BuongiornoMIP/StargateJsApps?branch=master)
 
 
 
 # StargateJsApps
 
-[![Join the chat at https://gitter.im/BuongiornoMIP/StargateJsApps](https://badges.gitter.im/BuongiornoMIP/StargateJsApps.svg)](https://gitter.im/BuongiornoMIP/StargateJsApps?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+[![Join the chat at https://gitter.im/D-Mobilelab/StargateJsApps](https://badges.gitter.im/D-Mobilelab/StargateJsApps.svg)](https://gitter.im/D-Mobilelab/StargateJsApps?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 StargateJS hybridization library for HTML5 apps
 
