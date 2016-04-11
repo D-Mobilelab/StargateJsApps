@@ -142,6 +142,26 @@ var hybrid_conf = {},
  */
 var baseUrl;
 
+/**
+ * 
+ * Application information set on initialize
+ * 
+ */
+var appInformation = {
+    cordova: null,
+    manufacturer: null,
+    model: null,
+    platform: null,
+    deviceId: null,
+    version: null,
+    packageVersion: null,
+    packageName: null,
+    packageBuild: null,
+    stargate: null,
+    stargateModules: null,
+    stargateError: null 
+};
+
 var updateStatusBar = function() {
 
     if (typeof window.StatusBar === "undefined") {
@@ -337,7 +357,7 @@ var onStargateReady = function(resolve, error) {
     log("version "+stargatePackageVersion+" ready; "+
         " running in package version: "+appVersion);
     
-    var appInformation = {
+    appInformation = {
         cordova: runningDevice.cordova,
         manufacturer: runningDevice.manufacturer,
         model: runningDevice.model,
@@ -357,10 +377,10 @@ var onStargateReady = function(resolve, error) {
     }
     
     //execute callback
-    initializeCallback(true, appInformation);
+    initializeCallback(true);
 
     log("Stargate.initialize() done");
-    resolve(true, appInformation);
+    resolve(true);
 };
 
 var onDeviceReady = function (resolve, reject) {

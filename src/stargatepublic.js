@@ -456,6 +456,31 @@ stargatePublic.getVersion = function() {
 };
 
 /**
+ * @return {object} application information;
+ * 
+ * this information are available only after initialize complete
+ * 
+ * object keys returned and meaning
+ * 
+ *  cordova: Cordova version,
+ *  manufacturer: device manufacter,
+ *  model: device model,
+ *  platform: platform (Android, iOs, etc),
+ *  deviceId: device id or UUID,
+ *  version: platform version,
+ *  packageVersion: package version,
+ *  packageName: package name ie: com.stargatejs.test,
+ *  packageBuild: package build number,
+ *  stargate: stargate version,
+ *  stargateModules: stargate modules initialized,
+ *  stargateError: stargate initialization error 
+ * 
+ */
+stargatePublic.getAppInformation = function() {
+    return appInformation;
+};
+
+/**
  * This is a decorator:
  * before calling a module's function I check that stargate is initialized for each module
  *

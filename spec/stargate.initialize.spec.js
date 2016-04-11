@@ -297,7 +297,7 @@ describe("Stargate initialize", function() {
 			//console.log("jasmine.Ajax.requests.mostRecent(): ",request);
 
 			expect(cbFinish).toHaveBeenCalled();
-			expect(cbFinish).toHaveBeenCalledWith(true, jasmine.any(Object));
+			expect(cbFinish).toHaveBeenCalledWith(true);
 			done();
 		});
 		
