@@ -29,6 +29,7 @@
     "gulp": "^3.9.0",
     "gulp-batch": "^1.0.5",
     "gulp-bower": "0.0.11",
+    "gulp-bump": "^2.1.0",
     "gulp-concat": "^2.6.0",
     "gulp-deps-order": "^0.2.0",
     "gulp-footer": "^1.0.5",
