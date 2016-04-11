@@ -18,7 +18,7 @@
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.2.9";
+    var stargatePackageVersion = "0.3.1";
     var stargatePublic = {};
     
     var stargateModules = {};       
@@ -836,7 +836,7 @@
      * var sgConf = modules: ["game"],
      *     modules_conf: {
      *           "game": {
-     *               "bundleGames": [
+     *               "bundle_games": [
      *                   "<content_id>",
      *                   "<content_id>"
      *               ]
@@ -877,7 +877,6 @@
         }
 
 
-        LOG.i("cordova JS dir to include", constants.CORDOVAJS);
         /**
          * Putting games under Documents r/w. ApplicationStorage is read only
          * on android ApplicationStorage is r/w
@@ -898,6 +897,8 @@
         constants.DATA_DIR = dataDir;
         constants.GAMEOVER_DIR = constants.BASE_DIR + "gameover_template/";
         constants.WWW_DIR = wwwDir;
+
+        LOG.i("cordova JS dir to include", constants.CORDOVAJS);
 
         /** expose */
         _modules.game._public.BASE_DIR = constants.BASE_DIR;
@@ -939,12 +940,14 @@
 
         var gamesDirTaskExists = fileModule.dirExists(constants.GAMES_DIR);
         var SDKExists = fileModule.fileExists(constants.SDK_DIR + "gfsdk.min.js");
-        
+        var DixieExists = fileModule.fileExists(constants.SDK_DIR + "dixie.js");
+
         return Promise.all([
                 gamesDirTaskExists, 
-                SDKExists])
+                SDKExists,
+                DixieExists])
             .then(function(results){
-                if(!results[0] && !results[1]){
+                if(!results[0] && !results[1] && !results[2]){
                     return firstInit();
                 }else{
                     return Promise.resolve("AlreadyInitialized");
@@ -1226,6 +1229,30 @@
         return dom;
     }
 
+    function removeOldGmenu(dom){
+        var toRemove = [];
+        toRemove.push(dom.querySelector("link[href='/gmenu/frame.css']"));
+        toRemove.push(dom.querySelector("iframe#menu"));
+        toRemove.push(dom.querySelector("script[src='/gmenu/toggle.js']"));
+        var scripts = dom.querySelectorAll("script");
+
+        for(var i = scripts.length - 1;i >= 0; i--){
+            if(scripts[i].innerHTML.indexOf("function open") !== -1){
+                toRemove.push(scripts[i]);
+                //scripts[i].parentNode.removeChild(scripts[i]);
+                break;
+            }
+        }
+
+        for(var j = 0; j < toRemove.length;j++){
+            if(toRemove[j]){
+                toRemove[j].parentNode.removeChild(toRemove[j]);
+            }
+        }
+
+        return dom;
+    }
+
     /**
      * injectScripts in game index
      *
@@ -1248,13 +1275,14 @@
                 LOG.d("_injectScripts"); LOG.d(dom);
                 return _injectScriptsInDom(dom, sources);
             })
+            .then(removeOldGmenu)
             .then(function(dom){
                 LOG.d("Serialize dom");
                 var result = new XMLSerializer().serializeToString(dom);
                 var toReplace = "<html xmlns=\"http:\/\/www.w3.org\/1999\/xhtml\"";
                 //Remove BOM :( it's a space character it depends on config of the developer
-                result = result.replace(toReplace, "<html")
-                                .replace(RegExp(/[^\x20-\x7E\xA0-\xFF]/g), '');
+                result = result.replace(toReplace, "<html");
+                                /*.replace(RegExp(/[^\x20-\x7E\xA0-\xFF]/g), '');*/
                 return result;
             })
             .then(function(htmlAsString){
@@ -1473,15 +1501,15 @@
      * getBundleObjects
      *
      * make the jsonpRequests to get the gameObjects.
-     * This method is called only if configuration key "bundle_objects" is set with an array of gameIDs
+     * This method is called only if configuration key "bundle_games" is set with an array of gameIDs
      *
      * @returns {Promise<Array>} the gameObject with response_api_dld key
      * */
     Game.prototype.getBundleGameObjects = function(){
         var self = this;
-        if(CONF && CONF.bundleGames){
-            LOG.d("Games bundle in configuration", CONF.bundleGames);
-            var whichGameAlreadyHere = CONF.bundleGames.map(function(gameId){
+        if(CONF && CONF.bundle_games){
+            LOG.d("Games bundle in configuration", CONF.bundle_games);
+            var whichGameAlreadyHere = CONF.bundle_games.map(function(gameId){
                 return self.isGameDownloaded(gameId);
             });
 
@@ -1489,9 +1517,9 @@
                 .then(function(results){
                     LOG.d("alreadyDownloaded",results);
                     for(var i = 0;i < results.length;i++){
-                        if(results[i]) CONF.bundleGames.splice(i, 1);
+                        if(results[i]) CONF.bundle_games.splice(i, 1);
                     }
-                    return CONF.bundleGames;
+                    return CONF.bundle_games;
                 })
                 .then(function(bundlesGamesIds){
                     return bundlesGamesIds.join(",");

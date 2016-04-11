@@ -11,11 +11,38 @@
 // @deprecated since 0.2.2
 var stargateVersion = "2";
 
+var is_staging = ("IS_STAGING = 1".slice(-1) === "1");
+
+
+var argsToString = function() {
+    var args = Array.prototype.slice.call(arguments);
+    var result = '';
+    for (var i=0; i<args.length; i++) {
+        if (typeof (args[i]) === 'object') {
+            result += " " + JSON.stringify(args[i]);
+        }
+        else {
+            result += " " + args[i];
+        }
+    }
+    return result;
+};
+
 // logger function
 var log = console.log.bind(window.console, "[Stargate] ");
 var err = console.error.bind(window.console, "[Stargate] ");
 var war = console.warn.bind(window.console, "[Stargate] ");
-
+if (!is_staging) {
+    log = function(){
+        console.log("[I] [Stargate] "+argsToString.apply(null, arguments));
+    };
+    err = function(){
+        console.log("[E] [Stargate] "+argsToString.apply(null, arguments));
+    };
+    war = function(){
+        console.log("[W] [Stargate] "+argsToString.apply(null, arguments));
+    };
+}
 
 
 // device informations   // examples
@@ -86,7 +113,18 @@ var isStargateInitialized = false;
 var isStargateOpen = false;
 var initializeCallback = null;
 
+/**
+ * appVersion: version number of the app
+ */
 var appVersion = '';
+/**
+ * appBuild: build identifier of the app
+ */
+var appBuild = '';
+/**
+ * appPackageName: package name of the app - the reversed domain name app identifier like com.example.myawesomeapp
+ */
+var appPackageName = '';
 
 /**
  * 
@@ -165,7 +203,7 @@ var setHybridVersion = function() {
     }
 };
 
-var hydeSplashAndLoaders = function() {
+var hideSplashAndLoaders = function() {
     
     navigator.splashscreen.hide();
     setBusy(false);
@@ -286,12 +324,12 @@ var onPluginReady = function (resolve) {
         .catch(function (error) {
             err("onPluginReady() error: ",error);
             
-            onStargateReady(resolve);
+            onStargateReady(resolve, error);
         });
 };
 
-var onStargateReady = function(resolve) {
-    hydeSplashAndLoaders();
+var onStargateReady = function(resolve, error) {
+    hideSplashAndLoaders();
             
     // initialize finished
     isStargateOpen = true;
@@ -299,11 +337,30 @@ var onStargateReady = function(resolve) {
     log("version "+stargatePackageVersion+" ready; "+
         " running in package version: "+appVersion);
     
+    var appInformation = {
+        cordova: runningDevice.cordova,
+        manufacturer: runningDevice.manufacturer,
+        model: runningDevice.model,
+        platform: runningDevice.platform,
+        deviceId: runningDevice.uuid,
+        version: runningDevice.version,
+        packageVersion: appVersion,
+        packageName: appPackageName,
+        packageBuild: appBuild,
+        stargate: stargatePackageVersion
+    };    
+    if (requested_modules && requested_modules.constructor === Array) {
+        appInformation.stargateModules = requested_modules.join(", ");
+    }
+    if (error && (error instanceof Error)) {
+        appInformation.stargateError = error.toString();
+    }
+    
     //execute callback
-    initializeCallback(true);
+    initializeCallback(true, appInformation);
 
     log("Stargate.initialize() done");
-    resolve(true);
+    resolve(true, appInformation);
 };
 
 var onDeviceReady = function (resolve, reject) {
@@ -321,7 +378,9 @@ var onDeviceReady = function (resolve, reject) {
     Promise.all([
         // include here all needed asyncronous initializazion
         cordova.getAppVersion.getVersionNumber(),
-        getManifest()
+        getManifest(),
+        cordova.getAppVersion.getPackageName(),
+        cordova.getAppVersion.getVersionCode()        
     ])
     .then(function(results) {
         // save async initialization result
@@ -331,6 +390,9 @@ var onDeviceReady = function (resolve, reject) {
 		if (typeof results[1] !== 'object') {
 			results[1] = JSON.parse(results[1]);
 		}
+        
+        appPackageName = results[2];
+        appBuild = results[3];
 
         baseUrl = results[1].start_url;
 
