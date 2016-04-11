@@ -256,6 +256,25 @@ callbackError - a function that will be called in case of error
 
 return current Stargate version
 
+## Stargate.getAppInformation()
+
+return {object} with this information:
+
+Value|Description
+--- | --- 
+*cordova* | Cordova version
+*manufacturer* | device manufacter
+*model* | device model
+*platform* | platform (Android, iOs, etc)
+*deviceId* | device UUID
+*version* | platform version
+*packageVersion* | package version
+*packageName* | package name ie: com.stargatejs.test
+*packageBuild* | package build number
+*stargate* | stargate version
+*stargateModules* | modules initialized
+*stargateError* | initialization error
+
 ## ~~Stargate.googleLogin(callbackSuccess, callbackError)~~
 
 not implemented
