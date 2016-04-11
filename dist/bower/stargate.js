@@ -18,7 +18,7 @@
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.3.2";
+    var stargatePackageVersion = "0.3.3";
     var stargatePublic = {};
     
     var stargateModules = {};       
@@ -3471,6 +3471,31 @@ stargatePublic.getVersion = function() {
 };
 
 /**
+ * @return {object} application information;
+ * 
+ * this information are available only after initialize complete
+ * 
+ * object keys returned and meaning
+ * 
+ *  cordova: Cordova version,
+ *  manufacturer: device manufacter,
+ *  model: device model,
+ *  platform: platform (Android, iOs, etc),
+ *  deviceId: device id or UUID,
+ *  version: platform version,
+ *  packageVersion: package version,
+ *  packageName: package name ie: com.stargatejs.test,
+ *  packageBuild: package build number,
+ *  stargate: stargate version,
+ *  stargateModules: stargate modules initialized,
+ *  stargateError: stargate initialization error 
+ * 
+ */
+stargatePublic.getAppInformation = function() {
+    return appInformation;
+};
+
+/**
  * This is a decorator:
  * before calling a module's function I check that stargate is initialized for each module
  *
@@ -3644,6 +3669,26 @@ var hybrid_conf = {},
  * 
  */
 var baseUrl;
+
+/**
+ * 
+ * Application information set on initialize
+ * 
+ */
+var appInformation = {
+    cordova: null,
+    manufacturer: null,
+    model: null,
+    platform: null,
+    deviceId: null,
+    version: null,
+    packageVersion: null,
+    packageName: null,
+    packageBuild: null,
+    stargate: null,
+    stargateModules: null,
+    stargateError: null 
+};
 
 var updateStatusBar = function() {
 
@@ -3840,7 +3885,7 @@ var onStargateReady = function(resolve, error) {
     log("version "+stargatePackageVersion+" ready; "+
         " running in package version: "+appVersion);
     
-    var appInformation = {
+    appInformation = {
         cordova: runningDevice.cordova,
         manufacturer: runningDevice.manufacturer,
         model: runningDevice.model,
@@ -3860,10 +3905,10 @@ var onStargateReady = function(resolve, error) {
     }
     
     //execute callback
-    initializeCallback(true, appInformation);
+    initializeCallback(true);
 
     log("Stargate.initialize() done");
-    resolve(true, appInformation);
+    resolve(true);
 };
 
 var onDeviceReady = function (resolve, reject) {
