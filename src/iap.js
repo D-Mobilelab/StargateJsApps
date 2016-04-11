@@ -191,7 +191,7 @@ var IAP = {
     onProductOwned: function(p){
         log('[IAP] > Product Owned.');
         if (!p.transaction.id && isRunningOnIos()){
-            log('[IAP] > no transaction id');
+            err('[IAP] > no transaction id');
             return false;
         }
         window.localStorage.setItem('product', p);
