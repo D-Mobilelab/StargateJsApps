@@ -505,22 +505,48 @@
                 return fileModule.readFileAsHTML(entry[0].path);
             })
             .then(function(dom){
-                // TODO: injectLocalSDK and other scripts with one call
-                LOG.d("_injectScripts"); LOG.d(dom);
+                function appendToHead(element){ dom.head.appendChild(element);}
+
+                var metaTags = dom.body.querySelectorAll("meta");
+                var linkTags = dom.body.querySelectorAll("link");
+                var styleTags = dom.body.querySelectorAll("style");
+                var titleTag = dom.body.querySelectorAll("title");
+
+                metaTags = [].slice.call(metaTags);
+                linkTags = [].slice.call(linkTags);
+                styleTags = [].slice.call(linkTags);
+                titleTag = [].slice.call(linkTags);
+
+                linkTags.forEach(appendToHead);
+                metaTags.forEach(appendToHead);
+                styleTags.forEach(appendToHead);
+                titleTag.forEach(appendToHead);
+
+                dom.body.innerHTML = dom.body.innerHTML.trim();
+
+                LOG.d("_injectScripts");
+                LOG.d(dom);
                 return _injectScriptsInDom(dom, sources);
             })
             .then(removeOldGmenu)
             .then(function(dom){
-                LOG.d("Serialize dom");
-                var result = new XMLSerializer().serializeToString(dom);
+
+                /*var result = new window.XMLSerializer().serializeToString(dom);
                 var toReplace = "<html xmlns=\"http:\/\/www.w3.org\/1999\/xhtml\"";
                 //Remove BOM :( it's a space character it depends on config of the developer
                 result = result.replace(toReplace, "<html");
                                 /*.replace(RegExp(/[^\x20-\x7E\xA0-\xFF]/g), '');*/
-                return result;
+                var attrs = [].slice.call(dom.querySelector("html").attributes);
+
+                var htmlAttributesAsString = attrs.map(function(item){
+                    return item.name + '=' + '"' + item.value+'"';
+                }).join(" ");
+
+                var finalDocAsString = "<!DOCTYPE html><html " + htmlAttributesAsString + ">" + dom.documentElement.innerHTML + "</html>";
+                LOG.d("Serialized dom", finalDocAsString);
+                return finalDocAsString;
             })
             .then(function(htmlAsString){
-                htmlAsString = htmlAsString.trim();
                 LOG.d("Write dom:", indexPath, htmlAsString);
                 return fileModule.write(indexPath, htmlAsString);
             });

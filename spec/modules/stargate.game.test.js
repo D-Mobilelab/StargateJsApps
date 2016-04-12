@@ -42,6 +42,7 @@ function writeJson(name, object){
             return stargateModules.file.write(result.path,JSON.stringify(object))
         });
 }
+
 var juicy =
 {
     "id":"4de756a55ac71f45c5b7b4211b71219e",
@@ -109,6 +110,15 @@ var juicy =
         "message":"WEBAPP_CONTENT_DOWNLOAD_STARTED"
     }
 };
+
+var impossible = {"id":"5ae518927ae19093dc6363f812c62c58","title":"Impossible Super Ninja","description":"The most intense one-button game.","publisher":{"title_publisher":"doubleSmith","url_publisher":"#!\/publisher\/doubleSmith"},"description_short":"The most intense one-button game.","images":{"screenshot":["http:\/\/s2.motime.com\/p\/bcontents\/absimageappscreenshot0_8\/h[HSIZE]\/w[WSIZE]\/xx_gameasy\/mnt\/alfresco_content_prod\/contentstore\/2015\/12\/21\/13\/7\/7da71cbe-52a0-4e72-958f-1fe95311ac94\/impossible-super-ninja.bin?v=1459902869","http:\/\/s2.motime.com\/p\/bcontents\/absimageappscreenshot0_8\/h[HSIZE]\/w[WSIZE]\/xx_gameasy\/mnt\/alfresco_content_prod\/contentstore\/2015\/12\/21\/13\/7\/7f6bcaf9-9d2b-47be-b9fe-8f6ccd0eb887\/impossible-super-ninja.bin?v=1459902869","http:\/\/s2.motime.com\/p\/bcontents\/absimageappscreenshot0_8\/h[HSIZE]\/w[WSIZE]\/xx_gameasy\/mnt\/alfresco_content_prod\/contentstore\/2015\/12\/21\/13\/7\/79998eda-b548-47ff-ac7a-e0bbefed36dd\/impossible-super-ninja.bin?v=1459902869"],"cover":{"ratio_0_7":"http:\/\/s2.motime.com\/p\/bcontents\/absimageapp0_7\/h[HSIZE]\/w[WSIZE]\/xx_gameasy\/mnt\/alfresco_content_prod\/contentstore\/2015\/12\/21\/13\/7\/df4c2944-6e19-4fd3-bb35-16d25aecdc18\/impossible-super-ninja.bin?v=1459902869","ratio_1_4":"http:\/\/s2.motime.com\/p\/bcontents\/absimageapp1_4\/h[HSIZE]\/w[WSIZE]\/xx_gameasy\/mnt\/alfresco_content_prod\/contentstore\/2015\/12\/21\/13\/7\/11a3ef3c-382a-4cb0-88eb-dfab685d32ef\/impossible-super-ninja.bin?v=1459902869","ratio_1":"http:\/\/s2.motime.com\/p\/bcontents\/absimageapp1\/h[HSIZE]\/w[WSIZE]\/xx_gameasy\/mnt\/alfresco_content_prod\/contentstore\/2015\/12\/21\/13\/7\/2dffd5c8-3563-4ea2-af3f-d55669e58b79\/impossible-super-ninja.bin?v=1459902869","ratio_2":"http:\/\/s2.motime.com\/p\/bcontents\/absimageapp2\/h[HSIZE]\/w[WSIZE]\/xx_gameasy\/mnt\/alfresco_content_prod\/contentstore\/2015\/12\/21\/13\/7\/0346e797-9453-440f-8eb5-10d3dbf53808\/impossible-super-ninja.bin?v=1459902869","ratio_1_5":"http:\/\/s2.motime.com\/p\/bcontents\/absimageapp1_5\/h[HSIZE]\/w[WSIZE]\/xx_gameasy\/mnt\/alfresco_content_prod\/contentstore\/2015\/12\/21\/13\/7\/81ab50e0-aa7b-4723-a3e0-b4036c6f24ef\/impossible-super-ninja.bin?v=1459902869"},"icon":"http:\/\/s2.motime.com\/p\/bcontents\/absimageappicon\/h[HSIZE]\/w[WSIZE]\/xx_gameasy\/mnt\/alfresco_content_prod\/contentstore\/2015\/12\/21\/13\/7\/b85bb5ca-8c41-4501-aaa3-1469c57d834f\/impossible-super-ninja.bin?v=1459902869"},"category":{"id_category":"5bfa4fcff1f05613b419ebb072035925","name_category":"Adventure","cs_id":"60e9cc48-2662-4ad7-9e1d-dc27b9e5b3d3","born_date_category":"Thu, 26 Nov 2015 08:17:47 -0000","inserted_date_category":"Fri, 11 Dec 2015 14:17:05 -0000","source_id":"alfresco_xx_gameasy_Adventure","supplier_id":"alfresco","url_cover":"http:\/\/s2.motime.com\/p\/bcontents\/absimageappraw\/h1\/w1\/xx_gameasy\/mnt\/alfresco_content_prod\/contentstore\/2016\/2\/15\/12\/53\/c710daba-eab8-4a49-9dcf-e1e29a2e2fa2\/adventure.bin?v=1460361489","url_category":"#!\/category\/5bfa4fcff1f05613b419ebb072035925\/Adventure","url_leaf_engine_subscription_category":"","url_preview_big_category":"","url_preview_small_category":""},"url_zoom":"#!\/games\/impossible-super-ninja_5ae518927ae19093dc6363f812c62c58","url_zoom_simple":"impossible-super-ninja_5ae518927ae19093dc6363f812c62c58","img_qrcode":"\/qrcode?text=%2Fsetwelcome%3Freturn_url%3D%252F%2523%2521%252Fgames%252Fimpossible-super-ninja_HA990001809","url_share":"\/share\/games\/impossible-super-ninja_HA990001809","url_leaf_engine_subscription":"\/subscribe\/content\/HA990001809","url_api_dld":"http:\/\/www.gameasy.com\/ww\/\/v01\/contents\/5ae518927ae19093dc6363f812c62c58\/download?formats=html5applications","size":"6,57 MB","compatibility":true,"alfresco_id":"HA990001809","counters_matches":0,"counters_favourites":0,"cs_id":"HA990001809","url_play":"\/html5gameplay\/5ae518927ae19093dc6363f812c62c58\/game\/impossible-super-ninja","has_sdk":true,"format":"html5applications","access_type":{"guest":false,"free":false,"premium":true},"offline_available":true,
+    response_api_dld:{
+    status: 200,
+        url_download: "http://www2.gameasy.com/ww/html5gameplay/5a/e5/5ae518927ae19093dc6363f812c62c58/xx_gameasy/game/impossiblesuperninja_index.html",
+    binary_url: "http://s2.motime.com/p/bcontents/appsdownload/xx_gameasy/2016/2/5/8/54/9618d49c-8c89-4805-b66f-47a5ba15ae1d/impossible-super-ninja.bin?v=1459902869",
+    binary_md5: "d7dc7fee91c10b15fd75ab32d5964aa4",
+    message: "WEBAPP_CONTENT_DOWNLOAD_STARTED"
+}};
 
 var majong = {
     "id": "74990332995a695e0dba36441ff7f631",
@@ -442,7 +452,7 @@ function manualDownload(){
     stargateModules.game._protected.initialize(conf)
         .then(console.log.bind(console))
         .then(function(){
-            return stargateModules.game._public.download(majong, cbks);
+            return stargateModules.game._public.download(impossible, cbks);
         })
         .then(function(){
             return Promise.all([
