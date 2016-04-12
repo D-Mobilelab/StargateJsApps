@@ -202,9 +202,9 @@
     Game.prototype.download = function(gameObject, callbacks){
 
         if(this.isDownloading()){ return Promise.reject("Downloading...try later");}
-        if(gameObject.response_api_dld.status !== 200){
-            callbacks.onEnd("response_api_dld.status not equal 200");
-            return Promise.reject("response_api_dld.status not equal 200");
+        if((!gameObject.hasOwnProperty("response_api_dld")) || gameObject.response_api_dld.status !== 200){
+            callbacks.onEnd("response_api_dld.status not equal 200 or undefined");
+            return Promise.reject("response_api_dld.status not equal 200 or undefined");
         }
 
         var alreadyExists = this.isGameDownloaded(gameObject.id);
