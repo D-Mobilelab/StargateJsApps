@@ -1,5 +1,7 @@
 
 
+
+
 describe("Stargate public interface", function() {
 	it("Stargate exists", function() {
 		expect(stargatePublic).toBeDefined();
@@ -144,4 +146,73 @@ describe("Stargate version", function() {
 
 });
 
+describe("Stargate loader cordova plugin check", function() {
+    
+	it("startLoading return error", function() {
+        var result = startLoading();
+        
+		expect(result).not.toBe(true);
+        expect(err).toHaveBeenCalled();
+		expect(err.calls.mostRecent().args[0]).toMatch(/cordova plugin missing/);
+	});
+    
+    it("stopLoading return error", function() {
+        var result = stopLoading();
+        
+		expect(result).not.toBe(true);
+        expect(err).toHaveBeenCalled();
+		expect(err.calls.mostRecent().args[0]).toMatch(/cordova plugin missing/);
+	});
+    
+    it("changeLoadingMessage return error", function() {
+        var result = changeLoadingMessage();
 
+		expect(result).not.toBe(true);
+        expect(err).toHaveBeenCalled();
+		expect(err.calls.mostRecent().args[0]).toMatch(/cordova plugin missing/);
+	});
+
+});
+
+
+describe("Stargate loader", function() {
+    var spinnerVisible = false;
+    var spinnerMessage = null;
+    
+    beforeEach(function() {
+		window.SpinnerDialog = {
+            
+            show: function(p1, p2, p3) {
+                spinnerVisible = true;
+                spinnerMessage = p2;
+            },
+            
+            hide: function() {
+                spinnerVisible = false;
+            }
+        };
+
+    });
+	afterEach(function() {
+		
+	});
+
+	it("startLoading return true", function() {
+        var result = startLoading();
+        
+		expect(result).toBe(true);
+	});
+    
+    it("stopLoading return true", function() {
+        var result = stopLoading();
+        
+		expect(result).toBe(true);
+	});
+    
+    it("changeLoadingMessage return true", function() {
+        var result = changeLoadingMessage();
+
+		expect(result).toBe(true);
+	});
+
+});

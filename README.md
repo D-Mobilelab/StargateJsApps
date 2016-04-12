@@ -1,9 +1,12 @@
-[![Travis](http://img.shields.io/travis/BuongiornoMIP/StargateJsApps.svg?branch=master&style=flat)](https://travis-ci.org/BuongiornoMIP/StargateJsApps)
+[![Travis](http://img.shields.io/travis/D-Mobilelab/StargateJsApps.svg?branch=master&style=flat)](https://travis-ci.org/BuongiornoMIP/StargateJsApps)
 
-[![Coverage Status](https://coveralls.io/repos/BuongiornoMIP/StargateJsApps/badge.svg?branch=master&service=github)](https://coveralls.io/github/BuongiornoMIP/StargateJsApps?branch=master)
+[![Coverage Status](https://coveralls.io/repos/D-Mobilelab/StargateJsApps/badge.svg?branch=master&service=github)](https://coveralls.io/github/BuongiornoMIP/StargateJsApps?branch=master)
+
 
 
 # StargateJsApps
+
+[![Join the chat at https://gitter.im/D-Mobilelab/StargateJsApps](https://badges.gitter.im/D-Mobilelab/StargateJsApps.svg)](https://gitter.im/D-Mobilelab/StargateJsApps?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 StargateJS hybridization library for HTML5 apps
 
@@ -27,7 +30,7 @@ use stargate.js or stargate.min.js in dist/ folder
 Install stargate bower package and save to dependencies (not dev dependencies):
 
 
-    $ bower install -S https://github.com/BuongiornoMIP/StargateJsApps.git#~v0.1.4
+    $ bower install -S stargatejs-apps#~v0.2.2
 
 
 # API Reference
@@ -48,25 +51,49 @@ The callback is called with a boolean result indicating if we are inside hybrid 
 
 It's a javascript object with configurations.
 
-Option|Submodule|Description|Default
+Option|Type|Description|Default
 --- | --- | --- | ---
-*country* | MFP | MFP api configuration | `undefined`
-*hybrid_conf* | - | Additional configuration object| `{}`
+*modules* | Array of string | List of modules to initialize | `["mfp","iapbase","appsflyer","game"]`
+*modules_conf* | Object | Configuration of submodule| `{}`
 
-#### hybrid_conf configuration object
+#### modules configuration list
+
+Value|Description
+--- | --- 
+*iap* | InApp purchase module
+*iapbase* | InApp purchase module without refresh on initialize
+*mfp* | Mobile Fingerprint purchase module
+*appsflyer* | AppsFlyer module
+*game* | Offline game module
+
+#### modules_conf configuration object
 
 Option|Description|Default
 --- | --- | ---
-*IAP* | IAP configuration object | `undefined`
+*iap* | InApp purchase configuration object | `undefined`
+*mfp* | Mobile Fingerprint configuration object | `undefined`
 
-#### hybrid_conf IAP configuration configuration object
+#### modules_conf mfp configuration configuration object
+
+Option|Description|Example
+--- | --- | ---
+*country* | Country to use for mfp | `"it"`
+
+There are two more variable needed for Mobile FingerPrint to work and these variable are retrieved from the manifest.json inside the app:
+
+Value|Description
+--- | --- 
+*namespace* | namespace
+*label* | label
+
+
+#### modules_conf iap or iapbase configuration configuration object
 
 Option|Description|Example
 --- | --- | ---
 *id* | Product id as registred on store | `"stargate.test.spec.subscription"`
 *alias* | Product alias | `"Stargate Test Subscription"`
 *type* | Type of product; it can be: FREE_SUBSCRIPTION, PAID_SUBSCRIPTION, CONSUMABLE, NON_CONSUMABLE | `"PAID_SUBSCRIPTION"`
-*verbosity* | It can be: DEBUG, INFO, WARNING, ERROR, QUIET | `"DEBUG"`
 
 
 
@@ -74,21 +101,18 @@ Option|Description|Example
 ```javascript
 
 var configurations = {
-    country: "xx",
-    hybrid_conf: {
-        "IAP": {
+    modules: ["mfp", "appsflyer", "iapbase", "game"],
+    modules_conf: {
+        "iap": {
             "id": "stargate.test.spec.subscription",
             "alias": "Stargate Test Subscription",
-            "type": "PAID_SUBSCRIPTION",
-            "verbosity": "DEBUG"
+            "type": "PAID_SUBSCRIPTION"
+        },
+        "mfp": {
+            "country": "us"
         }
     }
 };
-
-// hybrid_conf inside configurations can also be uri encoded
-//  if you need to save it in a configuration file for example
-var hybrid_conf_uriencoded = encodeURIComponent(JSON.stringify({"example": "conf"}));
-
 
 var callback = function(result) {
     console.log("Stargate initialized with result: "+result);
@@ -194,10 +218,62 @@ IAP subscription
 
 IAP restore
 
+## Stargate.inAppProductInfo(productId, callbackSuccess, callbackError)
+
+IAP product information
+
+Call callbacks with information about a product got from store
+
+productId - product id about to query for information on store
+
+callbackSuccess - a function that will be called when information are ready
+
+callbackError - a function that will be called in case of error
+
+
+```javascript
+// example of object sent to success callback
+{
+    "id": "stargate.test.spec.product1",
+    "alias": "Test Spec Product 1",
+    "title": "Test Spec Product 1",
+    "description": "Test Spec Product 1",
+    "currency": "EUR",
+    "price": "0,99 €",
+    "type": "paid subscription",
+    "canPurchase": true,
+    "downloaded": false,
+    "downloading": false,
+    "loaded": true,
+    "owned": false,
+    "state": "valid",
+    "transaction": null,
+    "valid": true
+}
+```
 
 ## Stargate.getVersion()
 
 return current Stargate version
+
+## Stargate.getAppInformation()
+
+return {object} with this information:
+
+Value|Description
+--- | --- 
+*cordova* | Cordova version
+*manufacturer* | device manufacter
+*model* | device model
+*platform* | platform (Android, iOs, etc)
+*deviceId* | device UUID
+*version* | platform version
+*packageVersion* | package version
+*packageName* | package name ie: com.stargatejs.test
+*packageBuild* | package build number
+*stargate* | stargate version
+*stargateModules* | modules initialized
+*stargateError* | initialization error
 
 ## ~~Stargate.googleLogin(callbackSuccess, callbackError)~~
 
@@ -266,7 +342,7 @@ Inside manifest there is an object that holds all configuration options of Starg
 1. npm test
 2. change version in package.json
 3. gulp build
-4. git commit -m "New revision x.x.x" dist/
+4. git commit -m "New revision x.x.x" dist/ package.json
 5. git tag -a vx.x.x -m "Added xxxx. Changed xxxx. Fixed: xxxx"
 6. git push --tags
 

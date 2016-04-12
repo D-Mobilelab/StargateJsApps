@@ -20,7 +20,7 @@
     "stargateConf": {
     "title": "Gameasy",
         "country": "",
-
+        "webapp_start_url": "http://www2.gameasy.com/?hybrid=1",
         "motime_apikey": "",
         "namespace": "",
         "label": "",
@@ -35,7 +35,7 @@
             "androidMenuPlayme": false,
             "inappPurchase": true,
             "deltadna" : false,
-            "offline":true
+            "game":true
     },
 
     "api": {
@@ -44,7 +44,6 @@
             "googleToken": "https://accounts.google.com/o/oauth2/token",
             "userCreate": "%domain%/%country%/%selector%/%app_prefix%/store/usercreate/"
     },
-
     "statusbar": {
         "hideOnUrlPattern": [
             ".*"
@@ -59,7 +58,6 @@
             }
         }
     },
-
     "deltadna" : {
         "environmentKey": "",
             "collectApi": "",

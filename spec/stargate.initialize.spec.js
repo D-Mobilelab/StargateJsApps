@@ -2,15 +2,28 @@ var spec_hybrid_conf_expected = {
 	"IAP": {
 		"id": "stargate.test.spec.subscription",
 		"alias": "Stargate Test Subscription",
-		"type": "PAID_SUBSCRIPTION",
-		"verbosity": "DEBUG"
-	}
+		"type": "PAID_SUBSCRIPTION"
+	},
+    "mfp": {
+        "country": "xx"
+    }
 };
-var spec_hybrid_conf_uriencoded = "%7B%22IAP%22%3A%20%7B%22id%22%3A%20%22stargate.test.spec.subscription%22%2C%22alias%22%3A%20%22Stargate%20Test%20Subscription%22%2C%22type%22%3A%20%22PAID_SUBSCRIPTION%22%2C%22verbosity%22%3A%20%22DEBUG%22%7D%7D";
+var spec_hybrid_conf_uriencoded = "%7B%22IAP%22%3A%20%7B%22id%22%3A%22stargate.test.spec.subscription%22%2C%22alias%22%3A%22Stargate%20Test%20Subscription%22%2C%22type%22%3A%22PAID_SUBSCRIPTION%22%7D%7D";
 
 var spec_configurations = {
 	country: "xx",
 	hybrid_conf: spec_hybrid_conf_uriencoded
+};
+
+var spec_modules_conf = {
+	"iap": {
+		"id": "stargate.test.spec.subscription",
+		"alias": "Stargate Test Subscription",
+		"type": "PAID_SUBSCRIPTION"
+	},
+    "mfp": {
+        "country": "xx"
+    }
 };
 
 var spec_device_mock = {
@@ -84,9 +97,13 @@ var hostedwebapp_mock = {
 var cordova_mock = {
 	getAppVersion: {
 		getVersionNumber: function() {
-			var deferred = Q.defer();
-		    setTimeout(deferred.resolve("0.0.1"), 1);
-		    return deferred.promise;
+            return Promise.resolve("0.0.1");
+		},
+        getPackageName: function() {
+            return Promise.resolve("com.stargatejs.testapp");
+		},
+        getVersionCode: function() {
+            return Promise.resolve("0.0.1-test");
 		}
 	}
 };
@@ -139,6 +156,7 @@ describe("Stargate initialize", function() {
 	beforeEach(function() {
 		hybrid_conf = null;
 		country = null;
+        isStargateOpen = false;
 		isStargateInitialized = false;
 
 		specTestMock = {
@@ -179,7 +197,6 @@ describe("Stargate initialize", function() {
 		stargatePublic.initialize(spec_configurations, pubKey, forge, function(){});
 
 		expect(hybrid_conf).toEqual(spec_hybrid_conf_expected);
-		expect(country).toEqual(spec_configurations.country);
 	});
 
 	it("initialize with hybrid_conf as object", function() {
@@ -187,7 +204,15 @@ describe("Stargate initialize", function() {
 		stargatePublic.initialize(spec_configurations, pubKey, forge, function(){});
 
 		expect(hybrid_conf).toEqual(spec_hybrid_conf_expected);
-		expect(country).toEqual(spec_configurations.country);
+	});
+    
+    it("initialize with modules_conf", function() {
+		var conf = {
+            modules_conf: spec_modules_conf
+        };
+		stargatePublic.initialize(conf, pubKey, forge, function(){});
+
+		expect(modules_conf).toEqual(spec_modules_conf);
 	});
 
 	it("initialize return promise", function() {
@@ -196,17 +221,17 @@ describe("Stargate initialize", function() {
 		expect(res.then).toBeDefined();
 	});
 
-	it("initialize called again show error and call back", function() {
+	it("initialize called again show warn and call back", function() {
 
 		stargatePublic.initialize(spec_configurations, pubKey, forge, function(){});		
 		expect(isStargateInitialized).toBe(true);
 
-		err = jasmine.createSpy();
+		war = jasmine.createSpy();
 
 		var cbFinish = jasmine.createSpy('cbFinish');
 
 		stargatePublic.initialize(spec_configurations, pubKey, forge, cbFinish);
-		expect(err).toHaveBeenCalled();
+		expect(war).toHaveBeenCalled();
 		expect(cbFinish).toHaveBeenCalled();
 	});
 
@@ -228,7 +253,7 @@ describe("Stargate initialize", function() {
 		expect(isStargateRunningInsideHybrid).toBe(true);
 
 		expect(document.addEventListener).toHaveBeenCalled();
-		expect(document.addEventListener).toHaveBeenCalledWith('deviceready', onDeviceReady, false);
+		expect(document.addEventListener).toHaveBeenCalledWith('deviceready', jasmine.any(Function), false);
 
 		expect(res.then).toBeDefined();
 
@@ -255,7 +280,7 @@ describe("Stargate initialize", function() {
 		expect(isStargateInitialized).toBe(true);
 		expect(isStargateRunningInsideHybrid).toBe(true);
 		expect(document.addEventListener).toHaveBeenCalled();
-		expect(document.addEventListener).toHaveBeenCalledWith('deviceready', onDeviceReady, false);
+		expect(document.addEventListener).toHaveBeenCalledWith('deviceready', jasmine.any(Function), false);
 
 		expect(res.then).toBeDefined();
 
@@ -288,19 +313,19 @@ describe("Stargate initialize", function() {
 
 		
 		// suppress console messages
-		spyOn(console, 'error');
-		spyOn(console, 'log');
+		//spyOn(console, 'error');
+		//spyOn(console, 'log');
 
 		var cbFinish = jasmine.createSpy('cbFinish');
 
 		var res = stargatePublic.initialize(spec_configurations, cbFinish);
 
-		expect(isStargateInitialized).toBe(true);
-		expect(isStargateRunningInsideHybrid).toBeFalsy();
-
 		expect(res.then).toBeDefined();
-
+        
+        
 		res.then(function() {
+            expect(isStargateInitialized).toBe(true);
+		    expect(isStargateRunningInsideHybrid).toBeFalsy();
 			expect(cbFinish).toHaveBeenCalled();
 			done();
 		});
@@ -339,8 +364,9 @@ describe("Stargate initialize", function() {
     it("checkConnection info object online", function(done) {
         var timeout = 100;
         isStargateInitialized = true;
+        isStargateOpen = true;
         navigator_connection_mock.type = "wifi";
-        SimulateEvent("online",{networkState:"wifi"}, timeout, "window");
+        SimulateEvent("online",{networkState:"wifi"}, timeout, "document");
 
         setTimeout(function() {
             var connectionInfo = stargatePublic.checkConnection(function(){}, function(){});
@@ -356,8 +382,9 @@ describe("Stargate initialize", function() {
     it("checkConnection info object offline", function(done) {
         var timeout = 100;
         isStargateInitialized = true;
+        isStargateOpen = true;
         navigator_connection_mock.type = "none";
-        SimulateEvent("offline", {networkState:"none"}, timeout, "window");
+        SimulateEvent("offline", {networkState:"none"}, timeout, "document");
         setTimeout(function() {
             var connectionInfo = stargatePublic.checkConnection(function(){}, function(){});
             expect(connectionInfo.type).toBeDefined();
@@ -372,8 +399,9 @@ describe("Stargate initialize", function() {
     it("checkConnection without functions callback", function(done) {
         var timeout = 100;
         isStargateInitialized = true;
+        isStargateOpen = true;
         navigator_connection_mock.type = "none";
-        SimulateEvent("offline", {networkState:"none"}, timeout, "window");
+        SimulateEvent("offline", {networkState:"none"}, timeout, "document");
         setTimeout(function() {
             var connectionInfo = stargatePublic.checkConnection();
             expect(connectionInfo.type).toBeDefined();
@@ -383,6 +411,37 @@ describe("Stargate initialize", function() {
             isStargateInitialized = false;
             done();
         }, timeout + 10);
+    });
+
+    it("stargate addListener on OFFLINE event", function(done) {
+        isStargateInitialized = true;
+        isStargateOpen = true;
+        navigator_connection_mock.type = "none";
+
+        stargatePublic.addListener("connectionchange", function(connection){
+            //console.log("Connection", connection);
+            expect(connection.type).toEqual("offline");
+            expect(connection.networkState).toBeDefined();
+            done();
+        });
+
+        SimulateEvent("offline", {networkState:"none"}, 1);
+    });
+
+    it("stargate addListener on ONLINE event", function(done) {
+        isStargateInitialized = true;
+        isStargateOpen = true;
+        navigator_connection_mock.type = "wifi";
+
+        stargatePublic.addListener("connectionchange", function(connection){
+            //console.log("Connection", connection);
+            expect(connection.type).toEqual("online");
+            expect(connection.networkState).toBeDefined();
+            expect(connection.networkState).toEqual("wifi");
+            done();
+        });
+
+        SimulateEvent("online", {networkState:"wifi"}, 1);
     });
 	
 });

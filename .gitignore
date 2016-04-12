@@ -10,6 +10,8 @@ demo/plugins/
 demo/platforms/
 hello/plugins/
 hello/platforms/
+hello/www/jasmine/src/
+hello/www/jasmine/spec/
 hello/res/*
 cordova/plugins/
 cordova/platforms/
@@ -20,3 +22,4 @@ demo/www/js/stargate.js
 
 .DS_Store
 .idea
+gh-pages/

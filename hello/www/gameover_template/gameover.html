@@ -1,0 +1,37 @@
+<a id="gfsdk-more-games" style="left: 0px; height: 44px; top: 0px; margin-top: 0px; z-index: 9; width: 43px; position: absolute; margin-left: 0px; display: block; background-image: url(&quot;http://s2.motime.com/img/wl/webstore_html5game/images/gameover/sprite.png?v=20150610133322&quot;); background-position: -22px -428px;"></a>
+<div id="gfsdk_root">
+    <div class="container game-over">
+        <!-- qui ci dovrebbe andare il bg personalizzato -->
+        <header>
+            <nav class="text-center" role="navigation">
+                <h1><a href="/#!/" class="logo link-head"></a></h1>
+            </nav>
+        </header>
+        <div class="box-game-over">
+            <!-- qui inizia il contenitore neutro della game over -->
+            <div class="bg-line-box">
+                <div class="game-over-data">
+                    <!-- risultato sfida -->
+                    <div class="score score-guest"> <span class="icon-coppa"></span>
+                        <h3>You have scored</h3>
+                        <h2>{{score}}</h2>
+                    </div>
+                    <div class="img-game">
+                        <div class="img"><img src="{{url_cover}}">
+                            <div class="gradient-bg-bottom"></div>
+                        </div><a class="btn play" onclick="GameOverCore.playAgain()"><span class="icon-replay"></span><span>Replay</span></a>
+                        <div class="like-btn"><a onclick="GameOverCore.toggleLike()" id="gameOverLikeBtn" class="btn heart-active "><span class="icon-cuore_verde_zoom ico-red " id="heartIcon"></span><span class="add">Add to Favorites</span><span class="remove">Remove from Favorites</span></a>
+                        </div>
+                    </div>
+                    <!-- share tramite facebook -->
+                    <div class="facebook-share">
+                        <h3>Keep playing and invite your friends</h3>
+                        <a class="btn" id="fb-challenge-button" onclick="GameOverCore.share('{{url_share}}')">
+                            <span class="icon-facebook_fill"></span>Share on Facebook </a> </div>
+                    <!-- CHIUDE contenitore score riprova e leaderboard -->
+                </div>
+            </div>
+            <!-- ################################################################################# -->
+        </div>
+    </div>
+</div>

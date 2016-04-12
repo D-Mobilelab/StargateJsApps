@@ -1,5 +1,4 @@
-
-/* globals Q */
+/* globals SpinnerDialog */
 
 /***
 * 
@@ -7,13 +6,43 @@
 * 
 */
 
-// current stargateVersion 
+// current stargateVersion used by webapp to understand
+//  the version to load based on cookie or localstorage
+// @deprecated since 0.2.2
 var stargateVersion = "2";
+
+var is_staging = ("IS_STAGING = 1".slice(-1) === "1");
+
+
+var argsToString = function() {
+    var args = Array.prototype.slice.call(arguments);
+    var result = '';
+    for (var i=0; i<args.length; i++) {
+        if (typeof (args[i]) === 'object') {
+            result += " " + JSON.stringify(args[i]);
+        }
+        else {
+            result += " " + args[i];
+        }
+    }
+    return result;
+};
 
 // logger function
 var log = console.log.bind(window.console, "[Stargate] ");
 var err = console.error.bind(window.console, "[Stargate] ");
-
+var war = console.warn.bind(window.console, "[Stargate] ");
+if (!is_staging) {
+    log = function(){
+        console.log("[I] [Stargate] "+argsToString.apply(null, arguments));
+    };
+    err = function(){
+        console.log("[E] [Stargate] "+argsToString.apply(null, arguments));
+    };
+    war = function(){
+        console.log("[W] [Stargate] "+argsToString.apply(null, arguments));
+    };
+}
 
 
 // device informations   // examples
@@ -51,9 +80,26 @@ var initDevice = function() {
 
 
 function getManifest() {
-
-    return stargateModules.file.readFileAsJSON(cordova.file.applicationDirectory + "www/manifest.json");
-
+    
+    if (window.cordova.file) {
+        return stargateModules.file.readFileAsJSON(window.cordova.file.applicationDirectory + "www/manifest.json");
+    }
+    
+    if (window.hostedwebapp) {
+        return new Promise(function(resolve,reject){
+            window.hostedwebapp.getManifest(
+                function(manifest){
+                    resolve(manifest);
+                },
+                function(error){
+                    err(error);
+                    reject(new Error(error));
+                }
+            );
+        });
+    }
+    
+    return Promise.reject(new Error("getManifest() no available reading mechanism!"));
 }
 
 var launchUrl = function (url) {
@@ -66,24 +112,55 @@ var isStargateRunningInsideHybrid = false;
 var isStargateInitialized = false;
 var isStargateOpen = false;
 var initializeCallback = null;
-var initializeDeferred = null;
 
+/**
+ * appVersion: version number of the app
+ */
 var appVersion = '';
+/**
+ * appBuild: build identifier of the app
+ */
+var appBuild = '';
+/**
+ * appPackageName: package name of the app - the reversed domain name app identifier like com.example.myawesomeapp
+ */
+var appPackageName = '';
 
 /**
  * 
  * variables sent by server configuration
  * 
  */
-var country = '',
-    hybrid_conf = {};
+var hybrid_conf = {},
+    requested_modules = [],
+    modules_conf = {};
 
 /**
  * 
- * this is got from manifest
+ * this is get from manifest
  * 
  */
 var baseUrl;
+
+/**
+ * 
+ * Application information set on initialize
+ * 
+ */
+var appInformation = {
+    cordova: null,
+    manufacturer: null,
+    model: null,
+    platform: null,
+    deviceId: null,
+    version: null,
+    packageVersion: null,
+    packageName: null,
+    packageBuild: null,
+    stargate: null,
+    stargateModules: null,
+    stargateError: null 
+};
 
 var updateStatusBar = function() {
 
@@ -127,17 +204,36 @@ var updateStatusBar = function() {
 var setIsHybrid = function() {
 
     window.Cookies.set("hybrid", "1");
-    window.Cookies.set("stargateVersion", stargateVersion);
 
     if (!window.localStorage.getItem('hybrid')) {
         window.localStorage.setItem('hybrid', 1);
     }
+};
+
+/**
+* Set on webapp what version we need to load
+* (this will be called only after manifest is loaded on stargate)
+*/
+var setHybridVersion = function() {
+
+    window.Cookies.set("stargateVersion", getStargateVersionToLoad());
+
     if (!window.localStorage.getItem('stargateVersion')) {
-        window.localStorage.setItem('stargateVersion', stargateVersion);
+        window.localStorage.setItem('stargateVersion', getStargateVersionToLoad());
     }
 };
 
-var onPluginReady = function () {
+var hideSplashAndLoaders = function() {
+    
+    navigator.splashscreen.hide();
+    setBusy(false);
+    
+    if (typeof SpinnerDialog !== "undefined") {
+        SpinnerDialog.hide();
+    }
+};
+
+var onPluginReady = function (resolve) {
     
     // FIXME: this is needed ??
     document.title = stargateConf.title;
@@ -148,63 +244,146 @@ var onPluginReady = function () {
         exec.setJsToNativeBridgeMode(exec.jsToNativeModes.IFRAME_NAV);
     }
     
+    // save stargate version to load on webapp 
+    setHybridVersion();
 
     updateStatusBar();
 
     
-    if (hasFeature('mfp')) {
-        MFP.check();
+    if (hasFeature("mfp") && haveRequestedFeature("mfp")) {
+        var mfpModuleConf = getModuleConf("mfp");
+        
+        // configurations needed
+        //stargateConf.motime_apikey,
+	  	//stargateConf.namespace,
+        //stargateConf.label,
+        
+        // configurations needed
+        //moduleConf.country
+                  
+        // retrocompatibility
+        var keysOnStargateConf = ["motime_apikey", "namespace", "label"];
+        keysOnStargateConf.forEach(function(keyOnStargateConf) {
+            // if it's available in stargateConf but not in module conf
+            // copy it to module conf
+            if (!mfpModuleConf.hasOwnProperty(keyOnStargateConf) &&
+                stargateConf.hasOwnProperty(keyOnStargateConf)) {
+                    
+                mfpModuleConf[keyOnStargateConf] = stargateConf[keyOnStargateConf];
+            }
+        });
+        
+        MFP.check(mfpModuleConf);
     }
     
-    if (hasFeature('deltadna')) {
+    if (hasFeature("deltadna")) {
         window.deltadna.startSDK(
             stargateConf.deltadna.environmentKey,
             stargateConf.deltadna.collectApi,
             stargateConf.deltadna.engageApi,
-
             onDeltaDNAStartedSuccess,
             onDeltaDNAStartedError,
-
             stargateConf.deltadna.settings
         );
     }
 
-    
-    navigator.splashscreen.hide();
-    setBusy(false);
-
     // initialize all modules
 
     // In-app purchase initialization
-    IAP.initialize();
+    if (haveRequestedFeature("iapbase")) {
+        // base legacy iap implementation
+        IAP.initialize(
+            getModuleConf("iapbase")
+        );
+        
+    } else if (haveRequestedFeature("iap")) {
+        // if initialize ok...
+        if ( IAP.initialize( getModuleConf("iap") ) ) {
+            // ...then call refresh
+            // this doesn't works, so we do it when needed in iap module
+            //IAP.doRefresh();
+            log("Init IAP done.");
+        }
+    }
 
     // receive appsflyer conversion data event
-    appsflyer.init();
+    if (hasFeature('appsflyer') && haveRequestedFeature("appsflyer")) {
+        appsflyer.init(
+            getModuleConf("appsflyer")
+        );
+    }
     
     // apply webapp fixes
     webappsFixes.init();
-
+    
+    var modulePromises = [];
+    
     //Game Module Init
-    if (hasFeature('game') && stargateModules.game) {
-        stargateModules.game._protected.initialize({});
+    // if requested by caller (haveRequestedFeature)
+    // if available in app (has feature)
+    // if included in code (stargateModules.game)
+    if (haveRequestedFeature("game") && hasFeature('game') && stargateModules.game) {
+        // save initialization promise, to wait for
+        modulePromises.push(
+            stargateModules.game._protected.initialize(
+                getModuleConf("game")
+            )
+        );
     }
+    
+    
+    // wait for all module initializations before calling the webapp
+    Promise.all(
+            modulePromises
+        )
+        .then(function() {
+            
+            onStargateReady(resolve);
+            
+        })
+        .catch(function (error) {
+            err("onPluginReady() error: ",error);
+            
+            onStargateReady(resolve, error);
+        });
+};
 
+var onStargateReady = function(resolve, error) {
+    hideSplashAndLoaders();
+            
     // initialize finished
     isStargateOpen = true;
-
+    
     log("version "+stargatePackageVersion+" ready; "+
-        "loaded from server version: v"+stargateVersion+
         " running in package version: "+appVersion);
-
+    
+    appInformation = {
+        cordova: runningDevice.cordova,
+        manufacturer: runningDevice.manufacturer,
+        model: runningDevice.model,
+        platform: runningDevice.platform,
+        deviceId: runningDevice.uuid,
+        version: runningDevice.version,
+        packageVersion: appVersion,
+        packageName: appPackageName,
+        packageBuild: appBuild,
+        stargate: stargatePackageVersion
+    };    
+    if (requested_modules && requested_modules.constructor === Array) {
+        appInformation.stargateModules = requested_modules.join(", ");
+    }
+    if (error && (error instanceof Error)) {
+        appInformation.stargateError = error.toString();
+    }
+    
     //execute callback
-    // FIXME: check callback type is function
     initializeCallback(true);
 
     log("Stargate.initialize() done");
-    initializeDeferred.resolve(true);
+    resolve(true);
 };
 
-var onDeviceReady = function () {
+var onDeviceReady = function (resolve, reject) {
 
     // device ready received so i'm sure to be hybrid
     setIsHybrid();
@@ -216,10 +395,12 @@ var onDeviceReady = function () {
     initializeConnectionStatus();
 
     // request all asyncronous initialization to complete
-    Q.all([
+    Promise.all([
         // include here all needed asyncronous initializazion
         cordova.getAppVersion.getVersionNumber(),
-        getManifest()
+        getManifest(),
+        cordova.getAppVersion.getPackageName(),
+        cordova.getAppVersion.getVersionCode()        
     ])
     .then(function(results) {
         // save async initialization result
@@ -229,16 +410,20 @@ var onDeviceReady = function () {
 		if (typeof results[1] !== 'object') {
 			results[1] = JSON.parse(results[1]);
 		}
+        
+        appPackageName = results[2];
+        appBuild = results[3];
 
         baseUrl = results[1].start_url;
 
         stargateConf = results[1].stargateConf;
 
         // execute remaining initialization
-        onPluginReady();
+        onPluginReady(resolve, reject);
     })
-    .fail(function (error) {
+    .catch(function (error) {
         err("onDeviceReady() error: "+error);
+        reject("onDeviceReady() error: "+error);
     });
 };
 
@@ -285,11 +470,64 @@ var stargateConf = {
     features: {}
 };
 
+/**
+ * getModuleConf(moduleName)
+ * @param {string} moduleName - name of module to return conf of
+ * @returns {object} - configuration for the module sent by Stargate implementator on Stargate.initialize()
+ */
+var getModuleConf = function(moduleName) {
+    // 1. new version -> modules_conf
+    // 2. old version -> hybrid_conf
+    
+    if (!moduleName) {
+        return err("getModuleConf() invalid module requested");
+    }
+    
+    if (moduleName in modules_conf) {
+        return modules_conf[moduleName];
+    }
+    
+    // covert modulesname
+    var mapConfLegacy = {
+        "iapbase": "IAP",
+        "iap": "IAP"
+    };
+    
+    var moduleNameLegacy = moduleName;
+    if (mapConfLegacy[moduleName]) {
+        moduleNameLegacy = mapConfLegacy[moduleName];
+    }
+    
+    if (moduleNameLegacy in hybrid_conf) {
+        return hybrid_conf[moduleNameLegacy];
+    }
+    
+    log("getModuleConf(): no configuration for module: "+moduleName+" ("+mapConfLegacy+")");
+    return {};
+};
+
+/**
+ * hasFeature(feature)
+ * @param {string} feature - name of feature to check
+ * @returns {boolean} - true if app have feature requested (it check inside the manifest compiled in the app) 
+ */
 var hasFeature = function(feature) {
     return (typeof stargateConf.features[feature] !== 'undefined' && stargateConf.features[feature]);
 };
 
-
+/**
+ * haveRequestedFeature(feature)
+ * @param {string} feature - name of feature to check
+ * @returns {boolean} - true if implementator of Stargate requested the feature (it check against the configuration.modules array sent as paramenter of Stargate.initialize())
+ * 
+ * possible values: "mfp","iapbase","iap","appsflyer","webappanalytics","game" 
+ */
+var haveRequestedFeature = function(feature) {
+    if (requested_modules && requested_modules.constructor === Array) {
+        return requested_modules.indexOf(feature) > -1;
+    }
+    return false;
+};
 
 
 

@@ -26,20 +26,28 @@ var MFP = (function(){
      * @memberof MFP
      *
      * @description Start the MFP check to see if user has a session on the server
+     * @param {object} initializeConf - configuration sent by
+     * @return {boolean} - true if init ok
      *
      */
-	MobileFingerPrint.check = function(){
+	MobileFingerPrint.check = function(initializeConf){
 
 		//if (window.localStorage.getItem('mfpCheckDone')){
 		//	return;
 		//}
 
 		// country defined on main stargate.js
-		if (!country) {		
-			return err("Country not defined!");
-		}
+        var neededConfs = ["motime_apikey", "namespace", "label", "country"];
+        neededConfs.forEach(function(neededConf) {
+            if (!initializeConf.hasOwnProperty(neededConf)) {		
+                return err("[MFP] Configuration '"+neededConf+"' not defined!");
+            }
+            if (!initializeConf[neededConf]) {		
+                return err("[MFP] Configuration: '"+neededConf+"' not valid!");
+            }
+        });
 
-		MobileFingerPrint.get(country);
+		MobileFingerPrint.get(initializeConf);
 	};
 
 	MobileFingerPrint.getContents = function(country, namespace, label, extData){
@@ -93,7 +101,7 @@ var MFP = (function(){
 		launchUrl(newUrl);
 	};
 
-	MobileFingerPrint.get = function(country){
+	MobileFingerPrint.get = function(initializeConf){
 		var expire = "";
 
 	    // stargateConf.api.mfpGetUriTemplate:
@@ -101,9 +109,9 @@ var MFP = (function(){
 
 		var mfpUrl = URITemplate(stargateConf.api.mfpGetUriTemplate)
 	  		.expand({
-	  			"apikey": stargateConf.motime_apikey,
-	  			"contents_inapp": MobileFingerPrint.getContents(country, stargateConf.namespace, stargateConf.label),
-	  			"country": country,
+	  			"apikey": initializeConf.motime_apikey,
+	  			"contents_inapp": MobileFingerPrint.getContents(initializeConf.country, initializeConf.namespace, initializeConf.label),
+	  			"country": initializeConf.country,
 	  			"expire": expire
 	  	});
 

@@ -10,28 +10,50 @@ var IAP = {
     returnUrl: '',
     callbackSuccess: function(){log("[IAP] Undefined callbackSuccess");},
     callbackError: function(){log("[IAP] Undefined callbackError");},
+    callbackListingSuccess: function(){log("[IAP] Undefined callbackListingSuccess");},
+    callbackListingError: function(){log("[IAP] Undefined callbackListingError");},
+    requestedListingProductId: '',
     refreshDone: false,
     lastCreateuserUrl: '',
     lastCreateuserData: '',
     createUserAttempt: 0,
     maxCreateUserAttempt: 6,
-	
-	initialize: function () {
+    
+    refreshInProgress: false,
+    productsInfo: {},
+    
+    /**
+     * @param {object} initializeConf - configuration sent by
+     * @return {boolean} - true if init ok
+     */
+	initialize: function (initializeConf) {
         if (!window.store) {
-            err('Store not available');
-            return;
+            err("[IAP] Store not available, missing cordova plugin.");
+            return false;
         }
 		
         // initialize with current url
         IAP.returnUrl = document.location.href;
 
-        if (hybrid_conf.IAP.id) {
-            IAP.id = hybrid_conf.IAP.id;
+        if (initializeConf.id) {
+            IAP.id = initializeConf.id;
+        } else {
+            if (isRunningOnAndroid()) {
+                IAP.id = initializeConf.id_android;
+            }
+            else if (isRunningOnIos()) {
+                IAP.id = initializeConf.id_ios;
+            }
+        }
+        
+        if (!IAP.id) {
+            err("[IAP] Configuration error, missing product id!");
+            return false;
         }
 
         // 
-        if (hybrid_conf.IAP.alias) {
-            IAP.alias = hybrid_conf.IAP.alias;
+        if (initializeConf.alias) {
+            IAP.alias = initializeConf.alias;
         }
 
         //  --- type ---
@@ -39,8 +61,12 @@ var IAP = {
         // store.PAID_SUBSCRIPTION = "paid subscription";
         // store.CONSUMABLE        = "consumable";
         // store.NON_CONSUMABLE    = "non consumable";
-        if (hybrid_conf.IAP.type) {
-            IAP.type = hybrid_conf.IAP.type;
+        if (initializeConf.type) {
+            IAP.type = initializeConf.type;
+        }
+        
+        if (initializeConf.api_createuser) {
+            IAP.subscribeMethod = initializeConf.api_createuser;
         }
 
         // Available values: DEBUG, INFO, WARNING, ERROR, QUIET
@@ -71,15 +97,43 @@ var IAP = {
 		window.store.when(IAP.alias).error(function(errorPar){IAP.error(JSON.stringify(errorPar));});
         window.store.ready(function(){ IAP.onStoreReady();});
         window.store.when("order "+IAP.id).approved(function(order){IAP.onOrderApproved(order);});
-
-
         
+        // When any product gets updated, refresh the HTML.
+        window.store.when("product").updated(function(p){ IAP.saveProductInfo(p); });
+        
+        return true;
     },
-
+    
+    saveProductInfo: function(params) {
+        IAP.refreshInProgress = false;
+        if (typeof params !== "object") {
+            err("[IAP] saveProductInfo() got invalid data");
+            return;
+        }
+        
+        if ("id" in params) {
+            IAP.productsInfo[params.id] = params;
+            
+        } else {
+            err("[IAP] saveProductInfo() got invalid data, id undefined");
+            return;
+        }
+        
+        if (IAP.requestedListingProductId === params.id) {
+                
+            IAP.callbackListingSuccess(params);
+        }
+    },
+    
     doRefresh: function(force) {
+        if (IAP.refreshInProgress) {
+            war("[IAP] doRefresh() refresh in progress, skipping...");
+        }
         if (!IAP.refreshDone || force) {
             window.store.refresh();
             IAP.refreshDone = true;
+            IAP.refreshInProgress = true;
+            log("[IAP] doRefresh() refreshing...");            
         }
     },
 
@@ -141,7 +195,7 @@ var IAP = {
     onProductOwned: function(p){
         log('[IAP] > Product Owned.');
         if (!p.transaction.id && isRunningOnIos()){
-            log('[IAP] > no transaction id');
+            err('[IAP] > no transaction id');
             return false;
         }
         window.localStorage.setItem('product', p);
@@ -188,9 +242,9 @@ var IAP = {
 	
 	error: function(error) {
         setBusy(false);
-        IAP.callbackError({'iap_error': 1, 'return_url' : IAP.returnUrl});
-
 		err('[IAP] error: '+error);	
+        
+        IAP.callbackError({'iap_error': 1, 'return_url' : IAP.returnUrl});
 	},
 	
 
@@ -314,6 +368,9 @@ stargatePublic.inAppPurchaseSubscription = function(callbackSuccess, callbackErr
     if (!isStargateInitialized) {
         return callbackError("Stargate not initialized, call Stargate.initialize first!");
     }
+    if (!isStargateOpen) {
+        return callbackError("Stargate closed, wait for Stargate.initialize to complete!");
+    }
     
     setBusy(true);
 
@@ -337,6 +394,9 @@ stargatePublic.inAppRestore = function(callbackSuccess, callbackError, subscript
     if (!isStargateInitialized) {
         return callbackError("Stargate not initialized, call Stargate.initialize first!");
     }
+    if (!isStargateOpen) {
+        return callbackError("Stargate closed, wait for Stargate.initialize to complete!");
+    }
 
     // no set busy needed for restore as it's usually fast and 
     //  we cannot intercept error result, so the loader remain visible
@@ -354,4 +414,34 @@ stargatePublic.inAppRestore = function(callbackSuccess, callbackError, subscript
     IAP.doRefresh(true);
 };
 
+/**
+ * Call callbacks with information about a product got from store
+ * @param {string} productId - product id about to query for information on store
+ * @param {function} callbackSuccess - a function that will be called when information are ready
+ * @param {function} callbackError - a function that will be called in case of error
+ * @returns {void}
+ * */
+stargatePublic.inAppProductInfo = function(productId, callbackSuccess, callbackError) {
 
+    if (!isStargateInitialized) {
+        return callbackError("Stargate not initialized, call Stargate.initialize first!");
+    }
+    if (!isStargateOpen) {
+        return callbackError("Stargate closed, wait for Stargate.initialize to complete!");
+    }
+    
+    if (! productId) {
+        productId = IAP.id;
+    }
+    
+    if (IAP.productsInfo[productId]) {
+        callbackSuccess(IAP.productsInfo[productId]);
+        return;
+    }
+    
+    IAP.requestedListingProductId = productId;
+    IAP.callbackListingSuccess = callbackSuccess;
+    IAP.callbackListingError = callbackError;
+
+    IAP.doRefresh(true);    
+};

@@ -3918,7 +3918,7 @@
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.3.4";
+    var stargatePackageVersion = "0.2.8";
     var stargatePublic = {};
     
     var stargateModules = {};       
@@ -3926,95 +3926,24 @@
 
 
 /**
- * Utils module
+ * Logger module
  * @module src/modules/Utils
  * @type {Object}
  */
 (function(stargateModules){
     /**
-     * @class
-     * @alias module:src/modules/Utils.Logger
+     * @constructor
+     * @alias module:src/modules/Logger
      * @param {String} label - OFF|DEBUG|INFO|WARN|ERROR|ALL
      * @param {String} tag - a tag to identify a log group. it will be prepended to any log function
-     * @param {Object} [styles={background:"white",color:"black"}] -
-     * @param {String} styles.background - background color CSS compatibile
-     * @param {String} styles.color - color text CSS compatible
      * @example
-     * var myLogger = new Logger("ALL", "TAG",{background:"black",color:"blue"});
+     * var myLogger = new Logger("ALL", "TAG");
      * myLogger.i("Somenthing", 1); // output will be > ["TAG"], "Somenthing", 1
      * myLogger.setLevel("off") // other values OFF|DEBUG|INFO|WARN|ERROR|ALL
      * */
-    function Logger(label, tag, styles){
+    function Logger(label, tag){
         this.level = Logger.levels[label.toUpperCase()];
-        this.styles = styles || {background:"white",color:"black"}; //default
-        this.tag = "%c " + tag + " ";
-        this.isstaging = ("IS_STAGING = 1".slice(-1) === "1");
-
-        this.styleString = "background:" + this.styles.background + ";" + "color:" + this.styles.color + ";";
-        
-        var argsToString = function() {
-            if (arguments.length < 1) {
-                return "";
-            }
-            var args = Array.prototype.slice.call(arguments[0]);
-            var result = '';
-            for (var i=0; i<args.length; i++) {
-                if (typeof (args[i]) === 'object') {
-                    result += " " + JSON.stringify(args[i]);
-                }
-                else {
-                    result += " " + args[i];
-                }
-            }
-            return result;
-        };
-        
-        var consoleLog = window.console.log.bind(window.console, this.tag, this.styleString);
-        var consoleInfo = window.console.info.bind(window.console, this.tag, this.styleString);
-        var consoleError = window.console.error.bind(window.console, this.tag, this.styleString);
-        var consoleWarn = window.console.warn.bind(window.console, this.tag, this.styleString);
-        
-        if (!this.isstaging) {
-            consoleLog = function(){
-                window.console.log("[D] [Stargate] "+argsToString.apply(null, arguments));
-            };
-            consoleInfo = function(){
-                window.console.log("[I] [Stargate] "+argsToString.apply(null, arguments));
-            };
-            consoleError = function(){
-                window.console.log("[E] [Stargate] "+argsToString.apply(null, arguments));
-            };
-            consoleWarn = function(){
-                window.console.log("[W] [Stargate] "+argsToString.apply(null, arguments));
-            };
-        }
-        //private and immutable
-        Object.defineProperties(this, {
-            "__d": {
-                value: consoleLog,
-                writable: false,
-                enumerable:false,
-                configurable:false
-            },
-            "__i": {
-                value: consoleInfo,
-                writable: false,
-                enumerable:false,
-                configurable:false
-            },
-            "__e": {
-                value: consoleError,
-                writable: false,
-                enumerable:false,
-                configurable:false
-            },
-            "__w": {
-                value: consoleWarn,
-                writable: false,
-                enumerable:false,
-                configurable:false
-            }
-        });
+        this.tag = tag;
     }
 
     //Logger.prototype.group
@@ -4034,9 +3963,11 @@
      * @param {*} [arguments]
      * */
     Logger.prototype.e = function(){
+        var _arguments = Array.prototype.slice.call(arguments);
+        _arguments.unshift(this.tag);
 
         if(this.level !== 0 && this.level >= Logger.levels.ERROR){
-            this.__e(arguments);
+            window.console.error.apply(console, _arguments);
         }
     };
 
@@ -4045,9 +3976,11 @@
      * @param {*} [arguments]
      * */
     Logger.prototype.i = function(){
+        var _arguments = Array.prototype.slice.call(arguments);
+        _arguments.unshift(this.tag);
 
         if(this.level !== 0 && this.level >= Logger.levels.WARN){
-            this.__i(arguments);
+            window.console.info.apply(console, _arguments);
         }
     };
 
@@ -4056,8 +3989,11 @@
      * @param {*} [arguments]
      * */
     Logger.prototype.w = function(){
+        var _arguments = Array.prototype.slice.call(arguments);
+        _arguments.unshift(this.tag);
+
         if(this.level !== 0 && this.level >= Logger.levels.INFO){
-            this.__w(arguments);
+            window.console.warn.apply(console, _arguments);
         }
     };
 
@@ -4066,9 +4002,11 @@
      * @param {*} [arguments]
      * */
     Logger.prototype.d = function(){
+        var _arguments = Array.prototype.slice.call(arguments);
+        _arguments.unshift(this.tag);
 
         if(this.level !== 0 && this.level >= Logger.levels.DEBUG){
-            this.__d(arguments);
+            window.console.log.apply(console, _arguments);
         }
     };
 
@@ -4081,17 +4019,11 @@
     };
 
     /**
-     * Iterator
+     * makeIterator
      *
-     * @alias module:src/modules/Utils.Iterator
-     * @example
-     * var myArray = ["pippo", "pluto", "paperino"];
-     * var it = Utils.Iterator(myArray);
-     * it.next().value === "pippo"; //true
-     * it.next().value === "pluto"; //true
-     * it.next(true).value === "paperino" //false because with true you can reset it!
+     * make an iterator object from array
      * @param {Array} array - the array you want to transform in iterator
-     * @returns {Object} - an iterator-like object
+     * @returns {Object} - an iterator like object
      * */
     function Iterator(array){
         var nextIndex = 0;
@@ -4108,15 +4040,9 @@
 
     /**
      * A function to compose query string
-     *
-     * @alias module:src/modules/Utils.composeApiString
-     * @example
-     * var API = "http://jsonplaceholder.typicode.com/comments"
-     * var url = composeApiString(API, {postId:1});
-     * // url will be "http://jsonplaceholder.typicode.com/comments?postId=1"
      * @param {Strinq} api
-     * @param {Object} params - a key value object: will be append to <api>?key=value&key2=value2
-     * @returns {String} the string composed
+     * @param {Object} params
+     * @returns {String}
      * */
     function composeApiString(api, params){
         api += "?";
@@ -4135,9 +4061,8 @@
     /**
      * getJSON
      *
-     * @alias module:src/modules/Utils.getJSON
-     * @param {String} url - for example http://jsonplaceholder.typicode.com/comments?postId=1
-     * @returns {Promise<Object|String>} the string error is the statuscode
+     * @param {String} url -
+     * @returns {Promise<Object|String>} the reject string is the statuscode
      * */
     function getJSON(url){
         url = encodeURI(url);
@@ -4158,17 +4083,11 @@
     }
 
     /**
-     * Make a jsonp request, remember only GET
-     * The function create a tag script and append a callback param in querystring.
-     * The promise will be reject after 3s if the url fail to respond
+     * make a jsonp request, remember only GET
+     * usage: request = new jsonpRequest(url); request.then(...)
      *
-     * @class
-     * @alias module:src/modules/Utils.jsonpRequest
-     * @example
-     * request = new jsonpRequest("http://www.someapi.com/asd?somequery=1");
-     * request.then(...)
      * @param {String} url - the url with querystring but without &callback at the end or &function
-     * @returns {Promise<Object|String>}
+     * @returns {Promise<Object|>}
      * */
     function jsonpRequest(url){
         var self = this;
@@ -4202,55 +4121,9 @@
             // the append start the call
             window.document.getElementsByTagName("head")[0].appendChild(self.scriptTag);
             //return self.daPromise;
+        }else{
+            return false;
         }
-    }
-
-    /**
-     * getImageRaw from a specific url
-     *
-     * @alias module:src/modules/Utils.getImageRaw
-     * @param {Object} options - the options object
-     * @param {String} options.url - http or whatever
-     * @param {String} [options.responseType="blob"] - possible values arraybuffer|blob
-     * @param {String} [options.mimeType="image/jpeg"] - possible values "image/png"|"image/jpeg" used only if "blob" is set as responseType
-     * @param {Function} [_onProgress=function(){}]
-     * @returns {Promise<Blob|ArrayBuffer|Error>}
-     */
-    function getImageRaw(options, _onProgress){
-        var onProgress = _onProgress || function(){};
-        return new Promise(function(resolve, reject){
-            var request = new XMLHttpRequest();
-            request.open ("GET", options.url, true);
-            request.responseType = options.responseType || "blob";
-            request.withCredentials = true;
-            function transferComplete(){
-                var result;
-                switch(options.responseType){
-                    case "blob":
-                        result = new Blob([this.response], {type: options.mimeType || "image/jpeg"});
-                        break;
-                    case "arraybuffer":
-                        result = this.response;
-                        break;
-                    default:
-                        result = this.response;
-                        resolve(result);
-                        break;
-
-                }
-            }
-
-            var transferCanceled = reject;
-            var transferFailed = reject;
-
-            request.addEventListener("progress", onProgress, false);
-            request.addEventListener("load", transferComplete, false);
-            request.addEventListener("error", transferFailed, false);
-            request.addEventListener("abort", transferCanceled, false);
-
-            request.send(null);
-        });
-
     }
 
     var exp = {
@@ -4258,8 +4131,7 @@
         Logger:Logger,
         composeApiString:composeApiString,
         getJSON:getJSON,
-        jsonpRequest:jsonpRequest,
-        getImageRaw:getImageRaw
+        jsonpRequest:jsonpRequest
     };
 
     if(stargateModules){
@@ -4273,18 +4145,17 @@
  * File module
  * @module src/modules/File
  * @type {Object}
- * @see https://github.com/apache/cordova-plugin-file
+ * @see cordova.file
  * @requires ./Utils.js
  */
-(function(_modules, Utils){
+(function(_modules, Logger){
 
     var File = {};
     var LOG;
-    File.LOG = LOG = new Utils.Logger("ALL", "[File - module]");
-    window.requestFileSystem  = window.requestFileSystem || window.webkitRequestFileSystem;
+    File.LOG = LOG = new Logger("ALL", "[File - module]");
     /**
      * ERROR_MAP
-     * Stargate.file.ERROR_MAP
+     * File.ERROR_MAP
      * */
     File.ERROR_MAP = {
         1:"NOT_FOUND_ERR",
@@ -4302,9 +4173,8 @@
     };
 
     File.currentFileTransfer = null;
-
     /**
-     * File.resolveFS
+     * stargateProtected.file.resolveFS
      *
      * @param {String} url - the path to load see cordova.file.*
      * @returns {Promise<Entry|FileError>}
@@ -4319,15 +4189,13 @@
      * File.appendToFile
      *
      * @param {String} filePath - the filepath file:// url like
-     * @param {String|Blob} data - the string to write into the file
-     * @param {String} [overwrite=false] - overwrite
-     * @param {String} mimeType: text/plain | image/jpeg | image/png
+     * @param {String} data - the string to write into the file
+     * @param {string} [overwrite=false] - overwrite
      * @returns {Promise<String|FileError>} where string is a filepath
      */
-    File.appendToFile = function(filePath, data, overwrite, mimeType){
+    File.appendToFile = function(filePath, data, overwrite){
         //Default
         overwrite = arguments[2] === undefined ? false : arguments[2];
-        mimeType = arguments[3] === undefined ? "text/plain" : arguments[3];
         return File.resolveFS(filePath)
             .then(function(fileEntry){
 
@@ -4336,14 +4204,7 @@
                         if(!overwrite){
                             fileWriter.seek(fileWriter.length);
                         }
-
-                        var blob;
-                        if(!(data instanceof Blob)){
-                            blob = new Blob([data], {type:mimeType});
-                        }else{
-                            blob = data;
-                        }
-
+                        var blob = new Blob([data], {type:'text/plain'});
                         fileWriter.write(blob);
                         fileWriter.onerror = reject;
                         fileWriter.onabort = reject;
@@ -4359,7 +4220,7 @@
     /**
      * File.readFileAsHTML
      * @param {String} indexPath - the path to the file to read
-     * @returns {Promise<Document|FileError>}
+     * @returns {Promise<DOM|FileError>}
      */
     File.readFileAsHTML = function(indexPath){
 
@@ -4452,20 +4313,20 @@
      * @returns {Promise}
      * */
     File.download = function(url, filepath, saveAsName, _onProgress){
-        var self = this;
-        this.ft = new window.FileTransfer();
-        this.ft.onprogress = _onProgress;
-        File.currentFileTransfer = self.ft;
+        // one download at time for now
+        var ft = new window.FileTransfer();
+        ft.onprogress = _onProgress;
+        File.currentFileTransfer = ft;
 
-        self.promise = new Promise(function(resolve, reject){
-            self.ft.download(window.encodeURI(url), filepath + saveAsName,
+        return new Promise(function(resolve, reject){
+            ft.download(window.encodeURI(url), filepath + saveAsName,
                 function(entry){
                     resolve(__transform([entry]));
-                    self.ft = null;
+                    File.currentFileTransfer = null;
                 },
                 function(reason){
                     reject(reason);
-                    self.ft = null;
+                    File.currentFileTransfer = null;
                 },
                 true //trustAllHosts
             );
@@ -4552,7 +4413,6 @@
                 return new Promise(function(resolve, reject){
                     var reader = dirEntry.createReader();
                     reader.readEntries(function(entries){
-                        LOG.d("readDir:",entries);
                         resolve(__transform(entries));
                     }, reject);
                 });
@@ -4561,7 +4421,6 @@
 
     /**
      * File.readFile
-     *
      * @param {String} filePath - the file entry to readAsText
      * @returns {Promise<String|FileError>}
      */
@@ -4593,7 +4452,7 @@
      *
      * @param {String} directory - filepath file:// like string
      * @param {String} filename - the filename including the .txt
-     * @returns {Promise<FileEntry|FileError>}
+     * @returns {Promise.<FileEntry|FileError>}
      * */
     File.createFile = function(directory, filename){
         return File.resolveFS(directory)
@@ -4607,22 +4466,12 @@
     };
 
     /**
-     * write a file in the specified path
-     *
-     * @param {String} filepath - file:// path-like
-     * @param {String|Blob} content
-     * @returns {Promise<Object|FileError>}
      * */
     File.write = function(filepath, content){
         return File.appendToFile(filepath, content, true);
     };
 
     /**
-     * moveDir
-     *
-     * @param {String} source
-     * @param {String} destination
-     * @returns {Promise<FileEntry|FileError>}
      * */
     File.moveDir = function(source, destination){
         var newFolderName = destination.substring(destination.lastIndexOf('/')+1);
@@ -4639,10 +4488,6 @@
     };
 
     /**
-     * copyFile
-     * @param {String} source
-     * @param {String} destination
-     * @returns {Promise<FileEntry|FileError>}
      * */
     File.copyFile = function(source, destination){
         var newFilename = destination.substring(destination.lastIndexOf('/')+1);
@@ -4659,10 +4504,6 @@
     };
 
     /**
-     * copyDir
-     * @param {String} source
-     * @param {String} destination
-     * @returns {Promise<FileEntry|FileError>}
      * */
     File.copyDir = function(source, destination){
         var newFolderName = destination.substring(destination.lastIndexOf('/')+1);
@@ -4696,17 +4537,13 @@
         });
         return (arr.length == 1) ? arr[0] : arr;
     }
+    _modules.file = File;
+    return File;
 
-    if(_modules){
-        _modules.file = File;
-    }else{
-        window.file = File;
-    }
-
-})(stargateModules, stargateModules.Utils);
+})(stargateModules, stargateModules.Utils.Logger);
 /**globals Promise, cordova **/
 /**
- * Game module needs cordova-plugin-file cordova-plugin-file-transfer
+ * Game module needs cordova-file cordova-file-transfer
  * @module src/modules/Game
  * @type {Object}
  * @requires ./Utils.js,./File.js
@@ -4730,20 +4567,7 @@
         SDK_URL = "http://s2.motime.com/js/wl/webstore_html5game/gfsdk/dist/gfsdk.js"+"?timestamp=" + Date.now(),
         DIXIE_URL = "http://s2.motime.com/tbr/dixie.js?country=it-igames"+"&timestamp=" + Date.now(),
         API = "http://resources2.buongiorno.com/lapis/apps/contents.getList",
-        GA_FOR_GAME_URL = "http://www2.gameasy.com/ww-it/ga_for_games.js",
-        GAMIFIVE_INFO_API = "http://www2.gameasy.com/ww-it/v01/gameplay_proxy",
-        CONF = {},
-        downloading = false;
-
-    var emptyOfflineData = {
-        GaForGame: {},
-        GamifiveInfo: {},
-        queues: {}
-    };
-
-    var ga_for_games_qs = {
-        print_json_response:1
-    };
+        CONF = {};
 
     var obj = {
         "content_id":"", // to fill
@@ -4766,30 +4590,15 @@
         "check_compatibility_header":0
     };
 
-    var LOG = new Logger("ALL", "[Game - module]", {background:"black",color:"#5aa73a"});
+    var LOG = new Logger("ALL", "[Game - module]");
 
     /**
      * @constructor
      * @alias module:src/modules/Game
      * @example
-     *
-     * var sgConf = modules: ["game"],
-     *     modules_conf: {
-     *           "game": {
-     *               "bundle_games": [
-     *                   "<content_id>",
-     *                   "<content_id>"
-     *               ]
-     *           }
-     *       };
-     *
-     * var afterSgInit = Stargate.initialize(sgConf);
-     * afterSgInit
-     * .then(function(){
-     *      return Stargate.game.download(gameObject, {onStart:function(ev){}, onEnd:function(ev){}, onProgress:function(ev){}})
-     * })
-     * .then(function(gameID){
-     *      Stargate.game.play(gameID);
+     * Stargate.game.download(gameObject, {onStart:function(){},onEnd:function(){},onProgress:function(){}})
+     * .then(function(results){
+     *  Stargate.game.play(results[0]) // and you leave this planet
      * });
      * */
      function Game(){}
@@ -4817,6 +4626,7 @@
         }
 
 
+        LOG.i("cordova JS dir to include", constants.CORDOVAJS);
         /**
          * Putting games under Documents r/w. ApplicationStorage is read only
          * on android ApplicationStorage is r/w
@@ -4838,8 +4648,6 @@
         constants.GAMEOVER_DIR = constants.BASE_DIR + "gameover_template/";
         constants.WWW_DIR = wwwDir;
 
-        LOG.i("cordova JS dir to include", constants.CORDOVAJS);
-
         /** expose */
         _modules.game._public.BASE_DIR = constants.BASE_DIR;
         _modules.game._public.OFFLINE_INDEX = constants.WWW_DIR + "index.html";
@@ -4850,22 +4658,16 @@
              * */
             var gamesDirTask = fileModule.createDir(constants.BASE_DIR, "games");
             var scriptsDirTask = fileModule.createDir(constants.BASE_DIR, "scripts");
-            var createOfflineDataTask = fileModule.createFile(constants.BASE_DIR, "offlineData.json")
-                                        .then(function(entry){
-                                            LOG.d("offlineData", entry);
-                                            return fileModule.write(entry.path, JSON.stringify(emptyOfflineData));
-                                        });
-
+        
             return Promise.all([
                     gamesDirTask, 
-                    scriptsDirTask,
-                    createOfflineDataTask
+                    scriptsDirTask
                 ]).then(function(results){
-                    LOG.d("GamesDir, ScriptsDir, offlineData.json created", results);
+                    LOG.d("GamesDir and ScriptsDir created", results);
                     LOG.d("Getting SDK from:", SDK_URL);
                     return Promise.all([
-                        new fileModule.download(SDK_URL, results[1].path, "gfsdk.min.js").promise,
-                        new fileModule.download(DIXIE_URL, results[1].path, "dixie.js").promise,
+                        fileModule.download(SDK_URL, results[1].path, "gfsdk.min.js"),
+                        fileModule.download(DIXIE_URL, results[1].path, "dixie.js"  ),
                         fileModule.copyDir(constants.WWW_DIR + "gameover_template", constants.BASE_DIR + "gameover_template"),
                         fileModule.copyDir(constants.WWW_DIR + "plugins", constants.SDK_DIR + "plugins"),
                         fileModule.copyFile(constants.CORDOVAJS, constants.SDK_DIR + "cordova.js"),
@@ -4880,14 +4682,12 @@
 
         var gamesDirTaskExists = fileModule.dirExists(constants.GAMES_DIR);
         var SDKExists = fileModule.fileExists(constants.SDK_DIR + "gfsdk.min.js");
-        var DixieExists = fileModule.fileExists(constants.SDK_DIR + "dixie.js");
-
+        
         return Promise.all([
                 gamesDirTaskExists, 
-                SDKExists,
-                DixieExists])
+                SDKExists])
             .then(function(results){
-                if(!results[0] && !results[1] && !results[2]){
+                if(!results[0] && !results[1]){
                     return firstInit();
                 }else{
                     return Promise.resolve("AlreadyInitialized");
@@ -4907,10 +4707,10 @@
      * */
     Game.prototype.download = function(gameObject, callbacks){
 
-        if(this.isDownloading()){ return Promise.reject("Downloading...try later");}
-        if((!gameObject.hasOwnProperty("response_api_dld")) || gameObject.response_api_dld.status !== 200){
-            callbacks.onEnd("response_api_dld.status not equal 200 or undefined");
-            return Promise.reject("response_api_dld.status not equal 200 or undefined");
+        if(this.isDownloading()){ return Promise.reject(["Downloading...try later", fileModule.currentFileTransfer]);}
+        if(gameObject.response_api_dld.status !== 200){
+            callbacks.onEnd("response_api_dld.status not equal 200");
+            return Promise.reject("response_api_dld.status not equal 200");
         }
 
         var alreadyExists = this.isGameDownloaded(gameObject.id);
@@ -4935,12 +4735,8 @@
         var saveAsName = gameObject.id;
         function start(){
             _onStart({type:"download"});
-            LOG.d("Start Download:", gameObject.id, gameObject.response_api_dld.binary_url);
-
-            storeOfflineData(saveAsName);
-
-            var downloadPromise = new fileModule.download(gameObject.response_api_dld.binary_url, constants.TEMP_DIR, saveAsName + ".zip", wrapProgress("download")).promise;
-            return downloadPromise
+            LOG.d("Download:", gameObject.id, gameObject.response_api_dld.binary_url);
+            return fileModule.download(gameObject.response_api_dld.binary_url, constants.TEMP_DIR, saveAsName + ".zip", wrapProgress("download"))
                 .then(function(entry){
                     //Unpack
                     _onStart({type:"unzip"});
@@ -4978,17 +4774,13 @@
                 })
                 .then(function(){
                     //GET COVER IMAGE FOR THE GAME!
-                    LOG.d("Save meta.json for:", gameObject.id);
                     var info = {
                         gameId:gameObject.id,
                         size:{width:"240",height:"170",ratio:"1_4"},
                         url:gameObject.images.cover.ratio_1_4,
-                        type:"cover",
-                        method:"xhr" //!important!
+                        type:"cover"
                     };
-
                     return downloadImage(info);
-
                 })
                 .then(function(coverResult){
                     LOG.d("Save meta.json for:", gameObject.id);
@@ -5021,11 +4813,9 @@
                 }).then(function(results){
                     LOG.d("injectScripts result", results);
                     _onEnd({type:"download"});
-                    downloading = false;
                     return gameObject.id;
                 }).catch(function(reason){
                     LOG.e(reason, "Cleaning...game not downloaded", gameObject.id);
-                    downloading = false;
                     self.remove(gameObject.id);
                     _onEnd({type:"error",description:reason});
                     throw reason;
@@ -5035,10 +4825,8 @@
         return alreadyExists.then(function(exists){
             LOG.d("Exists", exists);
             if(exists){
-                downloading = false;
                 return Promise.reject({12:"AlreadyExists",gameID:gameObject.id});
             }else{
-                downloading = true;
                 return start();
             }
         });
@@ -5169,30 +4957,6 @@
         return dom;
     }
 
-    function removeOldGmenu(dom){
-        var toRemove = [];
-        toRemove.push(dom.querySelector("link[href='/gmenu/frame.css']"));
-        toRemove.push(dom.querySelector("iframe#menu"));
-        toRemove.push(dom.querySelector("script[src='/gmenu/toggle.js']"));
-        var scripts = dom.querySelectorAll("script");
-
-        for(var i = scripts.length - 1;i >= 0; i--){
-            if(scripts[i].innerHTML.indexOf("function open") !== -1){
-                toRemove.push(scripts[i]);
-                //scripts[i].parentNode.removeChild(scripts[i]);
-                break;
-            }
-        }
-
-        for(var j = 0; j < toRemove.length;j++){
-            if(toRemove[j]){
-                toRemove[j].parentNode.removeChild(toRemove[j]);
-            }
-        }
-
-        return dom;
-    }
-
     /**
      * injectScripts in game index
      *
@@ -5211,48 +4975,21 @@
                 return fileModule.readFileAsHTML(entry[0].path);
             })
             .then(function(dom){
-                function appendToHead(element){ dom.head.appendChild(element);}
-
-                var metaTags = dom.body.querySelectorAll("meta");
-                var linkTags = dom.body.querySelectorAll("link");
-                var styleTags = dom.body.querySelectorAll("style");
-                var titleTag = dom.body.querySelectorAll("title");
-
-                metaTags = [].slice.call(metaTags);
-                linkTags = [].slice.call(linkTags);
-                styleTags = [].slice.call(linkTags);
-                titleTag = [].slice.call(linkTags);
-
-                linkTags.forEach(appendToHead);
-                metaTags.forEach(appendToHead);
-                styleTags.forEach(appendToHead);
-                titleTag.forEach(appendToHead);
-
-                dom.body.innerHTML = dom.body.innerHTML.trim();
-
-                LOG.d("_injectScripts");
-                LOG.d(dom);
+                // TODO: injectLocalSDK and other scripts with one call
+                LOG.d("_injectScripts"); LOG.d(dom);
                 return _injectScriptsInDom(dom, sources);
             })
-            .then(removeOldGmenu)
             .then(function(dom){
-
-                /*var result = new window.XMLSerializer().serializeToString(dom);
+                LOG.d("Serialize dom");
+                var result = new XMLSerializer().serializeToString(dom);
                 var toReplace = "<html xmlns=\"http:\/\/www.w3.org\/1999\/xhtml\"";
                 //Remove BOM :( it's a space character it depends on config of the developer
-                result = result.replace(toReplace, "<html");
-                                /*.replace(RegExp(/[^\x20-\x7E\xA0-\xFF]/g), '');*/
-                var attrs = [].slice.call(dom.querySelector("html").attributes);
-
-                var htmlAttributesAsString = attrs.map(function(item){
-                    return item.name + '=' + '"' + item.value+'"';
-                }).join(" ");
-
-                var finalDocAsString = "<!DOCTYPE html><html " + htmlAttributesAsString + ">" + dom.documentElement.innerHTML + "</html>";
-                LOG.d("Serialized dom", finalDocAsString);
-                return finalDocAsString;
+                result = result.replace(toReplace, "<html")
+                                .replace(RegExp(/[^\x20-\x7E\xA0-\xFF]/g), '');
+                return result;
             })
             .then(function(htmlAsString){
+                htmlAsString = htmlAsString.trim();
                 LOG.d("Write dom:", indexPath, htmlAsString);
                 return fileModule.write(indexPath, htmlAsString);
             });
@@ -5267,31 +5004,12 @@
      * remove the game directory
      *
      * @public
-     * @param {String} gameID - the game id to delete on filesystem
-     * @returns {Promise<Array>}
+     * @param {string} gameID - the game id to delete on filesystem
+     * @returns {Promise<boolean|FileError>}
      * */
     Game.prototype.remove = function(gameID){
         LOG.d("Removing game", gameID);
-        var isCached = fileModule.dirExists(constants.CACHE_DIR + gameID + ".zip");
-        var isInGameDir = fileModule.dirExists(constants.GAMES_DIR + gameID);
-        return Promise.all([isCached, isInGameDir])
-            .then(function(results){
-                var finalResults = [];
-                if(results[0]){
-                    LOG.d("Removed in cache", results[0]);
-                    finalResults.push(fileModule.removeFile(constants.CACHE_DIR + gameID + ".zip"));
-                }
-
-                if(results[1]){
-                    LOG.d("Removed", results[1]);
-                    finalResults.push(fileModule.removeDir(constants.GAMES_DIR + gameID));
-                }
-
-                if(finalResults.length === 0){
-                    LOG.i("Nothing to remove", finalResults);
-                }
-                return finalResults;
-            });
+        return fileModule.removeDir(constants.GAMES_DIR + gameID);
     };
 
     /**
@@ -5301,7 +5019,7 @@
      * @returns {boolean}
      * */
     Game.prototype.isDownloading = function(){
-        return downloading;
+        return (fileModule.currentFileTransfer !== null || fileModule.currentFileTransfer === undefined);
     };
 
     /**
@@ -5313,11 +5031,8 @@
     Game.prototype.abortDownload = function(){
         if(this.isDownloading()){
             LOG.d("Abort last download");
-            if(fileModule.currentFileTransfer){
-                fileModule.currentFileTransfer.abort();
-                fileModule.currentFileTransfer = null;
-            }
-
+            fileModule.currentFileTransfer.abort();
+            fileModule.currentFileTransfer = null;
             return true;
         }
         LOG.w("There's not a download operation to abort");
@@ -5328,7 +5043,7 @@
      * list
      *
      * @public
-     * @returns {Promise<Array>} - Returns an array of metainfo gameObject
+     * @returns {Array<Object>} - Returns an array of metainfo game object
      * */
     Game.prototype.list = function(){
         LOG.d("Get games list");
@@ -5423,7 +5138,6 @@
      * @param {String|Number} info.size.ratio - 1|2|1_5|1_4
      * @param {String} info.url - the url with the [HSIZE] and [WSIZE] in it
      * @param {String} info.type - possible values cover|screenshot|icon
-     * @param {String} info.method - possible values "xhr"
      * @returns {Promise<String|FileTransferError>} where string is the cdvfile:// path
      * */
     function downloadImage(info){
@@ -5431,51 +5145,28 @@
             gameId:"",
             size:{width:"",height:"",ratio:""},
             url:"",
-            type:"cover",
-            method:"xhr"
+            type:"cover"
         };*/
 
         //GET COVER IMAGE FOR THE GAME!
         var toDld = info.url
             .replace("[WSIZE]", info.size.width)
-            .replace("[HSIZE]", info.size.height)
-            .split("?")[0];
+            .replace("[HSIZE]", info.size.height);
 
+        toDld = encodeURI(toDld);
         //toDld = "http://lorempixel.com/g/"+info.size.width+"/"+info.size.height+"/";
-        //toDld = encodeURI(toDld);
-
         var gameFolder = constants.GAMES_DIR + info.gameId;
-        // var imagesFolder = gameFolder + "/images/" + info.type + "/";
-        var imageName = info.type + "_" + info.size.width + "x" + info.size.height + ("_"+info.size.ratio || "") + ".jpeg";
-        LOG.d("request Image to", toDld, "coverImageUrl", imageName, "imagesFolder", gameFolder);
-        if(info.method === "xhr"){
-            return Promise.all([
-                    fileModule.createFile(gameFolder, imageName),
-                    Utils.getImageRaw({url:toDld})
-                ]).then(function(results){
-                    var entry = results[0];
-                    var blob = results[1];
-
-                    return fileModule.appendToFile(entry.path, blob, true, "image/jpeg");
-                });
-        }else{
-            return new fileModule.download(toDld, gameFolder, imageName, function(){}).promise;
-        }
+        var imagesFolder = gameFolder + "/images/" + info.type + "/";
+        var imageName = info.size.width + "x" + info.size.height + ("_"+info.size.ratio || "") + ".png";
+        LOG.d("request Image to", toDld, "coverImageUrl", imageName, "imagesFolder", imagesFolder);
+        return fileModule.download(toDld, imagesFolder, imageName);
     }
 
-    /**
-     * getBundleObjects
-     *
-     * make the jsonpRequests to get the gameObjects.
-     * This method is called only if configuration key "bundle_games" is set with an array of gameIDs
-     *
-     * @returns {Promise<Array>} the gameObject with response_api_dld key
-     * */
     Game.prototype.getBundleGameObjects = function(){
         var self = this;
-        if(CONF && CONF.bundle_games){
-            LOG.d("Games bundle in configuration", CONF.bundle_games);
-            var whichGameAlreadyHere = CONF.bundle_games.map(function(gameId){
+        if(CONF && CONF.bundleGames){
+            LOG.d("Games bundle in configuration", CONF.bundleGames);
+            var whichGameAlreadyHere = CONF.bundleGames.map(function(gameId){
                 return self.isGameDownloaded(gameId);
             });
 
@@ -5483,9 +5174,9 @@
                 .then(function(results){
                     LOG.d("alreadyDownloaded",results);
                     for(var i = 0;i < results.length;i++){
-                        if(results[i]) CONF.bundle_games.splice(i, 1);
+                        if(results[i]) CONF.bundleGames.splice(i, 1);
                     }
-                    return CONF.bundle_games;
+                    return CONF.bundleGames;
                 })
                 .then(function(bundlesGamesIds){
                     return bundlesGamesIds.join(",");
@@ -5526,88 +5217,12 @@
         }
     };
 
-    function storeOfflineData(content_id){
-        /**
-         * Calls for offlineData.json
-         * putting GamifiveInfo and GaForGame in this file for each game
-         * {
-         *  GaForGame:<content_id>:{<ga_for_game>},
-         *  GamifiveInfo:<content_id>:{<gamifive_info>},
-         *  queues:{}
-         * }
-         * */
-        var apiGaForGames = composeApiString(GA_FOR_GAME_URL, ga_for_games_qs);
-        var getGaForGamesTask = new jsonpRequest(apiGaForGames).prom;
-
-        getGaForGamesTask.then(function(ga_for_game){
-            LOG.d("apiGaForGames:", apiGaForGames, "ga_for_game:", ga_for_game);
-            return ga_for_game;
-
-        }).then(function(ga_for_game){
-            LOG.d("ga_for_game:", ga_for_game);
-            var gamifive_api = composeApiString(GAMIFIVE_INFO_API, {
-                content_id:content_id,
-                _PONY:ga_for_game._PONYVALUE,
-                format:"jsonp"
-            });
-
-            LOG.d("gamifive_info_api",gamifive_api);
-            return [new jsonpRequest(gamifive_api).prom, ga_for_game];
-
-        }).then(function(results){
-            return results[0].then(function(gamifive_info){
-                LOG.d("gamifiveInfo:", gamifive_info, "ga_for_game", results[1]);
-                return updateOfflineData({content_id:content_id, ga_for_game:results[1], gamifive_info:gamifive_info.game_info});
-            });
-        });
-    }
-
-    function updateOfflineData(object){
-        return fileModule.readFileAsJSON(constants.BASE_DIR + "offlineData.json")
-            .then(function(offlineData){
-                offlineData.GaForGame[object.content_id] = object.ga_for_game;
-                offlineData.GamifiveInfo[object.content_id] = object.gamifive_info;
-                return offlineData;
-            })
-            .then(function(offlineDataUpdated){
-                LOG.d("writing offlineData.json", offlineDataUpdated);
-                return fileModule.write(constants.BASE_DIR + "offlineData.json", JSON.stringify(offlineDataUpdated));
-            });
-    }
-    /**
-     * Download assets when online
-     * maybe it's better to check it out on play action
-     * */
-    document.addEventListener("online", function(ev){
-        LOG.d("Connection status detected, check assets:SDK,DIXIE", ev);
-        Promise.all([
-            fileModule.fileExists(constants.SDK_DIR + "dixie.js"),
-            fileModule.fileExists(constants.SDK_DIR + "gfsdk.min.js")
-        ]).then(function(results){
-            var isDixieDownloaded = results[0],
-                isSdkDownloaded = results[1],
-                tasks = [];
-
-            if(!isSdkDownloaded){
-                LOG.d("get SDK");
-                tasks.push(new fileModule.download(SDK_URL, constants.SDK_DIR, "gfsdk.min.js").promise);
-            }
-
-            if(!isDixieDownloaded){
-                LOG.d("get dixie");
-                tasks.push(new fileModule.download(SDK_URL, constants.SDK_DIR, "dixie.js").promise);
-            }
-            return Promise.all(tasks);
-        });
-    }, false);
-
     var _protected = {};
     _modules.game = {};
 
     _protected.initialize = initialize;
     _modules.game._protected = _protected;
     _modules.game._public = new Game();
-
 
 })(stargateModules.file, stargateModules.Utils, stargateModules);
 
@@ -5747,8 +5362,6 @@ var initOfflinePromise;
  * @param {object} [options={}] - an object with offline initialization options
  * @param [options.hideSplashScreen=true] - a boolean indicating to hide or not the splash screen
  * @returns {Promise<boolean>}
- * 
- * @deprecated since v0.2.8
  * */
 stargatePublic.initializeOffline = function(options){
 
@@ -5829,28 +5442,7 @@ stargatePublic.conf = {};
  * @returns {String}
  */
 stargatePublic.conf.getWebappStartUrl = function() {
-    if (!isStargateInitialized) {
-        return err("Stargate not initialized, call Stargate.initialize first!");
-    }
-    if (!isStargateOpen) {
-        return err("Stargate closed, wait for Stargate.initialize to complete!");
-    }
-    
-    var webappStartUrl = URI(stargateConf.webapp_start_url)
-        .addSearch("hybrid", "1")
-        .addSearch("stargateVersion", getStargateVersionToLoad());
-    
-    return webappStartUrl;
-};
-
-var getStargateVersionToLoad = function() {
-    if (stargateConf.stargate_version_to_load) {
-        return stargateConf.stargate_version_to_load;
-    }
-    
-    war("getStargateVersionToLoad() stargate_version_to_load must be set on manifest!");
-    // return deprecated value
-    return stargateVersion;
+    return stargateConf.webapp_start_url;
 };
 
 /**
@@ -5866,8 +5458,6 @@ stargatePublic.conf.getWebappOrigin = function() {
         return re.exec(stargateConf.webapp_start_url)[0];
     }
 };
-
-var initializePromise;
 
 /**
 * 
@@ -5915,8 +5505,10 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
         
         if(callback){callback(isStargateRunningInsideHybrid);}
 
-        return initializePromise;
+        return Promise.resolve(isStargateRunningInsideHybrid);
     }
+
+    isStargateInitialized = true;
     
     if (typeof configurations !== 'object') {
         configurations = {};
@@ -5975,20 +5567,18 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
     if (!isStargateRunningInsideHybrid) {
 
         log("version "+stargatePackageVersion+" running outside hybrid; "+
-            "loaded from server version: v"+getStargateVersionToLoad());
+            "loaded from server version: v"+stargateVersion);
 
         if(callback){callback(isStargateRunningInsideHybrid);}
         
-        initializePromise = Promise.resolve(isStargateRunningInsideHybrid);
-        isStargateInitialized = true;
-        return initializePromise; 
+        return Promise.resolve(isStargateRunningInsideHybrid);
     }
 
     log("initialize() starting up, configuration: ",hybrid_conf);
 
     initializeCallback = callback;
     
-    initializePromise = new Promise(function(resolve,reject){
+    var initPromise = new Promise(function(resolve,reject){
         
         
         // finish the initialization of cordova plugin when deviceReady is received
@@ -5999,9 +5589,7 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
         }, false);
     });
     
-    isStargateInitialized = true;
-    
-    return initializePromise;
+    return initPromise;
 };
 
 stargatePublic.isInitialized = function() {
@@ -6091,14 +5679,8 @@ stargatePublic.checkConnection = function() {
 		callbackError("Stargate not initialized, call Stargate.initialize first!");
         return false;
     }
-    if (!isStargateOpen) {
-        callbackError("Stargate closed, wait for Stargate.initialize to complete!");
-        return false;
-    }
 
-    if(typeof navigator.connection === "undefined" ||
-        typeof navigator.connection.getInfo !== "function"){
-            
+    if(typeof navigator.connection.getInfo !== "function"){
         callbackError("Missing cordova plugin");
         console.warn("Cordova Network Information module missing");
         return false;
@@ -6112,10 +5694,6 @@ stargatePublic.getDeviceID = function(callbackSuccess, callbackError) {
 	if (!isStargateInitialized) {
 		return callbackError("Stargate not initialized, call Stargate.initialize first!");
     }
-    if (!isStargateOpen) {
-        callbackError("Stargate closed, wait for Stargate.initialize to complete!");
-        return false;
-    }
 
     // FIXME: check that device plugin is installed
     // FIXME: integrate with other stargate device handling method
@@ -6124,50 +5702,10 @@ stargatePublic.getDeviceID = function(callbackSuccess, callbackError) {
     callbackSuccess({'deviceID': deviceID});
 };
 
-/**
- * loadUrl
- * @protected
- * @param {String} url - an uri string
- * */
-function loadUrl(url){
-
-    if(window.device.platform.toLowerCase() == "android"){
-        window.navigator.app.loadUrl(url);
-    }else{
-        window.location.href = url;
-    }
-}
-
-/**
- * goToLocalIndex
- * redirect the webview to the local index.html
- * */
-stargatePublic.goToLocalIndex = function(){
-    if(window.cordova.file.applicationDirectory !== "undefined"){
-        var LOCAL_INDEX = window.cordova.file.applicationDirectory + "www/index.html?hybrid=1";
-        log("Redirect to", LOCAL_INDEX);
-        loadUrl(LOCAL_INDEX);
-    }
-};
-
-/**
- * goToWebIndex
- * redirect the webview to the online webapp
- * */
-stargatePublic.goToWebIndex = function(){
-    var webUrl = stargatePublic.conf.getWebappStartUrl() + "";
-    log("Redirect to", webUrl);
-    loadUrl(webUrl);
-};
-
 stargatePublic.setStatusbarVisibility = function(visibility, callbackSuccess, callbackError) {
 
     if (!isStargateInitialized) {
         return callbackError("Stargate not initialized, call Stargate.initialize first!");
-    }
-    if (!isStargateOpen) {
-        callbackError("Stargate closed, wait for Stargate.initialize to complete!");
-        return false;
     }
 
     if (typeof window.StatusBar === "undefined") {
@@ -6188,31 +5726,6 @@ stargatePublic.setStatusbarVisibility = function(visibility, callbackSuccess, ca
 
 stargatePublic.getVersion = function() {
     return stargatePackageVersion;
-};
-
-/**
- * @return {object} application information;
- * 
- * this information are available only after initialize complete
- * 
- * object keys returned and meaning
- * 
- *  cordova: Cordova version,
- *  manufacturer: device manufacter,
- *  model: device model,
- *  platform: platform (Android, iOs, etc),
- *  deviceId: device id or UUID,
- *  version: platform version,
- *  packageVersion: package version,
- *  packageName: package name ie: com.stargatejs.test,
- *  packageBuild: package build number,
- *  stargate: stargate version,
- *  stargateModules: stargate modules initialized,
- *  stargateError: stargate initialization error 
- * 
- */
-stargatePublic.getAppInformation = function() {
-    return appInformation;
 };
 
 /**
@@ -6259,38 +5772,11 @@ stargatePublic.ad = new AdStargate();
 // @deprecated since 0.2.2
 var stargateVersion = "2";
 
-var is_staging = ("IS_STAGING = 1".slice(-1) === "1");
-
-
-var argsToString = function() {
-    var args = Array.prototype.slice.call(arguments);
-    var result = '';
-    for (var i=0; i<args.length; i++) {
-        if (typeof (args[i]) === 'object') {
-            result += " " + JSON.stringify(args[i]);
-        }
-        else {
-            result += " " + args[i];
-        }
-    }
-    return result;
-};
-
 // logger function
 var log = console.log.bind(window.console, "[Stargate] ");
 var err = console.error.bind(window.console, "[Stargate] ");
 var war = console.warn.bind(window.console, "[Stargate] ");
-if (!is_staging) {
-    log = function(){
-        console.log("[I] [Stargate] "+argsToString.apply(null, arguments));
-    };
-    err = function(){
-        console.log("[E] [Stargate] "+argsToString.apply(null, arguments));
-    };
-    war = function(){
-        console.log("[W] [Stargate] "+argsToString.apply(null, arguments));
-    };
-}
+
 
 
 // device informations   // examples
@@ -6361,18 +5847,7 @@ var isStargateInitialized = false;
 var isStargateOpen = false;
 var initializeCallback = null;
 
-/**
- * appVersion: version number of the app
- */
 var appVersion = '';
-/**
- * appBuild: build identifier of the app
- */
-var appBuild = '';
-/**
- * appPackageName: package name of the app - the reversed domain name app identifier like com.example.myawesomeapp
- */
-var appPackageName = '';
 
 /**
  * 
@@ -6385,30 +5860,10 @@ var hybrid_conf = {},
 
 /**
  * 
- * this is get from manifest
+ * this is got from manifest
  * 
  */
 var baseUrl;
-
-/**
- * 
- * Application information set on initialize
- * 
- */
-var appInformation = {
-    cordova: null,
-    manufacturer: null,
-    model: null,
-    platform: null,
-    deviceId: null,
-    version: null,
-    packageVersion: null,
-    packageName: null,
-    packageBuild: null,
-    stargate: null,
-    stargateModules: null,
-    stargateError: null 
-};
 
 var updateStatusBar = function() {
 
@@ -6452,26 +5907,17 @@ var updateStatusBar = function() {
 var setIsHybrid = function() {
 
     window.Cookies.set("hybrid", "1");
+    window.Cookies.set("stargateVersion", stargateVersion);
 
     if (!window.localStorage.getItem('hybrid')) {
         window.localStorage.setItem('hybrid', 1);
     }
-};
-
-/**
-* Set on webapp what version we need to load
-* (this will be called only after manifest is loaded on stargate)
-*/
-var setHybridVersion = function() {
-
-    window.Cookies.set("stargateVersion", getStargateVersionToLoad());
-
     if (!window.localStorage.getItem('stargateVersion')) {
-        window.localStorage.setItem('stargateVersion', getStargateVersionToLoad());
+        window.localStorage.setItem('stargateVersion', stargateVersion);
     }
 };
 
-var hideSplashAndLoaders = function() {
+var hydeSplashAndLoaders = function() {
     
     navigator.splashscreen.hide();
     setBusy(false);
@@ -6492,8 +5938,6 @@ var onPluginReady = function (resolve) {
         exec.setJsToNativeBridgeMode(exec.jsToNativeModes.IFRAME_NAV);
     }
     
-    // save stargate version to load on webapp 
-    setHybridVersion();
 
     updateStatusBar();
 
@@ -6548,9 +5992,7 @@ var onPluginReady = function (resolve) {
         // if initialize ok...
         if ( IAP.initialize( getModuleConf("iap") ) ) {
             // ...then call refresh
-            // this doesn't works, so we do it when needed in iap module
-            //IAP.doRefresh();
-            log("Init IAP done.");
+            IAP.doRefresh();            
         }
     }
 
@@ -6592,37 +6034,18 @@ var onPluginReady = function (resolve) {
         .catch(function (error) {
             err("onPluginReady() error: ",error);
             
-            onStargateReady(resolve, error);
+            onStargateReady(resolve);
         });
 };
 
-var onStargateReady = function(resolve, error) {
-    hideSplashAndLoaders();
+var onStargateReady = function(resolve) {
+    hydeSplashAndLoaders();
             
     // initialize finished
     isStargateOpen = true;
     
     log("version "+stargatePackageVersion+" ready; "+
         " running in package version: "+appVersion);
-    
-    appInformation = {
-        cordova: runningDevice.cordova,
-        manufacturer: runningDevice.manufacturer,
-        model: runningDevice.model,
-        platform: runningDevice.platform,
-        deviceId: runningDevice.uuid,
-        version: runningDevice.version,
-        packageVersion: appVersion,
-        packageName: appPackageName,
-        packageBuild: appBuild,
-        stargate: stargatePackageVersion
-    };    
-    if (requested_modules && requested_modules.constructor === Array) {
-        appInformation.stargateModules = requested_modules.join(", ");
-    }
-    if (error && (error instanceof Error)) {
-        appInformation.stargateError = error.toString();
-    }
     
     //execute callback
     initializeCallback(true);
@@ -6646,9 +6069,7 @@ var onDeviceReady = function (resolve, reject) {
     Promise.all([
         // include here all needed asyncronous initializazion
         cordova.getAppVersion.getVersionNumber(),
-        getManifest(),
-        cordova.getAppVersion.getPackageName(),
-        cordova.getAppVersion.getVersionCode()        
+        getManifest()
     ])
     .then(function(results) {
         // save async initialization result
@@ -6658,9 +6079,6 @@ var onDeviceReady = function (resolve, reject) {
 		if (typeof results[1] !== 'object') {
 			results[1] = JSON.parse(results[1]);
 		}
-        
-        appPackageName = results[2];
-        appBuild = results[3];
 
         baseUrl = results[1].start_url;
 
@@ -7284,7 +6702,6 @@ var IAP = {
     createUserAttempt: 0,
     maxCreateUserAttempt: 6,
     
-    refreshInProgress: false,
     productsInfo: {},
     
     /**
@@ -7329,10 +6746,6 @@ var IAP = {
         if (initializeConf.type) {
             IAP.type = initializeConf.type;
         }
-        
-        if (initializeConf.api_createuser) {
-            IAP.subscribeMethod = initializeConf.api_createuser;
-        }
 
         // Available values: DEBUG, INFO, WARNING, ERROR, QUIET
         IAP.verbosity = 'INFO';
@@ -7370,7 +6783,6 @@ var IAP = {
     },
     
     saveProductInfo: function(params) {
-        IAP.refreshInProgress = false;
         if (typeof params !== "object") {
             err("[IAP] saveProductInfo() got invalid data");
             return;
@@ -7391,14 +6803,9 @@ var IAP = {
     },
     
     doRefresh: function(force) {
-        if (IAP.refreshInProgress) {
-            war("[IAP] doRefresh() refresh in progress, skipping...");
-        }
         if (!IAP.refreshDone || force) {
             window.store.refresh();
             IAP.refreshDone = true;
-            IAP.refreshInProgress = true;
-            log("[IAP] doRefresh() refreshing...");            
         }
     },
 
@@ -7460,7 +6867,7 @@ var IAP = {
     onProductOwned: function(p){
         log('[IAP] > Product Owned.');
         if (!p.transaction.id && isRunningOnIos()){
-            err('[IAP] > no transaction id');
+            log('[IAP] > no transaction id');
             return false;
         }
         window.localStorage.setItem('product', p);
@@ -7507,9 +6914,9 @@ var IAP = {
 	
 	error: function(error) {
         setBusy(false);
-		err('[IAP] error: '+error);	
-        
         IAP.callbackError({'iap_error': 1, 'return_url' : IAP.returnUrl});
+
+		err('[IAP] error: '+error);	
 	},
 	
 

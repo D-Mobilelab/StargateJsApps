@@ -18,6 +18,7 @@ var gulp = require('gulp'),
     bower = require('gulp-bower'),
     argv = require('minimist')(process.argv.slice(2)),
     karma = require('karma'),
+    bump = require('gulp-bump'),
     buildConfig = require('./config/build.config'),
   	karmaConf = require('./config/karma.conf.js'),
     depsOrder = require('gulp-deps-order');
@@ -176,5 +177,24 @@ gulp.task('karma:singlerun', ['build'], function (done) {
 	argv.reporters && (karmaConf.reporters = argv.reporters.trim().split(','));
 
 	new karma.Server(karmaConf, done).start();
+});
+
+/**
+ * Change version in package.json used by build
+ *  default: patch
+ *  arg parameter --minor
+ *  
+ */  
+gulp.task('bump', function(){
+    
+    var optsBump = {type:'patch'};
+    
+    if (argv.minor) {
+        optsBump.type = "minor";
+    }
+    
+    gulp.src('./package.json')
+        .pipe(bump(optsBump))
+        .pipe(gulp.dest('./'));
 });
 

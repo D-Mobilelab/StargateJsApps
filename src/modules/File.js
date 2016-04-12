@@ -2,17 +2,18 @@
  * File module
  * @module src/modules/File
  * @type {Object}
- * @see cordova.file
- * @requires ./Logger.js
+ * @see https://github.com/apache/cordova-plugin-file
+ * @requires ./Utils.js
  */
-(function(_modules, Logger){
+(function(_modules, Utils){
 
     var File = {};
     var LOG;
-    File.LOG = LOG = new Logger("ALL", "[File - module]");
+    File.LOG = LOG = new Utils.Logger("ALL", "[File - module]");
+    window.requestFileSystem  = window.requestFileSystem || window.webkitRequestFileSystem;
     /**
      * ERROR_MAP
-     * File.ERROR_MAP
+     * Stargate.file.ERROR_MAP
      * */
     File.ERROR_MAP = {
         1:"NOT_FOUND_ERR",
@@ -30,8 +31,9 @@
     };
 
     File.currentFileTransfer = null;
+
     /**
-     * stargateProtected.file.resolveFS
+     * File.resolveFS
      *
      * @param {String} url - the path to load see cordova.file.*
      * @returns {Promise<Entry|FileError>}
@@ -46,13 +48,15 @@
      * File.appendToFile
      *
      * @param {String} filePath - the filepath file:// url like
-     * @param {String} data - the string to write into the file
-     * @param {string} [overwrite=false] - overwrite
+     * @param {String|Blob} data - the string to write into the file
+     * @param {String} [overwrite=false] - overwrite
+     * @param {String} mimeType: text/plain | image/jpeg | image/png
      * @returns {Promise<String|FileError>} where string is a filepath
      */
-    File.appendToFile = function(filePath, data, overwrite){
+    File.appendToFile = function(filePath, data, overwrite, mimeType){
         //Default
         overwrite = arguments[2] === undefined ? false : arguments[2];
+        mimeType = arguments[3] === undefined ? "text/plain" : arguments[3];
         return File.resolveFS(filePath)
             .then(function(fileEntry){
 
@@ -61,7 +65,14 @@
                         if(!overwrite){
                             fileWriter.seek(fileWriter.length);
                         }
-                        var blob = new Blob([data], {type:'text/plain'});
+
+                        var blob;
+                        if(!(data instanceof Blob)){
+                            blob = new Blob([data], {type:mimeType});
+                        }else{
+                            blob = data;
+                        }
+
                         fileWriter.write(blob);
                         fileWriter.onerror = reject;
                         fileWriter.onabort = reject;
@@ -77,7 +88,7 @@
     /**
      * File.readFileAsHTML
      * @param {String} indexPath - the path to the file to read
-     * @returns {Promise<DOM|FileError>}
+     * @returns {Promise<Document|FileError>}
      */
     File.readFileAsHTML = function(indexPath){
 
@@ -106,7 +117,7 @@
     /**
      *  File.removeFile
      *
-     *  @param {String} filePath -
+     *  @param {String} filePath - file://
      *  @returns {Promise<String|FileError>}
      * */
     File.removeFile = function(filePath){
@@ -170,22 +181,22 @@
      * @returns {Promise}
      * */
     File.download = function(url, filepath, saveAsName, _onProgress){
-        // one download at time for now
-        var ft = new window.FileTransfer();
-        ft.onprogress = _onProgress;
-        File.currentFileTransfer = ft;
+        var self = this;
+        this.ft = new window.FileTransfer();
+        this.ft.onprogress = _onProgress;
+        File.currentFileTransfer = self.ft;
 
-        return new Promise(function(resolve, reject){
-            ft.download(window.encodeURI(url), filepath + saveAsName,
+        self.promise = new Promise(function(resolve, reject){
+            self.ft.download(window.encodeURI(url), filepath + saveAsName,
                 function(entry){
                     resolve(__transform([entry]));
-                    File.currentFileTransfer = null;
+                    self.ft = null;
                 },
                 function(reason){
                     reject(reason);
-                    File.currentFileTransfer = null;
+                    self.ft = null;
                 },
-                true
+                true //trustAllHosts
             );
         });
     };
@@ -270,6 +281,7 @@
                 return new Promise(function(resolve, reject){
                     var reader = dirEntry.createReader();
                     reader.readEntries(function(entries){
+                        LOG.d("readDir:",entries);
                         resolve(__transform(entries));
                     }, reject);
                 });
@@ -278,6 +290,7 @@
 
     /**
      * File.readFile
+     *
      * @param {String} filePath - the file entry to readAsText
      * @returns {Promise<String|FileError>}
      */
@@ -309,7 +322,7 @@
      *
      * @param {String} directory - filepath file:// like string
      * @param {String} filename - the filename including the .txt
-     * @returns {Promise.<FileEntry|FileError>}
+     * @returns {Promise<FileEntry|FileError>}
      * */
     File.createFile = function(directory, filename){
         return File.resolveFS(directory)
@@ -322,9 +335,77 @@
             });
     };
 
+    /**
+     * write a file in the specified path
+     *
+     * @param {String} filepath - file:// path-like
+     * @param {String|Blob} content
+     * @returns {Promise<Object|FileError>}
+     * */
     File.write = function(filepath, content){
         return File.appendToFile(filepath, content, true);
     };
+
+    /**
+     * moveDir
+     *
+     * @param {String} source
+     * @param {String} destination
+     * @returns {Promise<FileEntry|FileError>}
+     * */
+    File.moveDir = function(source, destination){
+        var newFolderName = destination.substring(destination.lastIndexOf('/')+1);
+        var parent = destination.replace(newFolderName, "");
+        
+        LOG.d("moveDir:", parent, newFolderName);
+        return Promise.all([File.resolveFS(source), File.resolveFS(parent)])
+            .then(function(entries){
+                LOG.d("moveDir: resolved entries", entries);
+                return new Promise(function(resolve, reject){
+                    entries[0].moveTo(entries[1], newFolderName, resolve, reject);
+                });
+            });
+    };
+
+    /**
+     * copyFile
+     * @param {String} source
+     * @param {String} destination
+     * @returns {Promise<FileEntry|FileError>}
+     * */
+    File.copyFile = function(source, destination){
+        var newFilename = destination.substring(destination.lastIndexOf('/')+1);
+        var parent = destination.replace(newFilename, "");
+
+        return Promise.all([File.resolveFS(source), File.resolveFS(parent)])
+            .then(function(entries){
+                //TODO: check if are really files
+                LOG.d("copyFileTo", entries);
+                return new Promise(function(resolve, reject){
+                    entries[0].copyTo(entries[1], newFilename, resolve, reject);
+                });
+            });
+    };
+
+    /**
+     * copyDir
+     * @param {String} source
+     * @param {String} destination
+     * @returns {Promise<FileEntry|FileError>}
+     * */
+    File.copyDir = function(source, destination){
+        var newFolderName = destination.substring(destination.lastIndexOf('/')+1);
+        var parent = destination.replace(newFolderName, "");
+
+        return Promise.all([File.resolveFS(source), File.resolveFS(parent)])
+            .then(function(entries){
+                LOG.d("copyDir", source, "in",destination);
+                return new Promise(function(resolve, reject){
+                    entries[0].copyTo(entries[1], newFolderName, resolve, reject);
+                });
+            });
+    };
+
 
     /**
      * __transform utils function
@@ -333,16 +414,22 @@
      * @returns {Array.<Object>} - an array of Object
      * */
     function __transform(entries){
-        return entries.map(function(entry){
+        var arr = entries.map(function(entry){
             return {
+                fullPath:entry.fullPath,
                 path:entry.toURL(),
                 internalURL:entry.toInternalURL(),
                 isFile:entry.isFile,
                 isDirectory:entry.isDirectory
             };
         });
+        return (arr.length == 1) ? arr[0] : arr;
     }
-    _modules.file = File;
-    return File;
 
-})(stargateModules, stargateModules.Logger);
+    if(_modules){
+        _modules.file = File;
+    }else{
+        window.file = File;
+    }
+
+})(stargateModules, stargateModules.Utils);

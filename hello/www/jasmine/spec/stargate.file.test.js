@@ -232,7 +232,7 @@ describe("Stargate.File modules tests", function() {
             .then(function(myFileObject){
                 console.log(myFileObject);
 
-                window.resolveLocalFileSystemURL(myFileObject[0].path, function(fileEntry){
+                window.resolveLocalFileSystemURL(myFileObject.path, function(fileEntry){
                     fileEntry.file(function(file) {
                         var reader = new FileReader();
                         reader.readAsText(file);
@@ -284,21 +284,5 @@ describe("Stargate.File modules tests", function() {
       }).catch(function(err){console.log(err);});
   });
 });
-
-/*
-
-file.createDir(dirpath, subdir); OK
-file.removeDir(dirpath); OK
-file.readDir(dirpath); OK
-
-file.createFile(dirpath, filename); OK
-file.removeFile(filepath); OK
-file.readFile(filepath); OK
-file.readFileAsHTML(filepath); OK
-file.readFileAsJSON(filepath); OK
-file.appendToFile(filepath, data); OK
-
-*/
-
 
 
