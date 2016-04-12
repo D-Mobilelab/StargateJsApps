@@ -96,6 +96,13 @@
 
         LOG.d("Initialized called with:", conf);
         CONF = conf;
+        // Loaded from configuration if any
+        SDK_URL = conf.sdk_url ? conf.sdk_url : SDK_URL;
+        DIXIE_URL = conf.dixie_url ? conf.dixie_url : DIXIE_URL;
+        API = conf.api ? conf.api : API;
+        GAMIFIVE_INFO_API = conf.gamifive_info_api ? conf.gamifive_info_api : GAMIFIVE_INFO_API;
+        GA_FOR_GAME_URL = conf.ga_for_game_url ? conf.ga_for_game_url : GA_FOR_GAME_URL;
+
         if(!fileModule){return Promise.reject("Missing file module!");}
 
         try{
