@@ -12,7 +12,8 @@
         composeApiString = Utils.composeApiString,
         //Iterator = Utils.Iterator,
         //getJSON = Utils.getJSON,
-        jsonpRequest = Utils.jsonpRequest;
+        jsonpRequest = Utils.jsonpRequest,
+        extend = Utils.extend;
 
     var baseDir,
         cacheDir,
@@ -21,12 +22,14 @@
         wwwDir,
         dataDir,
         stargatejsDir,
-        SDK_URL = "http://s2.motime.com/js/wl/webstore_html5game/gfsdk/dist/gfsdk.js"+"?timestamp=" + Date.now(),
-        DIXIE_URL = "http://s2.motime.com/tbr/dixie.js?country=it-igames"+"&timestamp=" + Date.now(),
-        API = "http://resources2.buongiorno.com/lapis/apps/contents.getList",
-        GA_FOR_GAME_URL = "http://www2.gameasy.com/ww-it/ga_for_games.js",
-        GAMIFIVE_INFO_API = "http://www2.gameasy.com/ww-it/v01/gameplay_proxy",
-        CONF = {},
+        CONF = {
+            sdk_url:"",
+            dixie_url:"",
+            api:"",
+            ga_for_game_url:"",
+            gamifive_info_api:"",
+            bundle_games:[]
+        },
         downloading = false;
 
     var emptyOfflineData = {
@@ -90,18 +93,22 @@
 
     /**
      * Init must be called after the 'deviceready' event
+     *
+     * @param {Object} customConf - the configuration
+     * @param {String} customConf.sdk_url
+     * @param {String} customConf.dixie_url
+     * @param {String} customConf.api
+     * @param {String} customConf.ga_for_game_url
+     * @param {String} customConf.gamifive_info_api
+     * @param {Array} customConf.bundle_games
      * @returns {Promise<Array<boolean>>}
      * */
-     function initialize(conf){
+     function initialize(customConf){
 
-        LOG.d("Initialized called with:", conf);
-        CONF = conf;
-        // Loaded from configuration if any
-        SDK_URL = conf.sdk_url ? conf.sdk_url : SDK_URL;
-        DIXIE_URL = conf.dixie_url ? conf.dixie_url : DIXIE_URL;
-        API = conf.api ? conf.api : API;
-        GAMIFIVE_INFO_API = conf.gamifive_info_api ? conf.gamifive_info_api : GAMIFIVE_INFO_API;
-        GA_FOR_GAME_URL = conf.ga_for_game_url ? conf.ga_for_game_url : GA_FOR_GAME_URL;
+        if(customConf){
+            CONF = extend(CONF, customConf);
+        }
+        LOG.d("Initialized called with:", CONF);
 
         if(!fileModule){return Promise.reject("Missing file module!");}
 
@@ -774,7 +781,7 @@
      * */
     Game.prototype.getBundleGameObjects = function(){
         var self = this;
-        if(CONF && CONF.bundle_games){
+        if(CONF.bundle_games.length > 0){
             LOG.d("Games bundle in configuration", CONF.bundle_games);
             var whichGameAlreadyHere = CONF.bundle_games.map(function(gameId){
                 return self.isGameDownloaded(gameId);
@@ -797,7 +804,7 @@
                 .then(function(bundleGamesIds){
 
                     obj.content_id = bundleGamesIds;
-                    var api_string = composeApiString(API, obj);
+                    var api_string = composeApiString(CONF.api, obj);
                     LOG.d("Request bundle games meta info:", api_string);
 
                     return new jsonpRequest(api_string).prom;
@@ -824,6 +831,9 @@
                 .catch(function(reason){
                     LOG.e("Games bundle meta fail:", reason);
                 });
+        }else{
+            LOG.w("Bundle_games array is empty!");
+            return Promise.reject("bundle_games array is empty!");
         }
     };
 
@@ -837,7 +847,7 @@
          *  queues:{}
          * }
          * */
-        var apiGaForGames = composeApiString(GA_FOR_GAME_URL, ga_for_games_qs);
+        var apiGaForGames = composeApiString(CONF.ga_for_game_url, ga_for_games_qs);
         var getGaForGamesTask = new jsonpRequest(apiGaForGames).prom;
 
         getGaForGamesTask.then(function(ga_for_game){
@@ -846,7 +856,7 @@
 
         }).then(function(ga_for_game){
             LOG.d("ga_for_game:", ga_for_game);
-            var gamifive_api = composeApiString(GAMIFIVE_INFO_API, {
+            var gamifive_api = composeApiString(CONF.gamifive_info_api, {
                 content_id:content_id,
                 _PONY:ga_for_game._PONYVALUE,
                 format:"jsonp"

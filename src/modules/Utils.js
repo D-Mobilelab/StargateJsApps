@@ -326,13 +326,42 @@
 
     }
 
+    /**
+     * extend: this function merge two objects in a new one with the properties of both
+     *
+     * @param {Object} o1 -
+     * @param {Object} o2 -
+     * @returns {Object} a brand new object results of the merging
+     * */
+    function extend(o1, o2){
+
+        var isObject = Object.prototype.toString.apply({});
+        if((o1.toString() !== isObject) || (o2.toString() !== isObject)) {
+            throw new Error("Cannot merge different type");
+        }
+        var newObject = {};
+        for (var k in o1){
+            if(o1.hasOwnProperty(k)){
+                newObject[k] = o1[k];
+            }
+        }
+
+        for (var j in o2) {
+            if(o2.hasOwnProperty(k)){
+                newObject[j] = o2[j];
+            }
+        }
+        return newObject;
+    }
+
     var exp = {
         Iterator:Iterator,
         Logger:Logger,
         composeApiString:composeApiString,
         getJSON:getJSON,
         jsonpRequest:jsonpRequest,
-        getImageRaw:getImageRaw
+        getImageRaw:getImageRaw,
+        extend:extend
     };
 
     if(stargateModules){
