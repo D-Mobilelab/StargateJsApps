@@ -152,55 +152,90 @@
         _modules.game._public.BASE_DIR = constants.BASE_DIR;
         _modules.game._public.OFFLINE_INDEX = constants.WWW_DIR + "index.html";
 
-        function firstInit(){
-            /**
-             * Create directories
-             * */
-            var gamesDirTask = fileModule.createDir(constants.BASE_DIR, "games");
-            var scriptsDirTask = fileModule.createDir(constants.BASE_DIR, "scripts");
-            var createOfflineDataTask = fileModule.createFile(constants.BASE_DIR, "offlineData.json")
-                                        .then(function(entry){
-                                            LOG.d("offlineData", entry);
-                                            return fileModule.write(entry.path, JSON.stringify(emptyOfflineData));
-                                        });
 
-            return Promise.all([
-                    gamesDirTask, 
-                    scriptsDirTask,
-                    createOfflineDataTask
-                ]).then(function(results){
-                    LOG.d("GamesDir, ScriptsDir, offlineData.json created", results);
-                    LOG.d("Getting SDK from:", SDK_URL);
-                    return Promise.all([
-                        new fileModule.download(SDK_URL, results[1].path, "gfsdk.min.js").promise,
-                        new fileModule.download(DIXIE_URL, results[1].path, "dixie.js").promise,
-                        fileModule.copyDir(constants.WWW_DIR + "gameover_template", constants.BASE_DIR + "gameover_template"),
-                        fileModule.copyDir(constants.WWW_DIR + "plugins", constants.SDK_DIR + "plugins"),
-                        fileModule.copyFile(constants.CORDOVAJS, constants.SDK_DIR + "cordova.js"),
-                        fileModule.copyFile(constants.CORDOVA_PLUGINS_JS, constants.SDK_DIR + "cordova_plugins.js"),
-                        fileModule.copyFile(constants.STARGATEJS, constants.SDK_DIR + "stargate.js"),
-                        fileModule.copyFile(constants.WWW_DIR + "js/gamesFixes.js", constants.SDK_DIR + "gamesFixes.js")
-                    ]);
-                });
-        }
-
-        //Object.freeze(constants);
-
-        var gamesDirTaskExists = fileModule.dirExists(constants.GAMES_DIR);
-        var SDKExists = fileModule.fileExists(constants.SDK_DIR + "gfsdk.min.js");
-        var DixieExists = fileModule.fileExists(constants.SDK_DIR + "dixie.js");
+        /**
+         * Create directories
+         * */
+        var gamesDirTask = fileModule.createDir(constants.BASE_DIR, "games");
+        var scriptsDirTask = fileModule.createDir(constants.BASE_DIR, "scripts");
+        var createOfflineDataTask = fileModule.createFile(constants.BASE_DIR, "offlineData.json")
+                                    .then(function(entry){
+                                        LOG.d("offlineData", entry);
+                                        return fileModule.write(entry.path, JSON.stringify(emptyOfflineData));
+                                    });
 
         return Promise.all([
-                gamesDirTaskExists, 
-                SDKExists,
-                DixieExists])
-            .then(function(results){
-                if(!results[0] && !results[1] && !results[2]){
-                    return firstInit();
-                }else{
-                    return Promise.resolve("AlreadyInitialized");
-                }
-            });
+                gamesDirTask,
+                scriptsDirTask,
+                createOfflineDataTask
+            ]).then(function(results){
+                LOG.d("GamesDir, ScriptsDir, offlineData.json created", results);
+                return copyAssets();
+            }).then(getSDK);
+    }
+
+    function copyAssets(){
+        return Promise.all([
+            fileModule.dirExists(constants.BASE_DIR + "gameover_template"),
+            fileModule.dirExists(constants.SDK_DIR + "plugins"),
+            fileModule.fileExists(constants.SDK_DIR + "cordova.js"),
+            fileModule.fileExists(constants.SDK_DIR + "cordova_plugins.js"),
+            fileModule.fileExists(constants.SDK_DIR + "stargate.js"),
+            fileModule.fileExists(constants.SDK_DIR + "gamesFixes.js")
+        ]).then(function(results){
+            var all = [];
+            if(!results[0]){
+                all.push(fileModule.copyDir(constants.WWW_DIR + "gameover_template", constants.BASE_DIR + "gameover_template"));
+            }
+
+            if(!results[1]){
+                all.push(fileModule.copyDir(constants.WWW_DIR + "plugins", constants.SDK_DIR + "plugins"));
+            }
+
+            if(!results[2]){
+                all.push(fileModule.copyFile(constants.CORDOVAJS, constants.SDK_DIR + "cordova.js"));
+            }
+
+            if(!results[3]){
+                all.push(fileModule.copyFile(constants.CORDOVA_PLUGINS_JS, constants.SDK_DIR + "cordova_plugins.js"));
+            }
+
+            if(!results[4]){
+                all.push(fileModule.copyFile(constants.STARGATEJS, constants.SDK_DIR + "stargate.js"));
+            }
+
+            if(!results[5]){
+                all.push(fileModule.copyFile(constants.WWW_DIR + "js/gamesFixes.js", constants.SDK_DIR + "gamesFixes.js"));
+            }
+            return Promise.all(all);
+        });
+    }
+
+    function getSDK(){
+
+        return Promise.all([
+              fileModule.fileExists(constants.SDK_DIR + "dixie.js")
+            , fileModule.fileExists(constants.SDK_DIR + "gfsdk.min.js")
+        ]).then(function(results){
+            var isDixieDownloaded = results[0],
+                isSdkDownloaded = results[1],
+                tasks = [];
+
+            if(!isSdkDownloaded && CONF.sdk_url !== ""){
+                LOG.d("get SDK");
+                tasks.push(new fileModule.download(CONF.sdk_url, constants.SDK_DIR, "gfsdk.min.js").promise);
+            }else{
+                LOG.w("Missing sdk_url in the configuration");
+            }
+
+            if(!isDixieDownloaded && CONF.dixie_url !== ""){
+                LOG.d("get dixie");
+                tasks.push(new fileModule.download(CONF.sdk_url, constants.SDK_DIR, "dixie.js").promise);
+            }else{
+                LOG.w("Missing dixie_url in the configuration");
+            }
+            return Promise.all(tasks);
+        });
     }
 
     /**
@@ -889,27 +924,10 @@
      * Download assets when online
      * maybe it's better to check it out on play action
      * */
-    document.addEventListener("online", function(ev){
-        LOG.d("Connection status detected, check assets:SDK,DIXIE", ev);
-        Promise.all([
-            fileModule.fileExists(constants.SDK_DIR + "dixie.js"),
-            fileModule.fileExists(constants.SDK_DIR + "gfsdk.min.js")
-        ]).then(function(results){
-            var isDixieDownloaded = results[0],
-                isSdkDownloaded = results[1],
-                tasks = [];
 
-            if(!isSdkDownloaded){
-                LOG.d("get SDK");
-                tasks.push(new fileModule.download(SDK_URL, constants.SDK_DIR, "gfsdk.min.js").promise);
-            }
-
-            if(!isDixieDownloaded){
-                LOG.d("get dixie");
-                tasks.push(new fileModule.download(SDK_URL, constants.SDK_DIR, "dixie.js").promise);
-            }
-            return Promise.all(tasks);
-        });
+    document.addEventListener("online", function(){
+        LOG.d("online");
+        getSDK();
     }, false);
 
     var _protected = {};
