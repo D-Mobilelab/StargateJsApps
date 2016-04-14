@@ -4949,8 +4949,8 @@
     function getSDK(){
 
         return Promise.all([
-              fileModule.fileExists(constants.SDK_DIR + "dixie.js")
-            , fileModule.fileExists(constants.SDK_DIR + "gfsdk.min.js")
+            fileModule.fileExists(constants.SDK_DIR + "dixie.js"),
+            fileModule.fileExists(constants.SDK_DIR + "gfsdk.min.js")
         ]).then(function(results){
             var isDixieDownloaded = results[0],
                 isSdkDownloaded = results[1],
