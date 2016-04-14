@@ -1,13 +1,13 @@
 {
   "name": "stargatejs-apps",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "description": "StargateJS for HTML5 apps",
   "main": "dist/stargate.js",
   "scripts": {
-    "preversion":"npm test",
-    "postversion":"git push && git push --tags",
-    "version":"gulp build && git add -A dist/",
-    "myNpmTask":"echo $1",
+    "preversion": "npm test",
+    "postversion": "git push && git push --tags",
+    "version": "gulp build && git add -A dist/",
+    "myNpmTask": "echo $1",
     "test": "gulp lint && gulp karma:singlerun --browsers=PhantomJS --reporters=mocha,coverage,coveralls"
   },
   "repository": {
