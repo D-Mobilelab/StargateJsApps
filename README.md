@@ -20,6 +20,8 @@ ManifoldJS is Cordova plugin developed by Microsoft that inject all Cordova depe
 
 StargateJsApps take advantage of the manifest to store it's configuration, like features to enable or remote api information.
 
+[Technical Documentation: http://d-mobilelab.github.io/StargateJsApps/0.3.4/docs/](http://d-mobilelab.github.io/StargateJsApps/0.3.4/docs/)
+
 # Installation
 
 ### manual

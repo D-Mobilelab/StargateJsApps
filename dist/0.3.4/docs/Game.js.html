@@ -1,4 +1,32 @@
-/**globals Promise, cordova **/
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: Game.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: Game.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/**globals Promise, cordova **/
 /**
  * Game module needs cordova-plugin-file cordova-plugin-file-transfer
  * @module src/modules/Game
@@ -74,8 +102,8 @@
      *     modules_conf: {
      *           "game": {
      *               "bundle_games": [
-     *                   "<content_id>",
-     *                   "<content_id>"
+     *                   "&lt;content_id>",
+     *                   "&lt;content_id>"
      *               ]
      *           }
      *       };
@@ -101,7 +129,7 @@
      * @param {String} customConf.ga_for_game_url
      * @param {String} customConf.gamifive_info_api
      * @param {Array} customConf.bundle_games
-     * @returns {Promise<Array<boolean>>}
+     * @returns {Promise&lt;Array&lt;boolean>>}
      * */
      function initialize(customConf){
 
@@ -221,14 +249,14 @@
                 isSdkDownloaded = results[1],
                 tasks = [];
 
-            if(!isSdkDownloaded && CONF.sdk_url !== ""){
+            if(!isSdkDownloaded &amp;&amp; CONF.sdk_url !== ""){
                 LOG.d("get SDK");
                 tasks.push(new fileModule.download(CONF.sdk_url, constants.SDK_DIR, "gfsdk.min.js").promise);
             }else{
                 LOG.w("Missing sdk_url in the configuration");
             }
 
-            if(!isDixieDownloaded && CONF.dixie_url !== ""){
+            if(!isDixieDownloaded &amp;&amp; CONF.dixie_url !== ""){
                 LOG.d("get dixie");
                 tasks.push(new fileModule.download(CONF.sdk_url, constants.SDK_DIR, "dixie.js").promise);
             }else{
@@ -246,7 +274,7 @@
      * @param [callbacks.onProgress=function(){}] - a progress function filled with the percentage
      * @param [callbacks.onStart=function(){}] - called on on start
      * @param [callbacks.onEnd=function(){}] - called when unzipped is done
-     * @returns {Promise<boolean|FileError|Number>} - true if all has gone good, 403 if unathorized, FileError in case can write in the folder
+     * @returns {Promise&lt;boolean|FileError|Number>} - true if all has gone good, 403 if unathorized, FileError in case can write in the folder
      * */
     Game.prototype.download = function(gameObject, callbacks){
 
@@ -303,7 +331,7 @@
                     LOG.d("Get the right index folder of the game",folders);
 
                     // In this case i have another folder before index.html
-                    if(folders.length > 2 && isIndexHtml(folders[folders.length - 1])){
+                    if(folders.length > 2 &amp;&amp; isIndexHtml(folders[folders.length - 1])){
                         src = constants.TEMP_DIR + [saveAsName, folders[folders.length - 2]].join("/");
                         LOG.d("More than one level folders before index.html",folders, src);
                     }else{
@@ -429,7 +457,7 @@
      * Returns an Array of entries that match /index\.html$/i should be only one in the game directory
      * @private
      * @param {String} gameID
-     * @returns {Promise<Array|FileError>}
+     * @returns {Promise&lt;Array|FileError>}
      * */
     function _getIndexHtmlById(gameID){
         LOG.d("_getIndexHtmlById", constants.GAMES_DIR + gameID);
@@ -454,7 +482,7 @@
         LOG.d("_removeRemoteSDK");
         var scripts = dom.querySelectorAll("script");
         var scriptTagSdk;
-        for(var i = 0;i < scripts.length;i++){
+        for(var i = 0;i &lt; scripts.length;i++){
             if(scripts[i].src.indexOf("gfsdk") !== -1){
                 scriptTagSdk = scripts[i];
                 LOG.d("_removeRemoteSDK", scriptTagSdk);
@@ -494,7 +522,7 @@
             "'unsafe-eval';" +
             "style-src * cdvfile: http: https: 'unsafe-inline';";
         dom.head.appendChild(metaTag);
-        for(var i = 0;i < _sources.length;i++){
+        for(var i = 0;i &lt; _sources.length;i++){
             if(_sources[i].endsWith(".css")){
                 LOG.d("css inject:",_sources[i]);
                 var css = dom.createElement("link");
@@ -527,7 +555,7 @@
             }
         }
 
-        for(var j = 0; j < toRemove.length;j++){
+        for(var j = 0; j &lt; toRemove.length;j++){
             if(toRemove[j]){
                 toRemove[j].parentNode.removeChild(toRemove[j]);
             }
@@ -542,7 +570,7 @@
      * @private
      * @param {String} gameID
      * @param {Array} sources - array of src'string
-     * @returns {Promise<Object|FileError>}
+     * @returns {Promise&lt;Object|FileError>}
      * */
     function injectScripts(gameID, sources){
         var indexPath;
@@ -581,9 +609,9 @@
             .then(function(dom){
 
                 /*var result = new window.XMLSerializer().serializeToString(dom);
-                var toReplace = "<html xmlns=\"http:\/\/www.w3.org\/1999\/xhtml\"";
+                var toReplace = "&lt;html xmlns=\"http:\/\/www.w3.org\/1999\/xhtml\"";
                 //Remove BOM :( it's a space character it depends on config of the developer
-                result = result.replace(toReplace, "<html");
+                result = result.replace(toReplace, "&lt;html");
                                 /*.replace(RegExp(/[^\x20-\x7E\xA0-\xFF]/g), '');*/
                 var attrs = [].slice.call(dom.querySelector("html").attributes);
 
@@ -591,7 +619,7 @@
                     return item.name + '=' + '"' + item.value+'"';
                 }).join(" ");
 
-                var finalDocAsString = "<!DOCTYPE html><html " + htmlAttributesAsString + ">" + dom.documentElement.innerHTML + "</html>";
+                var finalDocAsString = "&lt;!DOCTYPE html>&lt;html " + htmlAttributesAsString + ">" + dom.documentElement.innerHTML + "&lt;/html>";
                 LOG.d("Serialized dom", finalDocAsString);
                 return finalDocAsString;
             })
@@ -611,7 +639,7 @@
      *
      * @public
      * @param {String} gameID - the game id to delete on filesystem
-     * @returns {Promise<Array>}
+     * @returns {Promise&lt;Array>}
      * */
     Game.prototype.remove = function(gameID){
         LOG.d("Removing game", gameID);
@@ -671,7 +699,7 @@
      * list
      *
      * @public
-     * @returns {Promise<Array>} - Returns an array of metainfo gameObject
+     * @returns {Promise&lt;Array>} - Returns an array of metainfo gameObject
      * */
     Game.prototype.list = function(){
         LOG.d("Get games list");
@@ -679,7 +707,7 @@
             .then(function(entries){
                 var _entries = Array.isArray(entries) ? entries : [entries];
                 return _entries.filter(function(entry){
-                    //get the <id> folder. Careful: there's / at the end
+                    //get the &lt;id> folder. Careful: there's / at the end
                     if(entry.isDirectory){
                         return entry;
                     }
@@ -756,7 +784,7 @@
 
     /**
      * downloadImage
-     * Save the image in games/<gameId>/images/<type>/<size.width>x<size.height>.png
+     * Save the image in games/&lt;gameId>/images/&lt;type>/&lt;size.width>x&lt;size.height>.png
      *
      * @param {String} info -
      * @param {String} info.gameId -
@@ -767,7 +795,7 @@
      * @param {String} info.url - the url with the [HSIZE] and [WSIZE] in it
      * @param {String} info.type - possible values cover|screenshot|icon
      * @param {String} info.method - possible values "xhr"
-     * @returns {Promise<String|FileTransferError>} where string is the cdvfile:// path
+     * @returns {Promise&lt;String|FileTransferError>} where string is the cdvfile:// path
      * */
     function downloadImage(info){
         /* info = {
@@ -812,7 +840,7 @@
      * make the jsonpRequests to get the gameObjects.
      * This method is called only if configuration key "bundle_games" is set with an array of gameIDs
      *
-     * @returns {Promise<Array>} the gameObject with response_api_dld key
+     * @returns {Promise&lt;Array>} the gameObject with response_api_dld key
      * */
     Game.prototype.getBundleGameObjects = function(){
         var self = this;
@@ -825,7 +853,7 @@
             var filteredToDownload = Promise.all(whichGameAlreadyHere)
                 .then(function(results){
                     LOG.d("alreadyDownloaded",results);
-                    for(var i = 0;i < results.length;i++){
+                    for(var i = 0;i &lt; results.length;i++){
                         if(results[i]) CONF.bundle_games.splice(i, 1);
                     }
                     return CONF.bundle_games;
@@ -856,7 +884,7 @@
                     LOG.d("RESULTS", results);
 
                     //extend with the response object
-                    for(var i = 0;i < results.length;i++){
+                    for(var i = 0;i &lt; results.length;i++){
                         tmpBundleGameObjects[i].response_api_dld =  results[i];
                     }
 
@@ -877,8 +905,8 @@
          * Calls for offlineData.json
          * putting GamifiveInfo and GaForGame in this file for each game
          * {
-         *  GaForGame:<content_id>:{<ga_for_game>},
-         *  GamifiveInfo:<content_id>:{<gamifive_info>},
+         *  GaForGame:&lt;content_id>:{&lt;ga_for_game>},
+         *  GamifiveInfo:&lt;content_id>:{&lt;gamifive_info>},
          *  queues:{}
          * }
          * */
@@ -938,4 +966,26 @@
     _modules.game._public = new Game();
 
 
-})(stargateModules.file, stargateModules.Utils, stargateModules);
+})(stargateModules.file, stargateModules.Utils, stargateModules);</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-src_modules_File.html">src/modules/File</a></li><li><a href="module-src_modules_Game.html">src/modules/Game</a></li><li><a href="module-src_modules_Utils.html">src/modules/Utils</a></li></ul><h3>Classes</h3><ul><li><a href="module-src_modules_Game.html">src/modules/Game</a></li><li><a href="module-src_modules_Utils.jsonpRequest.html">jsonpRequest</a></li><li><a href="module-src_modules_Utils.Logger.html">Logger</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.4.0</a> on Thu Apr 14 2016 12:46:45 GMT+0200 (CEST)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

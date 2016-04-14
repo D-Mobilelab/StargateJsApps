@@ -18,7 +18,7 @@
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.3.4";
+    var stargatePackageVersion = "0.3.5";
     var stargatePublic = {};
     
     var stargateModules = {};       
@@ -1049,8 +1049,8 @@
     function getSDK(){
 
         return Promise.all([
-              fileModule.fileExists(constants.SDK_DIR + "dixie.js")
-            , fileModule.fileExists(constants.SDK_DIR + "gfsdk.min.js")
+            fileModule.fileExists(constants.SDK_DIR + "dixie.js"),
+            fileModule.fileExists(constants.SDK_DIR + "gfsdk.min.js")
         ]).then(function(results){
             var isDixieDownloaded = results[0],
                 isSdkDownloaded = results[1],
