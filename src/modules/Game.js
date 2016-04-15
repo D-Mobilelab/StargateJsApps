@@ -475,7 +475,7 @@
     function _injectScriptsInDom(dom, sources){
         dom = _removeRemoteSDK(dom);
         var _sources = Array.isArray(sources) === false ? [sources] : sources;
-        var temp;
+        var temp, css;
         LOG.d("injectScripts", _sources);
         // Allow scripts to load from local cdvfile protocol
         // default-src * data: cdvfile://* content://* file:///*;
@@ -493,21 +493,34 @@
             "'unsafe-inline' " +
             "'unsafe-eval';" +
             "style-src * cdvfile: http: https: 'unsafe-inline';";
-        dom.head.appendChild(metaTag);
+        dom.head.insertBefore(metaTag, dom.getElementsByTagName("meta")[0]);
+
+        /**
+         *  Create a script element __root__
+         *  in case none script in head is present
+         * */
+        var root = dom.createElement("script");
+        root.id = "__root__";
+        dom.head.insertBefore(root, dom.head.firstElementChild);
+
+        var scriptFragment = dom.createDocumentFragment();
+
         for(var i = 0;i < _sources.length;i++){
             if(_sources[i].endsWith(".css")){
                 LOG.d("css inject:",_sources[i]);
-                var css = dom.createElement("link");
+                css = dom.createElement("link");
                 css.rel = "stylesheet";
                 css.href = _sources[i];
-                dom.head.appendChild(css);
+                dom.head.insertBefore(css, dom.getElementsByTagName("link")[0]);
             }else{
-                //TODO: better perfomance with document fragment?
-                temp = document.createElement("script");
+                temp = dom.createElement("script");
                 temp.src = _sources[i];
-                dom.head.appendChild(temp);     
-            }           
+                scriptFragment.appendChild(temp);
+                // insertAfter(temp, root);
+            }
         }
+
+        dom.head.insertBefore(scriptFragment, dom.head.getElementsByTagName("script")[0]);
         LOG.d("Cleaned dom:",dom);
         return dom;
     }
@@ -549,8 +562,7 @@
         return _getIndexHtmlById(gameID)
             .then(function(entry){
                 indexPath = entry[0].path;
-                //LOG.d("injectScripts", indexPath);
-
+                LOG.d("injectScripts", indexPath);
                 return fileModule.readFileAsHTML(entry[0].path);
             })
             .then(function(dom){
@@ -563,14 +575,15 @@
 
                 metaTags = [].slice.call(metaTags);
                 linkTags = [].slice.call(linkTags);
-                styleTags = [].slice.call(linkTags);
-                titleTag = [].slice.call(linkTags);
+                styleTags = [].slice.call(styleTags);
+                titleTag = [].slice.call(titleTag);
 
-                linkTags.forEach(appendToHead);
-                metaTags.forEach(appendToHead);
-                styleTags.forEach(appendToHead);
-                titleTag.forEach(appendToHead);
+                var all = metaTags
+                    .concat(linkTags)
+                    .concat(styleTags)
+                    .concat(titleTag);
 
+                all.map(appendToHead);
                 dom.body.innerHTML = dom.body.innerHTML.trim();
 
                 LOG.d("_injectScripts");
@@ -579,14 +592,7 @@
             })
             .then(removeOldGmenu)
             .then(function(dom){
-
-                /*var result = new window.XMLSerializer().serializeToString(dom);
-                var toReplace = "<html xmlns=\"http:\/\/www.w3.org\/1999\/xhtml\"";
-                //Remove BOM :( it's a space character it depends on config of the developer
-                result = result.replace(toReplace, "<html");
-                                /*.replace(RegExp(/[^\x20-\x7E\xA0-\xFF]/g), '');*/
                 var attrs = [].slice.call(dom.querySelector("html").attributes);
-
                 var htmlAttributesAsString = attrs.map(function(item){
                     return item.name + '=' + '"' + item.value+'"';
                 }).join(" ");
