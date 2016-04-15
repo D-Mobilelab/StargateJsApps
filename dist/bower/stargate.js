@@ -1065,7 +1065,7 @@
 
             if(!isDixieDownloaded && CONF.dixie_url !== ""){
                 LOG.d("get dixie");
-                tasks.push(new fileModule.download(CONF.sdk_url, constants.SDK_DIR, "dixie.js").promise);
+                tasks.push(new fileModule.download(CONF.dixie_url, constants.SDK_DIR, "dixie.js").promise);
             }else{
                 LOG.w("Missing dixie_url in the configuration");
             }
@@ -1310,7 +1310,7 @@
     function _injectScriptsInDom(dom, sources){
         dom = _removeRemoteSDK(dom);
         var _sources = Array.isArray(sources) === false ? [sources] : sources;
-        var temp;
+        var temp, css;
         LOG.d("injectScripts", _sources);
         // Allow scripts to load from local cdvfile protocol
         // default-src * data: cdvfile://* content://* file:///*;
@@ -1328,21 +1328,34 @@
             "'unsafe-inline' " +
             "'unsafe-eval';" +
             "style-src * cdvfile: http: https: 'unsafe-inline';";
-        dom.head.appendChild(metaTag);
+        dom.head.insertBefore(metaTag, dom.getElementsByTagName("meta")[0]);
+
+        /**
+         *  Create a script element __root__
+         *  in case none script in head is present
+         * */
+        var root = dom.createElement("script");
+        root.id = "__root__";
+        dom.head.insertBefore(root, dom.head.firstElementChild);
+
+        var scriptFragment = dom.createDocumentFragment();
+
         for(var i = 0;i < _sources.length;i++){
             if(_sources[i].endsWith(".css")){
                 LOG.d("css inject:",_sources[i]);
-                var css = dom.createElement("link");
+                css = dom.createElement("link");
                 css.rel = "stylesheet";
                 css.href = _sources[i];
-                dom.head.appendChild(css);
+                dom.head.insertBefore(css, dom.getElementsByTagName("link")[0]);
             }else{
-                //TODO: better perfomance with document fragment?
-                temp = document.createElement("script");
+                temp = dom.createElement("script");
                 temp.src = _sources[i];
-                dom.head.appendChild(temp);     
-            }           
+                scriptFragment.appendChild(temp);
+                // insertAfter(temp, root);
+            }
         }
+
+        dom.head.insertBefore(scriptFragment, dom.head.getElementsByTagName("script")[0]);
         LOG.d("Cleaned dom:",dom);
         return dom;
     }
@@ -1384,8 +1397,7 @@
         return _getIndexHtmlById(gameID)
             .then(function(entry){
                 indexPath = entry[0].path;
-                //LOG.d("injectScripts", indexPath);
-
+                LOG.d("injectScripts", indexPath);
                 return fileModule.readFileAsHTML(entry[0].path);
             })
             .then(function(dom){
@@ -1398,14 +1410,15 @@
 
                 metaTags = [].slice.call(metaTags);
                 linkTags = [].slice.call(linkTags);
-                styleTags = [].slice.call(linkTags);
-                titleTag = [].slice.call(linkTags);
+                styleTags = [].slice.call(styleTags);
+                titleTag = [].slice.call(titleTag);
 
-                linkTags.forEach(appendToHead);
-                metaTags.forEach(appendToHead);
-                styleTags.forEach(appendToHead);
-                titleTag.forEach(appendToHead);
+                var all = metaTags
+                    .concat(linkTags)
+                    .concat(styleTags)
+                    .concat(titleTag);
 
+                all.map(appendToHead);
                 dom.body.innerHTML = dom.body.innerHTML.trim();
 
                 LOG.d("_injectScripts");
@@ -1414,14 +1427,7 @@
             })
             .then(removeOldGmenu)
             .then(function(dom){
-
-                /*var result = new window.XMLSerializer().serializeToString(dom);
-                var toReplace = "<html xmlns=\"http:\/\/www.w3.org\/1999\/xhtml\"";
-                //Remove BOM :( it's a space character it depends on config of the developer
-                result = result.replace(toReplace, "<html");
-                                /*.replace(RegExp(/[^\x20-\x7E\xA0-\xFF]/g), '');*/
                 var attrs = [].slice.call(dom.querySelector("html").attributes);
-
                 var htmlAttributesAsString = attrs.map(function(item){
                     return item.name + '=' + '"' + item.value+'"';
                 }).join(" ");
@@ -2489,7 +2495,23 @@ var initDevice = function() {
     return true;
 };
 
-
+function getAppIsDebug() {
+    if (window.cordova && window.cordova.plugins && window.cordova.plugins.AppIsDebug) {
+        return new Promise(function(resolve,reject){
+            window.cordova.plugins.AppIsDebug.get(
+                function(appinfo){
+                    resolve(appinfo);
+                },
+                function(error){
+                    err("getAppIsDebug(): "+error, error);
+                    reject(new Error(error));
+                }
+            );
+        });
+    }
+    
+    return Promise.reject(new Error("getAppIsDebug(): plugin not available!"));
+}
 
 function getManifest() {
     
@@ -2537,6 +2559,12 @@ var appBuild = '';
  * appPackageName: package name of the app - the reversed domain name app identifier like com.example.myawesomeapp
  */
 var appPackageName = '';
+
+/**
+ * appIsDebug {Boolean} true if app is compiled in debug mode
+ */
+var appIsDebug = false;
+
 
 /**
  * 
@@ -2812,7 +2840,8 @@ var onDeviceReady = function (resolve, reject) {
         cordova.getAppVersion.getVersionNumber(),
         getManifest(),
         cordova.getAppVersion.getPackageName(),
-        cordova.getAppVersion.getVersionCode()        
+        cordova.getAppVersion.getVersionCode(),
+        getAppIsDebug()       
     ])
     .then(function(results) {
         // save async initialization result
@@ -2825,6 +2854,12 @@ var onDeviceReady = function (resolve, reject) {
         
         appPackageName = results[2];
         appBuild = results[3];
+        
+        if (results[4] && ( typeof(results[4]) === 'object') ) {
+            if (results[4].debug) {
+                appIsDebug = true;             
+            }
+        }
 
         baseUrl = results[1].start_url;
 
@@ -3633,7 +3668,7 @@ var IAP = {
 		}
         
         if (isRunningOnAndroid()){
-            var purchase_token = p.transaction.purchaseToken + '|' + stargateConf.id + '|' + IAP.id;
+            var purchase_token = p.transaction.purchaseToken + '|' + appPackageName + '|' + IAP.id;
             log('[IAP] Purchase Token: '+purchase_token);
             
             if(!window.localStorage.getItem('user_account')){
@@ -3746,7 +3781,11 @@ var IAP = {
 
                     log('[IAP] createUser attempt: '+IAP.createUserAttempt+
                         ' with timeout: '+startTimeoutSeconds+'sec.');
-
+                    
+                    log("[IAP] POST createUser: "+IAP.lastCreateuserUrl+
+                        " params: "+JSON.stringify(IAP.lastCreateuserData)+
+                        " timeout: "+startTimeoutSeconds * 1000);
+                    
                     window.aja()
                         .method('POST')
                         .url(IAP.lastCreateuserUrl)
@@ -3759,10 +3798,10 @@ var IAP = {
                         .on('error', function(error){
                             onCreateError(error);
                         })
-                        .on('4**', function(error){
+                        .on('4xx', function(error){
                             onCreateError(error);
                         })
-                        .on('5**', function(error){
+                        .on('5xx', function(error){
                             onCreateError(error);
                         })
                         .on('timeout', function(){
@@ -3812,7 +3851,35 @@ stargatePublic.inAppPurchaseSubscription = function(callbackSuccess, callbackErr
     
     IAP.callbackSuccess = callbackSuccess;
     IAP.callbackError = callbackError;
-
+    
+    /*
+    if (isRunningOnAndroid() && appIsDebug) {
+        var debugTransactionAndroid = {
+            "id":IAP.id,
+            "alias":"Stargate Debug IAP Mock",
+            "type":"paid subscription",
+            "state":"owned",
+            "title":"Stargate Debug IAP Mock subscription",
+            "description":"Stargate Debug IAP Mock subscription",
+            "price":"€2.00",
+            "currency":"EUR",
+            "loaded":true,
+            "canPurchase":false,
+            "owned":true,
+            "downloading":false,
+            "downloaded":false,
+            "transaction":{
+                "type":"android-playstore",
+                "purchaseToken":"dgdecoeeoodhalncipabhmnn.AO-J1OwM_emD6KWnZBjTCG2nTF5XWvuHzLCOBPIBj9liMlqzftcDamRFnUvEasQ1neEGK7KIxlPKMV2W09T4qAVZhw_aGbPylo-5a8HVYvJGacoj9vXbvKhb495IMIq8fmywk8-Q7H5jL_0lbfSt9SMVM5V6k3Ttew",
+                "receipt":"{\"packageName\":\"stargate.test.package.id\",\"productId\":\"stargate.mock.subscription.weekly\",\"purchaseTime\":1460126549804,\"purchaseState\":0,\"purchaseToken\":\"dgdecoeeoodhalncipabhmnn.AO-J1OwM_emD6KWnZBjTCG2nTF5XWvuHzLCOBPIBj9liMlqzftcDamRFnUvEasQ1neEGK7KIxlPKMV2W09T4qAVZhw_aGbPylo-5a8HVYvJGacoj9vXbvKhb495IMIq8fmywk8-Q7H5jL_0lbfSt9SMVM5V6k3Ttew\",\"autoRenewing\":false}","signature":"UciGXv48EMVdUXICxoy+hBWTiKbn4VABteQeIUVlFG0GmJ/9p/k372RhPyprqve7tnwhk+vpZYos5Fwvm/SrYjsqKMMFgTzotrePwJ9spq2hzmjhkqNTKkxdcgiuaCp8Vt7vVH9yjCtSKWwdS1UBlZLPaJunA4D2KE8TP/qYnwgZTOCBvSf3rUbEzmwRuRbYqndNyoMfIXvRP71TDBsMcHM/3UrDYEf2k2/SJKnctcGmvU2/BW/WG96T9FuiJPpotax7iQmBdN5PmfuxlZiZiUyj9mFEgzPEIAMP2HCcdX2KlNBPhKhxm4vESozVljTbrI0+OGJjQJhaWBn9+aclmA=="
+            },
+            "valid":true
+        };
+        IAP.onProductOwned(debugTransactionAndroid);
+        return;
+    }
+    */
+    
     IAP.doRefresh();
     window.store.order(IAP.id);
 };
