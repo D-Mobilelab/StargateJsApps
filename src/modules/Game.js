@@ -230,7 +230,7 @@
 
             if(!isDixieDownloaded && CONF.dixie_url !== ""){
                 LOG.d("get dixie");
-                tasks.push(new fileModule.download(CONF.sdk_url, constants.SDK_DIR, "dixie.js").promise);
+                tasks.push(new fileModule.download(CONF.dixie_url, constants.SDK_DIR, "dixie.js").promise);
             }else{
                 LOG.w("Missing dixie_url in the configuration");
             }
