@@ -77,7 +77,23 @@ var initDevice = function() {
     return true;
 };
 
-
+function getAppIsDebug() {
+    if (window.cordova && window.cordova.plugins && window.cordova.plugins.AppIsDebug) {
+        return new Promise(function(resolve,reject){
+            window.cordova.plugins.AppIsDebug.get(
+                function(appinfo){
+                    resolve(appinfo);
+                },
+                function(error){
+                    err("getAppIsDebug(): "+error, error);
+                    reject(new Error(error));
+                }
+            );
+        });
+    }
+    
+    return Promise.reject(new Error("getAppIsDebug(): plugin not available!"));
+}
 
 function getManifest() {
     
@@ -125,6 +141,12 @@ var appBuild = '';
  * appPackageName: package name of the app - the reversed domain name app identifier like com.example.myawesomeapp
  */
 var appPackageName = '';
+
+/**
+ * appIsDebug {Boolean} true if app is compiled in debug mode
+ */
+var appIsDebug = false;
+
 
 /**
  * 
@@ -400,7 +422,8 @@ var onDeviceReady = function (resolve, reject) {
         cordova.getAppVersion.getVersionNumber(),
         getManifest(),
         cordova.getAppVersion.getPackageName(),
-        cordova.getAppVersion.getVersionCode()        
+        cordova.getAppVersion.getVersionCode(),
+        getAppIsDebug()       
     ])
     .then(function(results) {
         // save async initialization result
@@ -413,6 +436,12 @@ var onDeviceReady = function (resolve, reject) {
         
         appPackageName = results[2];
         appBuild = results[3];
+        
+        if (results[4] && ( typeof(results[4]) === 'object') ) {
+            if (results[4].debug) {
+                appIsDebug = true;             
+            }
+        }
 
         baseUrl = results[1].start_url;
 

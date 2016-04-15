@@ -204,7 +204,7 @@ var IAP = {
 		}
         
         if (isRunningOnAndroid()){
-            var purchase_token = p.transaction.purchaseToken + '|' + stargateConf.id + '|' + IAP.id;
+            var purchase_token = p.transaction.purchaseToken + '|' + appPackageName + '|' + IAP.id;
             log('[IAP] Purchase Token: '+purchase_token);
             
             if(!window.localStorage.getItem('user_account')){
@@ -317,7 +317,11 @@ var IAP = {
 
                     log('[IAP] createUser attempt: '+IAP.createUserAttempt+
                         ' with timeout: '+startTimeoutSeconds+'sec.');
-
+                    
+                    log("[IAP] POST createUser: "+IAP.lastCreateuserUrl+
+                        " params: "+JSON.stringify(IAP.lastCreateuserData)+
+                        " timeout: "+startTimeoutSeconds * 1000);
+                    
                     window.aja()
                         .method('POST')
                         .url(IAP.lastCreateuserUrl)
@@ -330,10 +334,10 @@ var IAP = {
                         .on('error', function(error){
                             onCreateError(error);
                         })
-                        .on('4**', function(error){
+                        .on('4xx', function(error){
                             onCreateError(error);
                         })
-                        .on('5**', function(error){
+                        .on('5xx', function(error){
                             onCreateError(error);
                         })
                         .on('timeout', function(){
@@ -383,7 +387,35 @@ stargatePublic.inAppPurchaseSubscription = function(callbackSuccess, callbackErr
     
     IAP.callbackSuccess = callbackSuccess;
     IAP.callbackError = callbackError;
-
+    
+    /*
+    if (isRunningOnAndroid() && appIsDebug) {
+        var debugTransactionAndroid = {
+            "id":IAP.id,
+            "alias":"Stargate Debug IAP Mock",
+            "type":"paid subscription",
+            "state":"owned",
+            "title":"Stargate Debug IAP Mock subscription",
+            "description":"Stargate Debug IAP Mock subscription",
+            "price":"€2.00",
+            "currency":"EUR",
+            "loaded":true,
+            "canPurchase":false,
+            "owned":true,
+            "downloading":false,
+            "downloaded":false,
+            "transaction":{
+                "type":"android-playstore",
+                "purchaseToken":"dgdecoeeoodhalncipabhmnn.AO-J1OwM_emD6KWnZBjTCG2nTF5XWvuHzLCOBPIBj9liMlqzftcDamRFnUvEasQ1neEGK7KIxlPKMV2W09T4qAVZhw_aGbPylo-5a8HVYvJGacoj9vXbvKhb495IMIq8fmywk8-Q7H5jL_0lbfSt9SMVM5V6k3Ttew",
+                "receipt":"{\"packageName\":\"stargate.test.package.id\",\"productId\":\"stargate.mock.subscription.weekly\",\"purchaseTime\":1460126549804,\"purchaseState\":0,\"purchaseToken\":\"dgdecoeeoodhalncipabhmnn.AO-J1OwM_emD6KWnZBjTCG2nTF5XWvuHzLCOBPIBj9liMlqzftcDamRFnUvEasQ1neEGK7KIxlPKMV2W09T4qAVZhw_aGbPylo-5a8HVYvJGacoj9vXbvKhb495IMIq8fmywk8-Q7H5jL_0lbfSt9SMVM5V6k3Ttew\",\"autoRenewing\":false}","signature":"UciGXv48EMVdUXICxoy+hBWTiKbn4VABteQeIUVlFG0GmJ/9p/k372RhPyprqve7tnwhk+vpZYos5Fwvm/SrYjsqKMMFgTzotrePwJ9spq2hzmjhkqNTKkxdcgiuaCp8Vt7vVH9yjCtSKWwdS1UBlZLPaJunA4D2KE8TP/qYnwgZTOCBvSf3rUbEzmwRuRbYqndNyoMfIXvRP71TDBsMcHM/3UrDYEf2k2/SJKnctcGmvU2/BW/WG96T9FuiJPpotax7iQmBdN5PmfuxlZiZiUyj9mFEgzPEIAMP2HCcdX2KlNBPhKhxm4vESozVljTbrI0+OGJjQJhaWBn9+aclmA=="
+            },
+            "valid":true
+        };
+        IAP.onProductOwned(debugTransactionAndroid);
+        return;
+    }
+    */
+    
     IAP.doRefresh();
     window.store.order(IAP.id);
 };
