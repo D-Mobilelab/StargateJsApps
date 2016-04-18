@@ -993,11 +993,20 @@
          * */
         var gamesDirTask = fileModule.createDir(constants.BASE_DIR, "games");
         var scriptsDirTask = fileModule.createDir(constants.BASE_DIR, "scripts");
-        var createOfflineDataTask = fileModule.createFile(constants.BASE_DIR, "offlineData.json")
-                                    .then(function(entry){
-                                        LOG.d("offlineData", entry);
-                                        return fileModule.write(entry.path, JSON.stringify(emptyOfflineData));
-                                    });
+        var createOfflineDataTask = fileModule.fileExists(constants.BASE_DIR + "offlineData.json")
+            .then(function(exists){
+                if(!exists){
+                    LOG.i("creating offlineData.json");
+                    return fileModule.createFile(constants.BASE_DIR, "offlineData.json")
+                        .then(function(entry){
+                            LOG.d("offlineData", entry);
+                            return fileModule.write(entry.path, JSON.stringify(emptyOfflineData));
+                        });
+                }else{
+                    LOG.i("offlineData.json already exists");
+                    return exists;
+                }
+            });
 
         return Promise.all([
                 gamesDirTask,
