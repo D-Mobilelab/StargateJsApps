@@ -1,4 +1,32 @@
-/**
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: Utils.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: Utils.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/**
  * Utils module
  * @module src/modules/Utils
  * @type {Object}
@@ -26,12 +54,12 @@
         this.styleString = "background:" + this.styles.background + ";" + "color:" + this.styles.color + ";";
         
         var argsToString = function() {
-            if (arguments.length < 1) {
+            if (arguments.length &lt; 1) {
                 return "";
             }
             var args = Array.prototype.slice.call(arguments[0]);
             var result = '';
-            for (var i=0; i<args.length; i++) {
+            for (var i=0; i&lt;args.length; i++) {
                 if (typeof (args[i]) === 'object') {
                     result += " " + JSON.stringify(args[i]);
                 }
@@ -91,8 +119,8 @@
     }
 
     //Logger.prototype.group
-    //OFF < DEBUG < INFO < WARN < ERROR < ALL
-    // 0  < 1  < 2 < 3 < 4 < 5
+    //OFF &lt; DEBUG &lt; INFO &lt; WARN &lt; ERROR &lt; ALL
+    // 0  &lt; 1  &lt; 2 &lt; 3 &lt; 4 &lt; 5
     Logger.levels = {
         ALL:5,
         ERROR:4,
@@ -108,7 +136,7 @@
      * */
     Logger.prototype.e = function(){
 
-        if(this.level !== 0 && this.level >= Logger.levels.ERROR){
+        if(this.level !== 0 &amp;&amp; this.level >= Logger.levels.ERROR){
             this.__e(arguments);
         }
     };
@@ -119,7 +147,7 @@
      * */
     Logger.prototype.i = function(){
 
-        if(this.level !== 0 && this.level >= Logger.levels.WARN){
+        if(this.level !== 0 &amp;&amp; this.level >= Logger.levels.WARN){
             this.__i(arguments);
         }
     };
@@ -129,7 +157,7 @@
      * @param {*} [arguments]
      * */
     Logger.prototype.w = function(){
-        if(this.level !== 0 && this.level >= Logger.levels.INFO){
+        if(this.level !== 0 &amp;&amp; this.level >= Logger.levels.INFO){
             this.__w(arguments);
         }
     };
@@ -140,7 +168,7 @@
      * */
     Logger.prototype.d = function(){
 
-        if(this.level !== 0 && this.level >= Logger.levels.DEBUG){
+        if(this.level !== 0 &amp;&amp; this.level >= Logger.levels.DEBUG){
             this.__d(arguments);
         }
     };
@@ -172,7 +200,7 @@
         return {
             next: function(reset){
                 if(reset){nextIndex = 0;}
-                return nextIndex < array.length ?
+                return nextIndex &lt; array.length ?
                 {value: array[nextIndex++], done: false} :
                 {done: true};
             }
@@ -188,7 +216,7 @@
      * var url = composeApiString(API, {postId:1});
      * // url will be "http://jsonplaceholder.typicode.com/comments?postId=1"
      * @param {Strinq} api
-     * @param {Object} params - a key value object: will be append to <api>?key=value&key2=value2
+     * @param {Object} params - a key value object: will be append to &lt;api>?key=value&amp;key2=value2
      * @returns {String} the string composed
      * */
     function composeApiString(api, params){
@@ -196,11 +224,11 @@
         var qs = "";
 
         for(var key in params){
-            qs += encodeURIComponent(key) + "=" + encodeURIComponent(params[key]) + "&";
+            qs += encodeURIComponent(key) + "=" + encodeURIComponent(params[key]) + "&amp;";
         }
 
         if (qs.length > 0){
-            qs = qs.substring(0, qs.length-1); //chop off last "&"
+            qs = qs.substring(0, qs.length-1); //chop off last "&amp;"
         }
         return api + qs;
     }
@@ -210,14 +238,14 @@
      *
      * @alias module:src/modules/Utils.getJSON
      * @param {String} url - for example http://jsonplaceholder.typicode.com/comments?postId=1
-     * @returns {Promise<Object|String>} the string error is the statuscode
+     * @returns {Promise&lt;Object|String>} the string error is the statuscode
      * */
     function getJSON(url){
         url = encodeURI(url);
         var xhr = new window.XMLHttpRequest();
         var daRequest = new Promise(function(resolve, reject){
             xhr.onreadystatechange = function(){
-                if (xhr.readyState == 4 && xhr.status < 400) {
+                if (xhr.readyState == 4 &amp;&amp; xhr.status &lt; 400) {
                     resolve(xhr.response);
                 }else{
                     reject(xhr.status);
@@ -240,8 +268,8 @@
      * @example
      * request = new jsonpRequest("http://www.someapi.com/asd?somequery=1");
      * request.then(...)
-     * @param {String} url - the url with querystring but without &callback at the end or &function
-     * @returns {Promise<Object|String>}
+     * @param {String} url - the url with querystring but without &amp;callback at the end or &amp;function
+     * @returns {Promise&lt;Object|String>}
      * */
     function jsonpRequest(url){
         var self = this;
@@ -250,7 +278,7 @@
         if(window.document) {
             var ts = Date.now();
             self.scriptTag = window.document.createElement("script");
-            url += "&callback=window.__jsonpHandler_" + ts;
+            url += "&amp;callback=window.__jsonpHandler_" + ts;
             self.scriptTag.src = url;
             self.scriptTag.type = 'text/javascript';
             self.scriptTag.async = true;
@@ -287,7 +315,7 @@
      * @param {String} [options.responseType="blob"] - possible values arraybuffer|blob
      * @param {String} [options.mimeType="image/jpeg"] - possible values "image/png"|"image/jpeg" used only if "blob" is set as responseType
      * @param {Function} [_onProgress=function(){}]
-     * @returns {Promise<Blob|ArrayBuffer|Error>}
+     * @returns {Promise&lt;Blob|ArrayBuffer|Error>}
      */
     function getImageRaw(options, _onProgress){
         var onProgress = _onProgress || function(){};
@@ -370,4 +398,26 @@
         window.Utils = exp;
     }
 
-})(stargateModules);
+})(stargateModules);</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-src_modules_File.html">src/modules/File</a></li><li><a href="module-src_modules_Game.html">src/modules/Game</a></li><li><a href="module-src_modules_Utils.html">src/modules/Utils</a></li></ul><h3>Classes</h3><ul><li><a href="module-src_modules_Game.html">src/modules/Game</a></li><li><a href="module-src_modules_Utils.jsonpRequest.html">jsonpRequest</a></li><li><a href="module-src_modules_Utils.Logger.html">Logger</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.4.0</a> on Thu Apr 14 2016 12:46:45 GMT+0200 (CEST)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>
