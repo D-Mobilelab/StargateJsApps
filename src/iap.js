@@ -6,13 +6,34 @@ var IAP = {
 	type: '',
 	verbosity: '',
 	paymethod: '',
-    subscribeMethod: 'stargate',
+    subscribeMethod: '',
     returnUrl: '',
+    /**
+     * callbackSuccess for inapppurchase and inapprestore 
+     */
     callbackSuccess: function(){log("[IAP] Undefined callbackSuccess");},
+    /**
+     * callbackSuccess for inapppurchase and inapprestore 
+     */
     callbackError: function(){log("[IAP] Undefined callbackError");},
     callbackListingSuccess: function(){log("[IAP] Undefined callbackListingSuccess");},
     callbackListingError: function(){log("[IAP] Undefined callbackListingError");},
+    /**
+     * callbackPurchaseSuccess for inAppProductInfo
+     */
+    callbackPurchaseSuccess: function(){log("[IAP] Undefined callbackPurchaseSuccess");},
     requestedListingProductId: '',
+    /**
+     * true when inapppurchase is requested by the user 
+     */
+    inappPurchaseCalled: false,
+    /**
+     * true when inappproductinfo is requested by the user
+     */
+    inappProductInfoCalled: false,
+    lastCreateUserProduct: null,
+    lastCreateUserToken: null,
+    
     refreshDone: false,
     lastCreateuserUrl: '',
     lastCreateuserData: '',
@@ -248,10 +269,25 @@ var IAP = {
 	},
 	
 
-
+    
 	createUser: function(product, purchaseToken){
         log('[IAP] createUser start ');
-	   
+	    
+        // if i'm here before user request inapp purchase/restore
+        //  or in app product info
+        //  i save data for calling again me when requested.
+        if (!IAP.inappProductInfoCalled && !IAP.inappPurchaseCalled) {
+            IAP.lastCreateUserProduct = product;
+            IAP.lastCreateUserToken = purchaseToken;
+            return;
+        }
+        
+        
+        if (!IAP.subscribeMethod) {
+            err("[IAP] createUser configuration error: missing api url.");
+            return;
+        }
+        
 		window.localStorage.setItem('user_account', 
             isRunningOnAndroid() ? 
                 (window.localStorage.getItem('googleAccount') ? 
@@ -285,12 +321,17 @@ var IAP = {
             else {
                 // no more try, fail to webapp callbackerror
 
-                log('[IAP] createUser onCreateError: removing user_account');
+                err('[IAP] createUser onCreateError: removing user_account');
                 window.localStorage.removeItem('user_account');
 
                 var stargateResponseError = {"iap_error" : "1", "return_url" : IAP.returnUrl};
                 setBusy(false);
-                IAP.callbackError(stargateResponseError);
+                
+                if (IAP.inappPurchaseCalled) {
+                    IAP.callbackError(stargateResponseError);
+                } else if (IAP.inappProductInfoCalled) {
+                    IAP.callbackListingError(stargateResponseError);                    
+                }
             }
         };
 
@@ -303,6 +344,12 @@ var IAP = {
                 }
                 setBusy(false);
                 IAP.callbackSuccess(user);
+                
+                if (IAP.inappPurchaseCalled) {
+                    IAP.callbackSuccess(user);
+                } else if (IAP.inappProductInfoCalled) {
+                    IAP.callbackPurchaseSuccess(user);                    
+                }
             }
             catch (error) {
                 onCreateError(error);
@@ -370,10 +417,12 @@ var IAP = {
 stargatePublic.inAppPurchaseSubscription = function(callbackSuccess, callbackError, subscriptionUrl, returnUrl) {
 
     if (!isStargateInitialized) {
-        return callbackError("Stargate not initialized, call Stargate.initialize first!");
+        callbackError("Stargate not initialized, call Stargate.initialize first!");
+        return false;
     }
     if (!isStargateOpen) {
-        return callbackError("Stargate closed, wait for Stargate.initialize to complete!");
+        callbackError("Stargate closed, wait for Stargate.initialize to complete!");
+        return false;
     }
     
     setBusy(true);
@@ -412,12 +461,23 @@ stargatePublic.inAppPurchaseSubscription = function(callbackSuccess, callbackErr
             "valid":true
         };
         IAP.onProductOwned(debugTransactionAndroid);
-        return;
+        return true;
     }
     */
+
+    IAP.inappPurchaseCalled = true;
+    
+    // execute createUser if data is already available
+    if (IAP.lastCreateUserProduct && IAP.lastCreateUserToken) {
+        IAP.createUser(IAP.lastCreateUserProduct, IAP.lastCreateUserToken);
+        
+        // no need to call refresh again
+        return true;
+    }
     
     IAP.doRefresh();
     window.store.order(IAP.id);
+    return true;
 };
 
 
@@ -442,38 +502,79 @@ stargatePublic.inAppRestore = function(callbackSuccess, callbackError, subscript
     
     IAP.callbackSuccess = callbackSuccess;
     IAP.callbackError = callbackError;
-
+    IAP.inappPurchaseCalled = true;
+    
     IAP.doRefresh(true);
 };
 
 /**
- * Call callbacks with information about a product got from store
- * @param {string} productId - product id about to query for information on store
- * @param {function} callbackSuccess - a function that will be called when information are ready
- * @param {function} callbackError - a function that will be called in case of error
- * @returns {void}
+ * Return information about a product got from store
+ * 
+ * @param {object} options - options object
+ * @param {string} [options.productId=IAP.id] - product id about to query for information on store
+ * @param {string} options.subscriptionUrl - api endpoint that will be called when IAP is completed @see createUser method
+ * @param {function} options.callbackListingSuccess=function(){} - a function that will be called when information are ready
+ * @param {function} options.callbackPurchaseSuccess=function(){} - a function that will be called when createUser complete (if the product is already owned)
+ * @param {function} options.callbackError=function(){} - a function that will be called if an error occur 
+ * 
+ * @returns {boolean} - request result: true OK, false KO
  * */
-stargatePublic.inAppProductInfo = function(productId, callbackSuccess, callbackError) {
+stargatePublic.inAppProductInfo = function(options) {
 
+    if (! options.productId) {
+        options.productId = IAP.id;
+    }
+    
+    if (typeof(options.callbackListingSuccess) !== "function") {
+        options.callbackListingSuccess = function() {};
+    }
+    if (typeof(options.callbackPurchaseSuccess) !== "function") {
+        options.callbackPurchaseSuccess = function() {};
+    }
+    if (typeof(options.callbackError) !== "function") {
+        options.callbackError = function() {};
+    }
+    if (!options.subscriptionUrl) {
+        err("[IAP] inAppProductInfo(): options.subscriptionUrl invalid");
+        return false;
+    }
+    
     if (!isStargateInitialized) {
-        return callbackError("Stargate not initialized, call Stargate.initialize first!");
+        options.callbackError("Stargate not initialized, call Stargate.initialize first!");
+        return false;
     }
     if (!isStargateOpen) {
-        return callbackError("Stargate closed, wait for Stargate.initialize to complete!");
+        options.callbackError("Stargate closed, wait for Stargate.initialize to complete!");
+        return false;
     }
     
-    if (! productId) {
-        productId = IAP.id;
-    }
+    IAP.subscribeMethod = options.subscriptionUrl;
     
-    if (IAP.productsInfo[productId]) {
-        callbackSuccess(IAP.productsInfo[productId]);
-        return;
-    }
-    
-    IAP.requestedListingProductId = productId;
-    IAP.callbackListingSuccess = callbackSuccess;
-    IAP.callbackListingError = callbackError;
+    IAP.requestedListingProductId = options.productId;
+    IAP.callbackListingSuccess = options.callbackListingSuccess;
+    IAP.callbackPurchaseSuccess = options.callbackPurchaseSuccess;
+    IAP.callbackListingError = options.callbackError;
+    IAP.inappProductInfoCalled = true;
 
+    // execute callback for product information if data is already available 
+    if (IAP.productsInfo[options.productId]) {
+        try {
+            IAP.callbackListingSuccess(IAP.productsInfo[options.productId]);
+        }
+        catch (error) {
+            err("[IAP] inAppProductInfo(): error on callbackListingSuccess!");
+        }
+    }
+    
+    // execute createUser if data is already available
+    if (IAP.lastCreateUserProduct && IAP.lastCreateUserToken) {
+        IAP.createUser(IAP.lastCreateUserProduct, IAP.lastCreateUserToken);
+        
+        // no need to call refresh again
+        return true;
+    }
+    
+    // call refresh then, when store will call stargate, we will call client callbacks
     IAP.doRefresh(true);    
+    return true;    
 };
