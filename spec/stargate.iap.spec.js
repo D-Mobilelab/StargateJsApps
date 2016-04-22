@@ -39,7 +39,8 @@ var store_mock = {
     ready: function(cb) {
         //cb()
     },
-    register: function(productData) {this._mockProductData = productData}
+    register: function(productData) {this._mockProductData = productData},
+    refresh: function() {}
 };
 
 var storekit_mock = {
@@ -89,20 +90,19 @@ describe("Stargate IAP requires initialization", function() {
 	});
     
     it("inAppProductInfo require initialization", function() {
-		var cbSuccess = jasmine.createSpy('cbSuccess');
+        var cbSuccess = jasmine.createSpy('cbSuccess');
+		var cbPurchaseSuccess = jasmine.createSpy('cbSuccess');
 		var cbError = jasmine.createSpy('cbError');
         
-		stargatePublic.inAppProductInfo(null, cbSuccess, cbError);
-
-		expect(cbError).toHaveBeenCalled();
-		expect(cbError.calls.mostRecent().args[0]).toMatch(/not initialized/);
-	});
-    
-    it("inAppProductInfo require initialization", function() {
-		var cbSuccess = jasmine.createSpy('cbSuccess');
-		var cbError = jasmine.createSpy('cbError');
+        var inappproductinfooptions = {
+            "productId": "stargate.test.spec.product2",
+            "callbackListingSuccess": cbSuccess,
+            "callbackPurchaseSuccess": cbPurchaseSuccess,
+            "callbackError": cbError,
+            "subscriptionUrl": "fakeApiUrl"
+        };
         
-		stargatePublic.inAppProductInfo(null, cbSuccess, cbError);
+		stargatePublic.inAppProductInfo(inappproductinfooptions);
 
 		expect(cbError).toHaveBeenCalled();
 		expect(cbError.calls.mostRecent().args[0]).toMatch(/not initialized/);
@@ -159,6 +159,11 @@ describe("Stargate IAP inAppProductInfo", function() {
         
         isStargateInitialized = true;
         isStargateOpen = true;
+        
+        window.store = store_mock;
+		window.storekit = storekit_mock;
+        log = jasmine.createSpy();
+        war = jasmine.createSpy();
     });
     
 	afterEach(function() {
@@ -170,9 +175,16 @@ describe("Stargate IAP inAppProductInfo", function() {
     
     it("inAppProductInfo return default product info", function() {
 		var cbSuccess = jasmine.createSpy('cbSuccess');
+		var cbPurchaseSuccess = jasmine.createSpy('cbSuccess');
 		var cbError = jasmine.createSpy('cbError');
         
-		stargatePublic.inAppProductInfo(null, cbSuccess, cbError);
+        var inappproductinfooptions = {
+            "callbackListingSuccess": cbSuccess,
+            "callbackPurchaseSuccess": cbPurchaseSuccess,
+            "callbackError": cbError,
+            "subscriptionUrl": "fakeApiUrl"
+        };
+		stargatePublic.inAppProductInfo(inappproductinfooptions);
         
 		expect(cbError).not.toHaveBeenCalled();
         expect(cbSuccess).toHaveBeenCalled();
@@ -183,9 +195,17 @@ describe("Stargate IAP inAppProductInfo", function() {
     
     it("inAppProductInfo return requested product info", function() {
 		var cbSuccess = jasmine.createSpy('cbSuccess');
+		var cbPurchaseSuccess = jasmine.createSpy('cbSuccess');
 		var cbError = jasmine.createSpy('cbError');
         
-		stargatePublic.inAppProductInfo("stargate.test.spec.product2", cbSuccess, cbError);
+        var inappproductinfooptions = {
+            "productId": "stargate.test.spec.product2",
+            "callbackListingSuccess": cbSuccess,
+            "callbackPurchaseSuccess": cbPurchaseSuccess,
+            "callbackError": cbError,
+            "subscriptionUrl": "fakeApiUrl"
+        };
+		stargatePublic.inAppProductInfo(inappproductinfooptions);
         
 		expect(cbError).not.toHaveBeenCalled();
         expect(cbSuccess).toHaveBeenCalled();

@@ -1,14 +1,13 @@
 /*!
  * URI.js - Mutating URLs
  *
- * Version: 1.17.0
+ * Version: 1.17.1
  *
  * Author: Rodney Rehm
  * Web: http://medialize.github.io/URI.js/
  *
  * Licensed under
  *   MIT License http://www.opensource.org/licenses/mit-license
- *   GPL v3 http://opensource.org/licenses/GPL-3.0
  *
  */
 (function (root, factory) {
@@ -72,7 +71,7 @@
     return this;
   }
 
-  URI.version = '1.17.0';
+  URI.version = '1.17.1';
 
   var p = URI.prototype;
   var hasOwn = Object.prototype.hasOwnProperty;
@@ -795,18 +794,35 @@
     }
   };
   URI.hasQuery = function(data, name, value, withinArray) {
-    if (typeof name === 'object') {
-      for (var key in name) {
-        if (hasOwn.call(name, key)) {
-          if (!URI.hasQuery(data, key, name[key])) {
-            return false;
+    switch (getType(name)) {
+      case 'String':
+        // Nothing to do here
+        break;
+
+      case 'RegExp':
+        for (var key in data) {
+          if (hasOwn.call(data, key)) {
+            if (name.test(key) && (value === undefined || URI.hasQuery(data, key, value))) {
+              return true;
+            }
           }
         }
-      }
 
-      return true;
-    } else if (typeof name !== 'string') {
-      throw new TypeError('URI.hasQuery() accepts an object, string as the name parameter');
+        return false;
+
+      case 'Object':
+        for (var _key in name) {
+          if (hasOwn.call(name, _key)) {
+            if (!URI.hasQuery(data, _key, name[_key])) {
+              return false;
+            }
+          }
+        }
+
+        return true;
+
+      default:
+        throw new TypeError('URI.hasQuery() accepts a string, regular expression or object as the name parameter');
     }
 
     switch (getType(value)) {
@@ -1224,8 +1240,6 @@
 
   // compound accessors
   p.origin = function(v, build) {
-    var parts;
-
     if (this._parts.urn) {
       return v === undefined ? '' : this;
     }
@@ -1233,7 +1247,10 @@
     if (v === undefined) {
       var protocol = this.protocol();
       var authority = this.authority();
-      if (!authority) return '';
+      if (!authority) {
+        return '';
+      }
+
       return (protocol ? protocol + '://' : '') + this.authority();
     } else {
       var origin = URI(v);
@@ -1817,6 +1834,8 @@
       return this;
     }
 
+    _path = URI.recodePath(_path);
+
     var _was_relative;
     var _leadingParents = '';
     var _parent, _pos;
@@ -1847,7 +1866,7 @@
 
     // resolve parents
     while (true) {
-      _parent = _path.indexOf('/..');
+      _parent = _path.search(/\/\.\.(\/|$)/);
       if (_parent === -1) {
         // no more ../ to resolve
         break;
@@ -1869,7 +1888,6 @@
       _path = _leadingParents + _path.substring(1);
     }
 
-    _path = URI.recodePath(_path);
     this._parts.path = _path;
     this.build(!build);
     return this;
@@ -2164,14 +2182,13 @@
  * URI.js - Mutating URLs
  * URI Template Support - http://tools.ietf.org/html/rfc6570
  *
- * Version: 1.17.0
+ * Version: 1.17.1
  *
  * Author: Rodney Rehm
  * Web: http://medialize.github.io/URI.js/
  *
  * Licensed under
  *   MIT License http://www.opensource.org/licenses/mit-license
- *   GPL v3 http://opensource.org/licenses/GPL-3.0
  *
  */
 (function (root, factory) {
@@ -3918,7 +3935,7 @@
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.3.4";
+    var stargatePackageVersion = "0.3.6";
     var stargatePublic = {};
     
     var stargateModules = {};       
@@ -4253,13 +4270,42 @@
 
     }
 
+    /**
+     * extend: this function merge two objects in a new one with the properties of both
+     *
+     * @param {Object} o1 -
+     * @param {Object} o2 -
+     * @returns {Object} a brand new object results of the merging
+     * */
+    function extend(o1, o2){
+
+        var isObject = Object.prototype.toString.apply({});
+        if((o1.toString() !== isObject) || (o2.toString() !== isObject)) {
+            throw new Error("Cannot merge different type");
+        }
+        var newObject = {};
+        for (var k in o1){
+            if(o1.hasOwnProperty(k)){
+                newObject[k] = o1[k];
+            }
+        }
+
+        for (var j in o2) {
+            if(o2.hasOwnProperty(k)){
+                newObject[j] = o2[j];
+            }
+        }
+        return newObject;
+    }
+
     var exp = {
         Iterator:Iterator,
         Logger:Logger,
         composeApiString:composeApiString,
         getJSON:getJSON,
         jsonpRequest:jsonpRequest,
-        getImageRaw:getImageRaw
+        getImageRaw:getImageRaw,
+        extend:extend
     };
 
     if(stargateModules){
@@ -4718,7 +4764,8 @@
         composeApiString = Utils.composeApiString,
         //Iterator = Utils.Iterator,
         //getJSON = Utils.getJSON,
-        jsonpRequest = Utils.jsonpRequest;
+        jsonpRequest = Utils.jsonpRequest,
+        extend = Utils.extend;
 
     var baseDir,
         cacheDir,
@@ -4727,12 +4774,14 @@
         wwwDir,
         dataDir,
         stargatejsDir,
-        SDK_URL = "http://s2.motime.com/js/wl/webstore_html5game/gfsdk/dist/gfsdk.js"+"?timestamp=" + Date.now(),
-        DIXIE_URL = "http://s2.motime.com/tbr/dixie.js?country=it-igames"+"&timestamp=" + Date.now(),
-        API = "http://resources2.buongiorno.com/lapis/apps/contents.getList",
-        GA_FOR_GAME_URL = "http://www2.gameasy.com/ww-it/ga_for_games.js",
-        GAMIFIVE_INFO_API = "http://www2.gameasy.com/ww-it/v01/gameplay_proxy",
-        CONF = {},
+        CONF = {
+            sdk_url:"",
+            dixie_url:"",
+            api:"",
+            ga_for_game_url:"",
+            gamifive_info_api:"",
+            bundle_games:[]
+        },
         downloading = false;
 
     var emptyOfflineData = {
@@ -4796,12 +4845,23 @@
 
     /**
      * Init must be called after the 'deviceready' event
+     *
+     * @param {Object} customConf - the configuration
+     * @param {String} customConf.sdk_url
+     * @param {String} customConf.dixie_url
+     * @param {String} customConf.api
+     * @param {String} customConf.ga_for_game_url
+     * @param {String} customConf.gamifive_info_api
+     * @param {Array} customConf.bundle_games
      * @returns {Promise<Array<boolean>>}
      * */
-     function initialize(conf){
+     function initialize(customConf){
 
-        LOG.d("Initialized called with:", conf);
-        CONF = conf;
+        if(customConf){
+            CONF = extend(CONF, customConf);
+        }
+        LOG.d("Initialized called with:", CONF);
+
         if(!fileModule){return Promise.reject("Missing file module!");}
 
         try{
@@ -4844,55 +4904,99 @@
         _modules.game._public.BASE_DIR = constants.BASE_DIR;
         _modules.game._public.OFFLINE_INDEX = constants.WWW_DIR + "index.html";
 
-        function firstInit(){
-            /**
-             * Create directories
-             * */
-            var gamesDirTask = fileModule.createDir(constants.BASE_DIR, "games");
-            var scriptsDirTask = fileModule.createDir(constants.BASE_DIR, "scripts");
-            var createOfflineDataTask = fileModule.createFile(constants.BASE_DIR, "offlineData.json")
-                                        .then(function(entry){
-                                            LOG.d("offlineData", entry);
-                                            return fileModule.write(entry.path, JSON.stringify(emptyOfflineData));
-                                        });
 
-            return Promise.all([
-                    gamesDirTask, 
-                    scriptsDirTask,
-                    createOfflineDataTask
-                ]).then(function(results){
-                    LOG.d("GamesDir, ScriptsDir, offlineData.json created", results);
-                    LOG.d("Getting SDK from:", SDK_URL);
-                    return Promise.all([
-                        new fileModule.download(SDK_URL, results[1].path, "gfsdk.min.js").promise,
-                        new fileModule.download(DIXIE_URL, results[1].path, "dixie.js").promise,
-                        fileModule.copyDir(constants.WWW_DIR + "gameover_template", constants.BASE_DIR + "gameover_template"),
-                        fileModule.copyDir(constants.WWW_DIR + "plugins", constants.SDK_DIR + "plugins"),
-                        fileModule.copyFile(constants.CORDOVAJS, constants.SDK_DIR + "cordova.js"),
-                        fileModule.copyFile(constants.CORDOVA_PLUGINS_JS, constants.SDK_DIR + "cordova_plugins.js"),
-                        fileModule.copyFile(constants.STARGATEJS, constants.SDK_DIR + "stargate.js"),
-                        fileModule.copyFile(constants.WWW_DIR + "js/gamesFixes.js", constants.SDK_DIR + "gamesFixes.js")
-                    ]);
-                });
-        }
-
-        //Object.freeze(constants);
-
-        var gamesDirTaskExists = fileModule.dirExists(constants.GAMES_DIR);
-        var SDKExists = fileModule.fileExists(constants.SDK_DIR + "gfsdk.min.js");
-        var DixieExists = fileModule.fileExists(constants.SDK_DIR + "dixie.js");
-
-        return Promise.all([
-                gamesDirTaskExists, 
-                SDKExists,
-                DixieExists])
-            .then(function(results){
-                if(!results[0] && !results[1] && !results[2]){
-                    return firstInit();
+        /**
+         * Create directories
+         * */
+        var gamesDirTask = fileModule.createDir(constants.BASE_DIR, "games");
+        var scriptsDirTask = fileModule.createDir(constants.BASE_DIR, "scripts");
+        var createOfflineDataTask = fileModule.fileExists(constants.BASE_DIR + "offlineData.json")
+            .then(function(exists){
+                if(!exists){
+                    LOG.i("creating offlineData.json");
+                    return fileModule.createFile(constants.BASE_DIR, "offlineData.json")
+                        .then(function(entry){
+                            LOG.d("offlineData", entry);
+                            return fileModule.write(entry.path, JSON.stringify(emptyOfflineData));
+                        });
                 }else{
-                    return Promise.resolve("AlreadyInitialized");
+                    LOG.i("offlineData.json already exists");
+                    return exists;
                 }
             });
+
+        return Promise.all([
+                gamesDirTask,
+                scriptsDirTask,
+                createOfflineDataTask
+            ]).then(function(results){
+                LOG.d("GamesDir, ScriptsDir, offlineData.json created", results);
+                return copyAssets();
+            }).then(getSDK);
+    }
+
+    function copyAssets(){
+        return Promise.all([
+            fileModule.dirExists(constants.BASE_DIR + "gameover_template"),
+            fileModule.dirExists(constants.SDK_DIR + "plugins"),
+            fileModule.fileExists(constants.SDK_DIR + "cordova.js"),
+            fileModule.fileExists(constants.SDK_DIR + "cordova_plugins.js"),
+            fileModule.fileExists(constants.SDK_DIR + "stargate.js"),
+            fileModule.fileExists(constants.SDK_DIR + "gamesFixes.js")
+        ]).then(function(results){
+            var all = [];
+            if(!results[0]){
+                all.push(fileModule.copyDir(constants.WWW_DIR + "gameover_template", constants.BASE_DIR + "gameover_template"));
+            }
+
+            if(!results[1]){
+                all.push(fileModule.copyDir(constants.WWW_DIR + "plugins", constants.SDK_DIR + "plugins"));
+            }
+
+            if(!results[2]){
+                all.push(fileModule.copyFile(constants.CORDOVAJS, constants.SDK_DIR + "cordova.js"));
+            }
+
+            if(!results[3]){
+                all.push(fileModule.copyFile(constants.CORDOVA_PLUGINS_JS, constants.SDK_DIR + "cordova_plugins.js"));
+            }
+
+            if(!results[4]){
+                all.push(fileModule.copyFile(constants.STARGATEJS, constants.SDK_DIR + "stargate.js"));
+            }
+
+            if(!results[5]){
+                all.push(fileModule.copyFile(constants.WWW_DIR + "js/gamesFixes.js", constants.SDK_DIR + "gamesFixes.js"));
+            }
+            return Promise.all(all);
+        });
+    }
+
+    function getSDK(){
+
+        return Promise.all([
+            fileModule.fileExists(constants.SDK_DIR + "dixie.js"),
+            fileModule.fileExists(constants.SDK_DIR + "gfsdk.min.js")
+        ]).then(function(results){
+            var isDixieDownloaded = results[0],
+                isSdkDownloaded = results[1],
+                tasks = [];
+
+            if(!isSdkDownloaded && CONF.sdk_url !== ""){
+                LOG.d("get SDK");
+                tasks.push(new fileModule.download(CONF.sdk_url, constants.SDK_DIR, "gfsdk.min.js").promise);
+            }else{
+                LOG.w("Missing sdk_url in the configuration");
+            }
+
+            if(!isDixieDownloaded && CONF.dixie_url !== ""){
+                LOG.d("get dixie");
+                tasks.push(new fileModule.download(CONF.dixie_url, constants.SDK_DIR, "dixie.js").promise);
+            }else{
+                LOG.w("Missing dixie_url in the configuration");
+            }
+            return Promise.all(tasks);
+        });
     }
 
     /**
@@ -5132,7 +5236,7 @@
     function _injectScriptsInDom(dom, sources){
         dom = _removeRemoteSDK(dom);
         var _sources = Array.isArray(sources) === false ? [sources] : sources;
-        var temp;
+        var temp, css;
         LOG.d("injectScripts", _sources);
         // Allow scripts to load from local cdvfile protocol
         // default-src * data: cdvfile://* content://* file:///*;
@@ -5150,21 +5254,34 @@
             "'unsafe-inline' " +
             "'unsafe-eval';" +
             "style-src * cdvfile: http: https: 'unsafe-inline';";
-        dom.head.appendChild(metaTag);
+        dom.head.insertBefore(metaTag, dom.getElementsByTagName("meta")[0]);
+
+        /**
+         *  Create a script element __root__
+         *  in case none script in head is present
+         * */
+        var root = dom.createElement("script");
+        root.id = "__root__";
+        dom.head.insertBefore(root, dom.head.firstElementChild);
+
+        var scriptFragment = dom.createDocumentFragment();
+
         for(var i = 0;i < _sources.length;i++){
             if(_sources[i].endsWith(".css")){
                 LOG.d("css inject:",_sources[i]);
-                var css = dom.createElement("link");
+                css = dom.createElement("link");
                 css.rel = "stylesheet";
                 css.href = _sources[i];
-                dom.head.appendChild(css);
+                dom.head.insertBefore(css, dom.getElementsByTagName("link")[0]);
             }else{
-                //TODO: better perfomance with document fragment?
-                temp = document.createElement("script");
+                temp = dom.createElement("script");
                 temp.src = _sources[i];
-                dom.head.appendChild(temp);     
-            }           
+                scriptFragment.appendChild(temp);
+                // insertAfter(temp, root);
+            }
         }
+
+        dom.head.insertBefore(scriptFragment, dom.head.getElementsByTagName("script")[0]);
         LOG.d("Cleaned dom:",dom);
         return dom;
     }
@@ -5206,8 +5323,7 @@
         return _getIndexHtmlById(gameID)
             .then(function(entry){
                 indexPath = entry[0].path;
-                //LOG.d("injectScripts", indexPath);
-
+                LOG.d("injectScripts", indexPath);
                 return fileModule.readFileAsHTML(entry[0].path);
             })
             .then(function(dom){
@@ -5220,14 +5336,15 @@
 
                 metaTags = [].slice.call(metaTags);
                 linkTags = [].slice.call(linkTags);
-                styleTags = [].slice.call(linkTags);
-                titleTag = [].slice.call(linkTags);
+                styleTags = [].slice.call(styleTags);
+                titleTag = [].slice.call(titleTag);
 
-                linkTags.forEach(appendToHead);
-                metaTags.forEach(appendToHead);
-                styleTags.forEach(appendToHead);
-                titleTag.forEach(appendToHead);
+                var all = metaTags
+                    .concat(linkTags)
+                    .concat(styleTags)
+                    .concat(titleTag);
 
+                all.map(appendToHead);
                 dom.body.innerHTML = dom.body.innerHTML.trim();
 
                 LOG.d("_injectScripts");
@@ -5236,14 +5353,7 @@
             })
             .then(removeOldGmenu)
             .then(function(dom){
-
-                /*var result = new window.XMLSerializer().serializeToString(dom);
-                var toReplace = "<html xmlns=\"http:\/\/www.w3.org\/1999\/xhtml\"";
-                //Remove BOM :( it's a space character it depends on config of the developer
-                result = result.replace(toReplace, "<html");
-                                /*.replace(RegExp(/[^\x20-\x7E\xA0-\xFF]/g), '');*/
                 var attrs = [].slice.call(dom.querySelector("html").attributes);
-
                 var htmlAttributesAsString = attrs.map(function(item){
                     return item.name + '=' + '"' + item.value+'"';
                 }).join(" ");
@@ -5473,7 +5583,7 @@
      * */
     Game.prototype.getBundleGameObjects = function(){
         var self = this;
-        if(CONF && CONF.bundle_games){
+        if(CONF.bundle_games.length > 0){
             LOG.d("Games bundle in configuration", CONF.bundle_games);
             var whichGameAlreadyHere = CONF.bundle_games.map(function(gameId){
                 return self.isGameDownloaded(gameId);
@@ -5496,7 +5606,7 @@
                 .then(function(bundleGamesIds){
 
                     obj.content_id = bundleGamesIds;
-                    var api_string = composeApiString(API, obj);
+                    var api_string = composeApiString(CONF.api, obj);
                     LOG.d("Request bundle games meta info:", api_string);
 
                     return new jsonpRequest(api_string).prom;
@@ -5523,6 +5633,9 @@
                 .catch(function(reason){
                     LOG.e("Games bundle meta fail:", reason);
                 });
+        }else{
+            LOG.w("Bundle_games array is empty!");
+            return Promise.reject("bundle_games array is empty!");
         }
     };
 
@@ -5536,7 +5649,7 @@
          *  queues:{}
          * }
          * */
-        var apiGaForGames = composeApiString(GA_FOR_GAME_URL, ga_for_games_qs);
+        var apiGaForGames = composeApiString(CONF.ga_for_game_url, ga_for_games_qs);
         var getGaForGamesTask = new jsonpRequest(apiGaForGames).prom;
 
         getGaForGamesTask.then(function(ga_for_game){
@@ -5545,7 +5658,7 @@
 
         }).then(function(ga_for_game){
             LOG.d("ga_for_game:", ga_for_game);
-            var gamifive_api = composeApiString(GAMIFIVE_INFO_API, {
+            var gamifive_api = composeApiString(CONF.gamifive_info_api, {
                 content_id:content_id,
                 _PONY:ga_for_game._PONYVALUE,
                 format:"jsonp"
@@ -5578,27 +5691,10 @@
      * Download assets when online
      * maybe it's better to check it out on play action
      * */
-    document.addEventListener("online", function(ev){
-        LOG.d("Connection status detected, check assets:SDK,DIXIE", ev);
-        Promise.all([
-            fileModule.fileExists(constants.SDK_DIR + "dixie.js"),
-            fileModule.fileExists(constants.SDK_DIR + "gfsdk.min.js")
-        ]).then(function(results){
-            var isDixieDownloaded = results[0],
-                isSdkDownloaded = results[1],
-                tasks = [];
 
-            if(!isSdkDownloaded){
-                LOG.d("get SDK");
-                tasks.push(new fileModule.download(SDK_URL, constants.SDK_DIR, "gfsdk.min.js").promise);
-            }
-
-            if(!isDixieDownloaded){
-                LOG.d("get dixie");
-                tasks.push(new fileModule.download(SDK_URL, constants.SDK_DIR, "dixie.js").promise);
-            }
-            return Promise.all(tasks);
-        });
+    document.addEventListener("online", function(){
+        LOG.d("online");
+        getSDK();
     }, false);
 
     var _protected = {};
@@ -6325,7 +6421,23 @@ var initDevice = function() {
     return true;
 };
 
-
+function getAppIsDebug() {
+    if (window.cordova && window.cordova.plugins && window.cordova.plugins.AppIsDebug) {
+        return new Promise(function(resolve,reject){
+            window.cordova.plugins.AppIsDebug.get(
+                function(appinfo){
+                    resolve(appinfo);
+                },
+                function(error){
+                    err("getAppIsDebug(): "+error, error);
+                    reject(new Error(error));
+                }
+            );
+        });
+    }
+    
+    return Promise.reject(new Error("getAppIsDebug(): plugin not available!"));
+}
 
 function getManifest() {
     
@@ -6373,6 +6485,12 @@ var appBuild = '';
  * appPackageName: package name of the app - the reversed domain name app identifier like com.example.myawesomeapp
  */
 var appPackageName = '';
+
+/**
+ * appIsDebug {Boolean} true if app is compiled in debug mode
+ */
+var appIsDebug = false;
+
 
 /**
  * 
@@ -6648,7 +6766,8 @@ var onDeviceReady = function (resolve, reject) {
         cordova.getAppVersion.getVersionNumber(),
         getManifest(),
         cordova.getAppVersion.getPackageName(),
-        cordova.getAppVersion.getVersionCode()        
+        cordova.getAppVersion.getVersionCode(),
+        getAppIsDebug()       
     ])
     .then(function(results) {
         // save async initialization result
@@ -6661,6 +6780,12 @@ var onDeviceReady = function (resolve, reject) {
         
         appPackageName = results[2];
         appBuild = results[3];
+        
+        if (results[4] && ( typeof(results[4]) === 'object') ) {
+            if (results[4].debug) {
+                appIsDebug = true;             
+            }
+        }
 
         baseUrl = results[1].start_url;
 
@@ -7469,7 +7594,7 @@ var IAP = {
 		}
         
         if (isRunningOnAndroid()){
-            var purchase_token = p.transaction.purchaseToken + '|' + stargateConf.id + '|' + IAP.id;
+            var purchase_token = p.transaction.purchaseToken + '|' + appPackageName + '|' + IAP.id;
             log('[IAP] Purchase Token: '+purchase_token);
             
             if(!window.localStorage.getItem('user_account')){
@@ -7582,7 +7707,11 @@ var IAP = {
 
                     log('[IAP] createUser attempt: '+IAP.createUserAttempt+
                         ' with timeout: '+startTimeoutSeconds+'sec.');
-
+                    
+                    log("[IAP] POST createUser: "+IAP.lastCreateuserUrl+
+                        " params: "+JSON.stringify(IAP.lastCreateuserData)+
+                        " timeout: "+startTimeoutSeconds * 1000);
+                    
                     window.aja()
                         .method('POST')
                         .url(IAP.lastCreateuserUrl)
@@ -7595,10 +7724,10 @@ var IAP = {
                         .on('error', function(error){
                             onCreateError(error);
                         })
-                        .on('4**', function(error){
+                        .on('4xx', function(error){
                             onCreateError(error);
                         })
-                        .on('5**', function(error){
+                        .on('5xx', function(error){
                             onCreateError(error);
                         })
                         .on('timeout', function(){
@@ -7648,7 +7777,35 @@ stargatePublic.inAppPurchaseSubscription = function(callbackSuccess, callbackErr
     
     IAP.callbackSuccess = callbackSuccess;
     IAP.callbackError = callbackError;
-
+    
+    /*
+    if (isRunningOnAndroid() && appIsDebug) {
+        var debugTransactionAndroid = {
+            "id":IAP.id,
+            "alias":"Stargate Debug IAP Mock",
+            "type":"paid subscription",
+            "state":"owned",
+            "title":"Stargate Debug IAP Mock subscription",
+            "description":"Stargate Debug IAP Mock subscription",
+            "price":"€2.00",
+            "currency":"EUR",
+            "loaded":true,
+            "canPurchase":false,
+            "owned":true,
+            "downloading":false,
+            "downloaded":false,
+            "transaction":{
+                "type":"android-playstore",
+                "purchaseToken":"dgdecoeeoodhalncipabhmnn.AO-J1OwM_emD6KWnZBjTCG2nTF5XWvuHzLCOBPIBj9liMlqzftcDamRFnUvEasQ1neEGK7KIxlPKMV2W09T4qAVZhw_aGbPylo-5a8HVYvJGacoj9vXbvKhb495IMIq8fmywk8-Q7H5jL_0lbfSt9SMVM5V6k3Ttew",
+                "receipt":"{\"packageName\":\"stargate.test.package.id\",\"productId\":\"stargate.mock.subscription.weekly\",\"purchaseTime\":1460126549804,\"purchaseState\":0,\"purchaseToken\":\"dgdecoeeoodhalncipabhmnn.AO-J1OwM_emD6KWnZBjTCG2nTF5XWvuHzLCOBPIBj9liMlqzftcDamRFnUvEasQ1neEGK7KIxlPKMV2W09T4qAVZhw_aGbPylo-5a8HVYvJGacoj9vXbvKhb495IMIq8fmywk8-Q7H5jL_0lbfSt9SMVM5V6k3Ttew\",\"autoRenewing\":false}","signature":"UciGXv48EMVdUXICxoy+hBWTiKbn4VABteQeIUVlFG0GmJ/9p/k372RhPyprqve7tnwhk+vpZYos5Fwvm/SrYjsqKMMFgTzotrePwJ9spq2hzmjhkqNTKkxdcgiuaCp8Vt7vVH9yjCtSKWwdS1UBlZLPaJunA4D2KE8TP/qYnwgZTOCBvSf3rUbEzmwRuRbYqndNyoMfIXvRP71TDBsMcHM/3UrDYEf2k2/SJKnctcGmvU2/BW/WG96T9FuiJPpotax7iQmBdN5PmfuxlZiZiUyj9mFEgzPEIAMP2HCcdX2KlNBPhKhxm4vESozVljTbrI0+OGJjQJhaWBn9+aclmA=="
+            },
+            "valid":true
+        };
+        IAP.onProductOwned(debugTransactionAndroid);
+        return;
+    }
+    */
+    
     IAP.doRefresh();
     window.store.order(IAP.id);
 };

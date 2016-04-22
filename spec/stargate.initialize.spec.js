@@ -36,6 +36,10 @@ var spec_device_mock = {
     version: "0.0.2"
 };
 
+var app_is_debug_mock = {
+    debug: false
+};
+
 var manifest_mock = {
 
 	"stargateConf": {
@@ -105,7 +109,14 @@ var cordova_mock = {
         getVersionCode: function() {
             return Promise.resolve("0.0.1-test");
 		}
-	}
+	},
+    plugins: {
+        AppIsDebug: {
+            get: function(cbOk, cbErr) {
+                cbOk(app_is_debug_mock);
+            }
+        }
+    }
 };
 
 var statusbar_mock = {
