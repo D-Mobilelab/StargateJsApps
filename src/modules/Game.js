@@ -887,6 +887,29 @@
         }
     };
 
+    /**
+     * needsUpdate
+     * checks if there's or not a new version for the game(it makes a call to the api)
+     *
+     * @param {String} gameId - the gameId
+     * @param {Promise<Boolean>}
+     * */
+    Game.prototype.needsUpdate = function(gameId){
+        var oldMd5 = "";
+        return fileModule.readFileAsJSON(constants.GAMES_DIR + gameId + "/meta.json")
+            .then(function(gameObject){
+                oldMd5 = gameObject.response_api_dld.binary_md5;
+                return Utils.getJSON(gameObject.url_api_dld);
+            })
+            .then(function(response){
+                if(response.status === 200){
+                    return response.binary_md5 !== oldMd5;
+                }else{
+                    throw new Error("ResponseStatus " + response.status);
+                }
+            });
+    };
+
     function storeOfflineData(content_id){
         /**
          * Calls for offlineData.json
