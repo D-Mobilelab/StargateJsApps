@@ -3918,7 +3918,7 @@
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.4.0";
+    var stargatePackageVersion = "0.4.1";
     var stargatePublic = {};
     
     var stargateModules = {};       
@@ -8323,7 +8323,11 @@ var setHybridVersion = function() {
 
 var hideSplashAndLoaders = function() {
     
-    navigator.splashscreen.hide();
+    
+    if (! haveRequestedFeature("leavesplash")) {
+        navigator.splashscreen.hide();
+    }
+
     setBusy(false);
     
     if (typeof SpinnerDialog !== "undefined") {
@@ -8332,7 +8336,8 @@ var hideSplashAndLoaders = function() {
 };
 
 var onPluginReady = function (resolve) {
-    
+    log("onPluginReady() start");
+
     // FIXME: this is needed ??
     document.title = stargateConf.title;
     
@@ -8447,6 +8452,8 @@ var onPluginReady = function (resolve) {
 };
 
 var onStargateReady = function(resolve, error) {
+    log("onStargateReady() start");
+    
     hideSplashAndLoaders();
             
     // initialize finished
@@ -8482,6 +8489,7 @@ var onStargateReady = function(resolve, error) {
 };
 
 var onDeviceReady = function (resolve, reject) {
+    log("onDeviceReady() start");
 
     // device ready received so i'm sure to be hybrid
     setIsHybrid();
