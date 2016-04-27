@@ -18,7 +18,7 @@
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.4.1";
+    var stargatePackageVersion = "0.4.2";
     var stargatePublic = {};
     
     var stargateModules = {};       
@@ -4268,7 +4268,8 @@ function getAppIsDebug() {
         });
     }
     
-    return Promise.reject(new Error("getAppIsDebug(): plugin not available!"));
+    err("getAppIsDebug(): plugin not available!");
+    return Promise.resolve({});
 }
 
 function getManifest() {
@@ -4291,7 +4292,8 @@ function getManifest() {
         });
     }
     
-    return Promise.reject(new Error("getManifest() no available reading mechanism!"));
+    err("getManifest() no available reading mechanism!");
+    return Promise.resolve({});
 }
 
 var launchUrl = function (url) {
