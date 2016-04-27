@@ -398,6 +398,15 @@ function loadUrl(url){
 
     if(window.device.platform.toLowerCase() == "android"){
         window.navigator.app.loadUrl(url);
+    }else if(window.device.platform.toLowerCase() == "ios" && (url.indexOf("file:///") !== -1)){
+        //ios and url is a file:// protocol
+        var _url = url.split("?")[0];
+        log("Without qs", _url);
+        window.resolveLocalFileSystemURL(_url, function(entry){
+            var internalUrl = entry.toInternalURL() + "?hybrid=1";
+            log("Redirect to", internalUrl);
+            window.location.href = internalUrl;
+        }, err);
     }else{
         window.location.href = url;
     }
@@ -409,9 +418,11 @@ function loadUrl(url){
  * */
 stargatePublic.goToLocalIndex = function(){
     if(window.cordova.file.applicationDirectory !== "undefined"){
-        var LOCAL_INDEX = window.cordova.file.applicationDirectory + "www/index.html?hybrid=1";
-        log("Redirect to", LOCAL_INDEX);
-        loadUrl(LOCAL_INDEX);
+        var qs = "?hybrid=1";
+        var LOCAL_INDEX = window.cordova.file.applicationDirectory + "www/index.html";
+        loadUrl(LOCAL_INDEX + qs);
+    }else{
+        err("Missing cordova-plugin-file. Install it with: cordova plugin add cordova-plugin-file");
     }
 };
 
