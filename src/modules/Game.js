@@ -233,15 +233,11 @@
             if(!isSdkDownloaded && CONF.sdk_url !== ""){
                 LOG.d("get SDK");
                 tasks.push(new fileModule.download(CONF.sdk_url, constants.SDK_DIR, "gfsdk.min.js").promise);
-            }else{
-                LOG.w("Missing sdk_url in the configuration");
             }
 
             if(!isDixieDownloaded && CONF.dixie_url !== ""){
                 LOG.d("get dixie");
                 tasks.push(new fileModule.download(CONF.dixie_url, constants.SDK_DIR, "dixie.js").promise);
-            }else{
-                LOG.w("Missing dixie_url in the configuration");
             }
             return Promise.all(tasks);
         });
@@ -287,12 +283,14 @@
         var saveAsName = gameObject.id;
         function start(){
             _onStart({type:"download"});
-            LOG.d("Start Download:", gameObject.id, gameObject.response_api_dld.binary_url);
 
-            storeOfflineData(saveAsName);
-
-            var downloadPromise = new fileModule.download(gameObject.response_api_dld.binary_url, constants.TEMP_DIR, saveAsName + ".zip", wrapProgress("download")).promise;
-            return downloadPromise
+            LOG.d("Get ga_for_game and gamifive info, fly my minipony!");
+            return storeOfflineData(saveAsName)
+                .then(function(results){
+                    LOG.d("Ga for game and gamifive info stored!", results);
+                    LOG.d("Start Download:", gameObject.id, gameObject.response_api_dld.binary_url);
+                    return new fileModule.download(gameObject.response_api_dld.binary_url, constants.TEMP_DIR, saveAsName + ".zip", wrapProgress("download")).promise;
+                })
                 .then(function(entry){
                     //Unpack
                     _onStart({type:"unzip"});
@@ -900,12 +898,9 @@
         var apiGaForGames = composeApiString(CONF.ga_for_game_url, ga_for_games_qs);
         var getGaForGamesTask = new jsonpRequest(apiGaForGames).prom;
 
-        getGaForGamesTask.then(function(ga_for_game){
+        return getGaForGamesTask.then(function(ga_for_game){
             LOG.d("apiGaForGames:", apiGaForGames, "ga_for_game:", ga_for_game);
-            return ga_for_game;
 
-        }).then(function(ga_for_game){
-            LOG.d("ga_for_game:", ga_for_game);
             var gamifive_api = composeApiString(CONF.gamifive_info_api, {
                 content_id:content_id,
                 _PONY:ga_for_game._PONYVALUE,
@@ -952,5 +947,9 @@
     _modules.game._protected = _protected;
     _modules.game._public = new Game();
 
+
+    /*getGaForGames
+    getGamifiveInfo
+    storeData*/
 
 })(stargateModules.file, stargateModules.Utils, stargateModules);
