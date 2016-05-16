@@ -3,5 +3,4 @@
 var version = require("./../package.json").version;
 var shell = require("shelljs");
 
-shell.exec("jsdoc -R README.md src/modules -d dist/"+version);
-
+shell.exec("jsdoc -R README.md src/modules -d gh-pages/"+version);

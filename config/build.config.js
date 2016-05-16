@@ -42,12 +42,10 @@ module.exports = {
     	'    return stargatePublic;\n' +
         '}));\n\n\n',
 
-
-
 	version: pkg.version,
 
-	dist: 'dist/' + pkg.version,
-	distBower: 'dist/' + pkg.version + '/bower',
+	dist: 'dist/',
+	distBower: 'dist/bower',
 	build: 'build/',
 
 	bowerAllIncludes: 'includes.bower.js',
