@@ -37,8 +37,7 @@
                         break;
                     default:
                         console.log(message);
-                }
-                
+                }                
             }
         };
     }    
