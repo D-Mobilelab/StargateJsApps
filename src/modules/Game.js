@@ -936,26 +936,12 @@
                 return fileModule.write(constants.BASE_DIR + "offlineData.json", JSON.stringify(offlineDataUpdated));
             });
     }
-    /**
-     * Download assets when online
-     * maybe it's better to check it out on play action
-     * */
-
-    document.addEventListener("online", function(){
-        LOG.d("online");
-        getSDK();
-    }, false);
-
+    
     var _protected = {};
     _modules.game = {};
 
     _protected.initialize = initialize;
     _modules.game._protected = _protected;
     _modules.game._public = new Game();
-
-
-    /*getGaForGames
-    getGamifiveInfo
-    storeData*/
 
 })(stargateModules.file, stargateModules.Utils, stargateModules);
