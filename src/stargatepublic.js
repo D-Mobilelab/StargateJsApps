@@ -105,7 +105,7 @@ stargatePublic.conf.getWebappStartUrl = function() {
         .addSearch("hybrid", "1")
         .addSearch("stargateVersion", getStargateVersionToLoad());
     
-    return webappStartUrl;
+    return String(webappStartUrl);
 };
 
 var getStargateVersionToLoad = function() {
