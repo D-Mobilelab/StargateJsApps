@@ -54,7 +54,7 @@
         LOG.i(POSITIONS, SIZES);
     }
 
-    _modules.Admanager = {
+    /*_modules.Admanager = {
         createBanner:function(){},
         removeBanner:function(){},
         showBanner:function(){},
@@ -62,6 +62,7 @@
         prepareInterstitial:function(){},
         showInterstitial:function(){},
         setOptions:function(){}
-    };
+    };*/
+    _modules.Admanager = new Admanager();
 
 })(stargateModules.Utils, stargateModules);
