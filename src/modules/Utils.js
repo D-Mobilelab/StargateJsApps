@@ -3,6 +3,7 @@
  * @module src/modules/Utils
  * @type {Object}
  */
+/* globals ActiveXObject */
 (function(stargateModules){
     /**
      * @class
@@ -214,17 +215,28 @@
      * */
     function getJSON(url){
         url = encodeURI(url);
-        var xhr = new window.XMLHttpRequest();
+        var xhr = typeof XMLHttpRequest != 'undefined' ? new XMLHttpRequest() : new ActiveXObject('Microsoft.XMLHTTP');
+
+        var responseTypeAware = 'responseType' in xhr;
+
+        xhr.open("GET", url, true);
+        if (responseTypeAware) {
+            xhr.responseType = 'json';
+        }
+
         var daRequest = new Promise(function(resolve, reject){
             xhr.onreadystatechange = function(){
-                if (xhr.readyState == 4 && xhr.status < 400) {
-                    resolve(xhr.response);
-                }else{
-                    reject(xhr.status);
+                if (xhr.readyState === 4) {
+                    try{
+                        var result = responseTypeAware ? xhr.response : JSON.parse(xhr.responseText);
+                        resolve(result);
+                    }catch(e){
+                        reject(e);
+                    }
                 }
             };
         });
-        xhr.open("GET", url, true);
+
         xhr.setRequestHeader('Content-type', 'application/json; charset=UTF-8');
         xhr.send();
         return daRequest;

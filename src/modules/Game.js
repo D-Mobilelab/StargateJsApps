@@ -254,15 +254,15 @@
      * @returns {Promise<boolean|FileError|Number>} - true if all has gone good, 403 if unathorized, FileError in case can write in the folder
      * */
     Game.prototype.download = function(gameObject, callbacks){
-
+        var err;
         if(this.isDownloading()){
-            var err = {type:"error",description:"AlreadyDownloading"};
+            err = {type:"error",description:"AlreadyDownloading"};
             callbacks.onEnd(err);
             return Promise.reject(err); 
         }
         
         if((!gameObject.hasOwnProperty("response_api_dld")) || gameObject.response_api_dld.status !== 200){
-            var err = {type:"error",description:"response_api_dld.status not equal 200 or undefined"};
+            err = {type:"error",description:"response_api_dld.status not equal 200 or undefined"};
             callbacks.onEnd(err);
             return Promise.reject(err);
         }
@@ -889,6 +889,29 @@
             LOG.w("Bundle_games array is empty!");
             return Promise.reject("bundle_games array is empty!");
         }
+    };
+
+    /**
+     * needsUpdate
+     * checks if there's or not a new version for the game(it makes a call to the api)
+     *
+     * @param {String} gameId - the gameId
+     * @param {Promise<Boolean>}
+     * */
+    Game.prototype.needsUpdate = function(gameId){
+        var oldMd5 = "";
+        return fileModule.readFileAsJSON(constants.GAMES_DIR + gameId + "/meta.json")
+            .then(function(gameObject){
+                oldMd5 = gameObject.response_api_dld.binary_md5;
+                return Utils.getJSON(gameObject.url_api_dld);
+            })
+            .then(function(response){
+                if(response.status === 200){
+                    return response.binary_md5 !== oldMd5;
+                }else{
+                    throw new Error("ResponseStatus " + response.status);
+                }
+            });
     };
 
     function storeOfflineData(content_id){

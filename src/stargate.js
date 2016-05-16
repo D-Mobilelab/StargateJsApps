@@ -272,7 +272,7 @@ var onPluginReady = function (resolve) {
         var exec = cordova.require('cordova/exec');
         exec.setJsToNativeBridgeMode(exec.jsToNativeModes.IFRAME_NAV);
     }
-    
+    bindConnectionEvents();
     // save stargate version to load on webapp 
     setHybridVersion();
 
