@@ -5736,7 +5736,6 @@
  * Decoratos module
  * @module src/modules/Decorators
  * @type {Object} 
- * @requires ./Utils.js
  */
 (function(_modules){
     
@@ -5780,7 +5779,7 @@
         requireCondition:requireCondition
     };
     
-})(stargateModules)
+})(stargateModules);
 
 /**
  * Admanager module needs cordova-plugin-admobpro, cordova-plugin-mopub
@@ -5788,7 +5787,7 @@
  * @type {Object}
  * @requires ./Utils.js,./Decorators.js
  */
-(function(Utils, Decorators,_modules) {
+(function(Utils, Decorators, _modules){
 
 
     var POSITIONS = {

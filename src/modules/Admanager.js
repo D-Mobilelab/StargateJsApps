@@ -2,9 +2,9 @@
  * Admanager module needs cordova-plugin-admobpro, cordova-plugin-mopub
  * @module src/modules/Admanager
  * @type {Object}
- * @requires ./Utils.js,./Decorators
+ * @requires ./Utils.js,./Decorators.js
  */
-(function(Utils, Decorators,_modules) {
+(function(Utils, Decorators, _modules){
 
 
     var POSITIONS = {
@@ -63,7 +63,8 @@
     Admanager.prototype.createBannerView = Decorators.requireCondition(isCordovaPluginDefined, 
                                 Admanager.prototype.createBannerView, 
                                 Admanager.prototype, 
-                                "cordova-plugin-admob not installed", "warn");
+                                "cordova-plugin-admob not installed", 
+                                "warn");
     
     _modules.Admanager = new Admanager();
 

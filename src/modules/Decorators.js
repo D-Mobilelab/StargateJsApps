@@ -2,7 +2,6 @@
  * Decoratos module
  * @module src/modules/Decorators
  * @type {Object} 
- * @requires ./Utils.js
  */
 (function(_modules){
     
@@ -46,4 +45,4 @@
         requireCondition:requireCondition
     };
     
-})(stargateModules)
+})(stargateModules);
