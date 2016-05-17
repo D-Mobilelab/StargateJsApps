@@ -5786,9 +5786,9 @@
  * Admanager module needs cordova-plugin-admobpro, cordova-plugin-mopub
  * @module src/modules/Admanager
  * @type {Object}
- * @requires ./Utils.js
+ * @requires ./Utils.js,./Decorators.js
  */
-(function(Utils, _modules) {
+(function(Utils, Decorators,_modules) {
 
 
     var POSITIONS = {
@@ -5837,19 +5837,22 @@
     function Admanager(){
         LOG.i(POSITIONS, SIZES);
     }
-
-    /*_modules.Admanager = {
-        createBanner:function(){},
-        removeBanner:function(){},
-        showBanner:function(){},
-        hideBanner:function(){},
-        prepareInterstitial:function(){},
-        showInterstitial:function(){},
-        setOptions:function(){}
-    };*/
+    
+    Admanager.prototype.createBannerView = function(){LOG.d("NotImplemented");};
+    Admanager.prototype.requestInterstitialAd = function(){LOG.d("NotImplemented");};
+    Admanager.prototype.showAd = function(){LOG.d("NotImplemented");};
+    
+    function isCordovaPluginDefined(){return window.plugins && typeof window.plugins.AdMob !== "undefined";}    
+        
+    Admanager.prototype.createBannerView = Decorators.requireCondition(isCordovaPluginDefined, 
+                                Admanager.prototype.createBannerView, 
+                                Admanager.prototype, 
+                                "cordova-plugin-admob not installed", 
+                                "warn");
+    
     _modules.Admanager = new Admanager();
 
-})(stargateModules.Utils, stargateModules);
+})(stargateModules.Utils, stargateModules.Decorators, stargateModules);
 
 var webappsFixes = (function() {
 
