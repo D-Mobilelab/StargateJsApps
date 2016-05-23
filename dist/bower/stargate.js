@@ -1870,8 +1870,8 @@
 })(stargateModules);
 
 /**
- * Admanager module needs cordova-plugin-admobpro, cordova-plugin-mopub
- * @module src/modules/Admanager
+ * AdManager module needs cordova-plugin-admobpro, cordova-plugin-mopub
+ * @module src/modules/AdManager
  * @type {Object}
  * @requires ./Utils.js,./Decorators.js
  */
@@ -1902,7 +1902,7 @@
     };
 
     var admobid = {};
-    var LOG = new Utils.Logger("all","[Admanager]");
+    var LOG = new Utils.Logger("all","[AdManager]");
 
     if(/(android)/i.test(navigator.userAgent) ) {
         admobid = { // for Android
@@ -1921,23 +1921,55 @@
         };
     }
 
-    function Admanager(){
+    function AdManager(){
         LOG.i(POSITIONS, SIZES);
     }
     
-    Admanager.prototype.createBannerView = function(){LOG.d("NotImplemented");};
-    Admanager.prototype.requestInterstitialAd = function(){LOG.d("NotImplemented");};
-    Admanager.prototype.showAd = function(){LOG.d("NotImplemented");};
+    /*
+    createBanner(adId/options, success, fail);
+    removeBanner();
+    showBanner(position);
+    showBannerAtXY(x, y);
+    hideBanner();
+
+    // use interstitial
+    prepareInterstitial(adId/options, success, fail);
+    showInterstitial();
+    isInterstitialReady(function(ready){ if(ready){ } });
+
+    // use reward video
+    prepareRewardVideoAd(adId/options, success, fail);
+    showRewardVideoAd();
+
+    // set values for configuration and targeting
+    setOptions(options, success, fail);
     
-    function isCordovaPluginDefined(){return window.plugins && typeof window.plugins.AdMob !== "undefined";}    
-        
-    Admanager.prototype.createBannerView = Decorators.requireCondition(isCordovaPluginDefined, 
-                                Admanager.prototype.createBannerView, 
-                                Admanager.prototype, 
+    // get user ad settings
+    getAdSettings(function(inf){ inf.adId; inf.adTrackingEnabled; }, fail);
+    */
+    AdManager.prototype.createBanner = function(){LOG.d("NotImplemented");};
+    AdManager.prototype.removeBanner = function(){LOG.d("NotImplemented");};
+    AdManager.prototype.showBanner = function(){LOG.d("NotImplemented");};
+    AdManager.prototype.showBannerAtXY = function(){LOG.d("NotImplemented");};
+    AdManager.prototype.hideBanner = function(){LOG.d("NotImplemented");};
+    AdManager.prototype.prepareInterstitial = function(){LOG.d("NotImplemented");};
+    AdManager.prototype.isInterstitialReady = function(){LOG.d("NotImplemented");};
+    AdManager.prototype.prepareRewardVideoAd = function(){LOG.d("NotImplemented");};
+    AdManager.prototype.showRewardVideoAd = function(){LOG.d("NotImplemented");};
+    AdManager.prototype.setOptions = function(){LOG.d("NotImplemented");};
+    
+       
+    function isCordovaPluginDefined(){
+        return window.plugins && typeof window.plugins.AdMob !== "undefined";
+    }
+    
+    AdManager.prototype.createBanner = Decorators.requireCondition(isCordovaPluginDefined, 
+                                AdManager.prototype.createBanner, 
+                                AdManager.prototype, 
                                 "cordova-plugin-admob not installed", 
                                 "warn");
     
-    _modules.Admanager = new Admanager();
+    _modules.AdManager = new AdManager();
 
 })(stargateModules.Utils, stargateModules.Decorators, stargateModules);
 
@@ -2519,8 +2551,6 @@ stargatePublic.getVersion = function() {
 stargatePublic.getAppInformation = function() {
     return appInformation;
 };
-
-stargatePublic.ad = new AdStargate();
 /* globals SpinnerDialog */
 
 /***
@@ -3090,13 +3120,6 @@ var haveRequestedFeature = function(feature) {
     }
     return false;
 };
-
-
-
-
-
-
-
 /**
  * Utils module
  * @module src/modules/Utils
@@ -6370,59 +6393,6 @@ stargatePublic.setAnalyticsCallback = function(callback) {
 	analytics.setCallback(callback);
 };
 
-/*! AdStargate.JS - v0.0.1 - 2015-XX-XX
- *
- */
-function AdStargate() {
-
-
-
-    this.initialize = function(data, callbackSuccess, callbackError){
-        err("unimplemented");
-        callbackError("unimplemented");
-    };
-
-    this.createBanner = function(data, callbackSuccess, callbackError){
-    	err("unimplemented");
-        callbackError("unimplemented");
-    };
-
-    this.hideBanner = function(data, callbackSuccess, callbackError){
-    	err("unimplemented");
-        callbackError("unimplemented");
-    };
-
-    this.removeBanner = function(data, callbackSuccess, callbackError){
-    	err("unimplemented");
-        callbackError("unimplemented");
-    };
-
-    this.showBannerAtSelectedPosition = function(data, callbackSuccess, callbackError){
-    	err("unimplemented");
-        callbackError("unimplemented");
-    };
-
-    this.showBannerAtGivenXY = function(data, callbackSuccess, callbackError){
-    	err("unimplemented");
-        callbackError("unimplemented");
-    };
-
-    this.registerAdEvents = function(eventManager, callbackSuccess, callbackError){
-    	err("unimplemented");
-        callbackError("unimplemented");
-    };
-
-    this.prepareInterstitial = function(data, callbackSuccess, callbackError){
-    	err("unimplemented");
-        callbackError("unimplemented");
-    };
-
-    this.showInterstitial = function(data, callbackSuccess, callbackError){
-    	err("unimplemented");
-        callbackError("unimplemented");
-    };
-}
-
 /* globals AdMob, MoPub */
 
 var AdManager = {
@@ -6845,7 +6815,7 @@ var AdManager = {
 	
 };
     stargatePublic.game = stargateModules.game._public;
-    stargatePublic.file = stargateModules.file;    // Just return a value to define the module export
+    stargatePublic.file = stargateModules.file;    stargatePublic.AdManager = stargateModules.AdManager;    // Just return a value to define the module export
     return stargatePublic;
 }));
 

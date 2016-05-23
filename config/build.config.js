@@ -38,6 +38,7 @@ module.exports = {
 	closureEnd: '\n' +
         '    stargatePublic.game = stargateModules.game._public;\n' +
         '    stargatePublic.file = stargateModules.file;'+
+		'    stargatePublic.AdManager = stargateModules.AdManager;'+
  		'    // Just return a value to define the module export\n' +
     	'    return stargatePublic;\n' +
         '}));\n\n\n',

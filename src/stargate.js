@@ -567,9 +567,3 @@ var haveRequestedFeature = function(feature) {
     }
     return false;
 };
-
-
-
-
-
-
