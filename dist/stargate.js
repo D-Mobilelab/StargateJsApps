@@ -5867,24 +5867,30 @@
     AdManager.prototype.createBanner = function(){LOG.d("NotImplemented");};
     AdManager.prototype.removeBanner = function(){LOG.d("NotImplemented");};
     AdManager.prototype.showBanner = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.showBannerAtXY = function(){LOG.d("NotImplemented");};
+    AdManager.prototype.showBannerAtGivenXY = function(){LOG.d("NotImplemented");};
+    AdManager.prototype.showBannerAtSelectedPosition = function(){LOG.d("NotImplemented");};
     AdManager.prototype.hideBanner = function(){LOG.d("NotImplemented");};
     AdManager.prototype.prepareInterstitial = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.isInterstitialReady = function(){LOG.d("NotImplemented");};
+    AdManager.prototype.showInterstitial = function(){LOG.d("NotImplemented");};
     AdManager.prototype.prepareRewardVideoAd = function(){LOG.d("NotImplemented");};
+    AdManager.prototype.registerAdEvents = function(){LOG.d("NotImplemented");};
     AdManager.prototype.showRewardVideoAd = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.setOptions = function(){LOG.d("NotImplemented");};
-    
-       
+    AdManager.prototype.setOptions = function(){LOG.d("NotImplemented");};    
+
     function isCordovaPluginDefined(){
         return window.plugins && typeof window.plugins.AdMob !== "undefined";
     }
     
-    AdManager.prototype.createBanner = Decorators.requireCondition(isCordovaPluginDefined, 
-                                AdManager.prototype.createBanner, 
+    // unwrap it as soon as implemented
+    for(var method in AdManager.prototype){
+        if(AdManager.prototype.hasOwnProperty(method)){
+            AdManager.prototype[method] = Decorators.requireCondition(isCordovaPluginDefined, 
+                                AdManager.prototype[method], 
                                 AdManager.prototype, 
                                 "cordova-plugin-admob not installed", 
                                 "warn");
+        }
+    }
     
     _modules.AdManager = new AdManager();
 
@@ -8962,24 +8968,30 @@ var haveRequestedFeature = function(feature) {
     AdManager.prototype.createBanner = function(){LOG.d("NotImplemented");};
     AdManager.prototype.removeBanner = function(){LOG.d("NotImplemented");};
     AdManager.prototype.showBanner = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.showBannerAtXY = function(){LOG.d("NotImplemented");};
+    AdManager.prototype.showBannerAtGivenXY = function(){LOG.d("NotImplemented");};
+    AdManager.prototype.showBannerAtSelectedPosition = function(){LOG.d("NotImplemented");};
     AdManager.prototype.hideBanner = function(){LOG.d("NotImplemented");};
     AdManager.prototype.prepareInterstitial = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.isInterstitialReady = function(){LOG.d("NotImplemented");};
+    AdManager.prototype.showInterstitial = function(){LOG.d("NotImplemented");};
     AdManager.prototype.prepareRewardVideoAd = function(){LOG.d("NotImplemented");};
+    AdManager.prototype.registerAdEvents = function(){LOG.d("NotImplemented");};
     AdManager.prototype.showRewardVideoAd = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.setOptions = function(){LOG.d("NotImplemented");};
-    
-       
+    AdManager.prototype.setOptions = function(){LOG.d("NotImplemented");};    
+
     function isCordovaPluginDefined(){
         return window.plugins && typeof window.plugins.AdMob !== "undefined";
     }
     
-    AdManager.prototype.createBanner = Decorators.requireCondition(isCordovaPluginDefined, 
-                                AdManager.prototype.createBanner, 
+    // unwrap it as soon as implemented
+    for(var method in AdManager.prototype){
+        if(AdManager.prototype.hasOwnProperty(method)){
+            AdManager.prototype[method] = Decorators.requireCondition(isCordovaPluginDefined, 
+                                AdManager.prototype[method], 
                                 AdManager.prototype, 
                                 "cordova-plugin-admob not installed", 
                                 "warn");
+        }
+    }
     
     _modules.AdManager = new AdManager();
 
