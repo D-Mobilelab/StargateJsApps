@@ -254,11 +254,17 @@
      * @returns {Promise<boolean|FileError|Number>} - true if all has gone good, 403 if unathorized, FileError in case can write in the folder
      * */
     Game.prototype.download = function(gameObject, callbacks){
-
-        if(this.isDownloading()){ return Promise.reject("Downloading...try later");}
+        var err;
+        if(this.isDownloading()){
+            err = {type:"error",description:"AlreadyDownloading"};
+            callbacks.onEnd(err);
+            return Promise.reject(err); 
+        }
+        
         if((!gameObject.hasOwnProperty("response_api_dld")) || gameObject.response_api_dld.status !== 200){
-            callbacks.onEnd("response_api_dld.status not equal 200 or undefined");
-            return Promise.reject("response_api_dld.status not equal 200 or undefined");
+            err = {type:"error",description:"response_api_dld.status not equal 200 or undefined"};
+            callbacks.onEnd(err);
+            return Promise.reject(err);
         }
 
         var alreadyExists = this.isGameDownloaded(gameObject.id);
@@ -885,6 +891,29 @@
         }
     };
 
+    /**
+     * needsUpdate
+     * checks if there's or not a new version for the game(it makes a call to the api)
+     *
+     * @param {String} gameId - the gameId
+     * @param {Promise<Boolean>}
+     * */
+    Game.prototype.needsUpdate = function(gameId){
+        var oldMd5 = "";
+        return fileModule.readFileAsJSON(constants.GAMES_DIR + gameId + "/meta.json")
+            .then(function(gameObject){
+                oldMd5 = gameObject.response_api_dld.binary_md5;
+                return Utils.getJSON(gameObject.url_api_dld);
+            })
+            .then(function(response){
+                if(response.status === 200){
+                    return response.binary_md5 !== oldMd5;
+                }else{
+                    throw new Error("ResponseStatus " + response.status);
+                }
+            });
+    };
+
     function storeOfflineData(content_id){
         /**
          * Calls for offlineData.json
@@ -930,26 +959,12 @@
                 return fileModule.write(constants.BASE_DIR + "offlineData.json", JSON.stringify(offlineDataUpdated));
             });
     }
-    /**
-     * Download assets when online
-     * maybe it's better to check it out on play action
-     * */
-
-    document.addEventListener("online", function(){
-        LOG.d("online");
-        getSDK();
-    }, false);
-
+    
     var _protected = {};
     _modules.game = {};
 
     _protected.initialize = initialize;
     _modules.game._protected = _protected;
     _modules.game._public = new Game();
-
-
-    /*getGaForGames
-    getGamifiveInfo
-    storeData*/
 
 })(stargateModules.file, stargateModules.Utils, stargateModules);

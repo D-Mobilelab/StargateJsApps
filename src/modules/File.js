@@ -8,8 +8,8 @@
 (function(_modules, Utils){
 
     var File = {};
-    var LOG;
-    File.LOG = LOG = new Utils.Logger("ALL", "[File - module]");
+    var LOG = new Utils.Logger("ALL", "[File - module]");
+    File.LOG = LOG;
     window.requestFileSystem  = window.requestFileSystem || window.webkitRequestFileSystem;
     /**
      * ERROR_MAP

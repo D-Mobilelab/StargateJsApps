@@ -90,52 +90,6 @@ describe("Stargate initialization required", function() {
 
 });
 
-    
-
-describe("Stargate public ad interface", function() {
-
-	it("Stargate ad exists", function() {
-		expect(stargatePublic.ad).toBeDefined();
-	});
-
-	it("Stargate ad initialize exists", function() {
-		expect(stargatePublic.ad.initialize).toBeDefined();
-	});
-
-	it("Stargate ad createBanner exists", function() {
-		expect(stargatePublic.ad.createBanner).toBeDefined();
-	});
-
-	it("Stargate ad hideBanner exists", function() {
-		expect(stargatePublic.ad.hideBanner).toBeDefined();
-	});
-
-	it("Stargate ad removeBanner exists", function() {
-		expect(stargatePublic.ad.removeBanner).toBeDefined();
-	});
-
-	it("Stargate ad showBannerAtSelectedPosition exists", function() {
-		expect(stargatePublic.ad.showBannerAtSelectedPosition).toBeDefined();
-	});
-
-	it("Stargate ad showBannerAtGivenXY exists", function() {
-		expect(stargatePublic.ad.showBannerAtGivenXY).toBeDefined();
-	});
-
-	it("Stargate ad registerAdEvents exists", function() {
-		expect(stargatePublic.ad.registerAdEvents).toBeDefined();
-	});
-
-	it("Stargate ad prepareInterstitial exists", function() {
-		expect(stargatePublic.ad.prepareInterstitial).toBeDefined();
-	});
-
-	it("Stargate ad showInterstitial exists", function() {
-		expect(stargatePublic.ad.showInterstitial).toBeDefined();
-	});
-
-});
-
 
 describe("Stargate version", function() {
 

@@ -3,6 +3,7 @@
  * @module src/modules/Utils
  * @type {Object}
  */
+/* globals ActiveXObject */
 (function(stargateModules){
     /**
      * @class
@@ -214,17 +215,28 @@
      * */
     function getJSON(url){
         url = encodeURI(url);
-        var xhr = new window.XMLHttpRequest();
+        var xhr = typeof XMLHttpRequest != 'undefined' ? new XMLHttpRequest() : new ActiveXObject('Microsoft.XMLHTTP');
+
+        var responseTypeAware = 'responseType' in xhr;
+
+        xhr.open("GET", url, true);
+        if (responseTypeAware) {
+            xhr.responseType = 'json';
+        }
+
         var daRequest = new Promise(function(resolve, reject){
             xhr.onreadystatechange = function(){
-                if (xhr.readyState == 4 && xhr.status < 400) {
-                    resolve(xhr.response);
-                }else{
-                    reject(xhr.status);
+                if (xhr.readyState === 4) {
+                    try{
+                        var result = responseTypeAware ? xhr.response : JSON.parse(xhr.responseText);
+                        resolve(result);
+                    }catch(e){
+                        reject(e);
+                    }
                 }
             };
         });
-        xhr.open("GET", url, true);
+
         xhr.setRequestHeader('Content-type', 'application/json; charset=UTF-8');
         xhr.send();
         return daRequest;
@@ -286,6 +298,7 @@
      * @param {String} options.url - http or whatever
      * @param {String} [options.responseType="blob"] - possible values arraybuffer|blob
      * @param {String} [options.mimeType="image/jpeg"] - possible values "image/png"|"image/jpeg" used only if "blob" is set as responseType
+     * @param {Boolean} options.withCredentials - set with credentials before send
      * @param {Function} [_onProgress=function(){}]
      * @returns {Promise<Blob|ArrayBuffer|Error>}
      */
@@ -295,7 +308,11 @@
             var request = new XMLHttpRequest();
             request.open ("GET", options.url, true);
             request.responseType = options.responseType || "blob";
-            request.withCredentials = true;
+            
+            if(options.withCredentials){
+               request.withCredentials = options.withCredentials; 
+            }
+                        
             function transferComplete(){
                 var result;
                 switch(options.responseType){
