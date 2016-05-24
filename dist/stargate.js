@@ -1,13 +1,14 @@
 /*!
  * URI.js - Mutating URLs
  *
- * Version: 1.17.1
+ * Version: 1.17.0
  *
  * Author: Rodney Rehm
  * Web: http://medialize.github.io/URI.js/
  *
  * Licensed under
  *   MIT License http://www.opensource.org/licenses/mit-license
+ *   GPL v3 http://opensource.org/licenses/GPL-3.0
  *
  */
 (function (root, factory) {
@@ -71,7 +72,7 @@
     return this;
   }
 
-  URI.version = '1.17.1';
+  URI.version = '1.17.0';
 
   var p = URI.prototype;
   var hasOwn = Object.prototype.hasOwnProperty;
@@ -794,35 +795,18 @@
     }
   };
   URI.hasQuery = function(data, name, value, withinArray) {
-    switch (getType(name)) {
-      case 'String':
-        // Nothing to do here
-        break;
-
-      case 'RegExp':
-        for (var key in data) {
-          if (hasOwn.call(data, key)) {
-            if (name.test(key) && (value === undefined || URI.hasQuery(data, key, value))) {
-              return true;
-            }
+    if (typeof name === 'object') {
+      for (var key in name) {
+        if (hasOwn.call(name, key)) {
+          if (!URI.hasQuery(data, key, name[key])) {
+            return false;
           }
         }
+      }
 
-        return false;
-
-      case 'Object':
-        for (var _key in name) {
-          if (hasOwn.call(name, _key)) {
-            if (!URI.hasQuery(data, _key, name[_key])) {
-              return false;
-            }
-          }
-        }
-
-        return true;
-
-      default:
-        throw new TypeError('URI.hasQuery() accepts a string, regular expression or object as the name parameter');
+      return true;
+    } else if (typeof name !== 'string') {
+      throw new TypeError('URI.hasQuery() accepts an object, string as the name parameter');
     }
 
     switch (getType(value)) {
@@ -1240,6 +1224,8 @@
 
   // compound accessors
   p.origin = function(v, build) {
+    var parts;
+
     if (this._parts.urn) {
       return v === undefined ? '' : this;
     }
@@ -1247,10 +1233,7 @@
     if (v === undefined) {
       var protocol = this.protocol();
       var authority = this.authority();
-      if (!authority) {
-        return '';
-      }
-
+      if (!authority) return '';
       return (protocol ? protocol + '://' : '') + this.authority();
     } else {
       var origin = URI(v);
@@ -1834,8 +1817,6 @@
       return this;
     }
 
-    _path = URI.recodePath(_path);
-
     var _was_relative;
     var _leadingParents = '';
     var _parent, _pos;
@@ -1866,7 +1847,7 @@
 
     // resolve parents
     while (true) {
-      _parent = _path.search(/\/\.\.(\/|$)/);
+      _parent = _path.indexOf('/..');
       if (_parent === -1) {
         // no more ../ to resolve
         break;
@@ -1888,6 +1869,7 @@
       _path = _leadingParents + _path.substring(1);
     }
 
+    _path = URI.recodePath(_path);
     this._parts.path = _path;
     this.build(!build);
     return this;
@@ -2182,13 +2164,14 @@
  * URI.js - Mutating URLs
  * URI Template Support - http://tools.ietf.org/html/rfc6570
  *
- * Version: 1.17.1
+ * Version: 1.17.0
  *
  * Author: Rodney Rehm
  * Web: http://medialize.github.io/URI.js/
  *
  * Licensed under
  *   MIT License http://www.opensource.org/licenses/mit-license
+ *   GPL v3 http://opensource.org/licenses/GPL-3.0
  *
  */
 (function (root, factory) {
@@ -7008,6 +6991,152 @@ var haveRequestedFeature = function(feature) {
 
 
 
+
+var share = (function(){
+
+    
+	var shareProtected = {};
+
+	var shareWithChooser = function(requestedOptions, resolve, reject) {
+        // this is the complete list of currently supported params you can pass to the plugin (all optional)
+        var fullOptions = {
+            message: 'share this', // not supported on some apps (Facebook, Instagram)
+            subject: 'the subject', // fi. for email
+            files: ['', ''], // an array of filenames either locally or remotely
+            url: 'https://www.website.com/foo/#bar?a=b',
+            chooserTitle: 'Pick an app' // Android only, you can override the default share sheet title
+        };
+        
+        var availableOptions = ["message", "subject", "files", "chooserTitle"];
+        var options = {
+            url: requestedOptions.url
+        };
+        availableOptions.forEach(function(availableOption) {
+            if (availableOption in requestedOptions) {
+                options[availableOption] = requestedOptions[availableOption];
+            }
+        });
+        
+        var onSuccess = function(result) {
+            log("[share] Share completed? " + result.completed); // On Android apps mostly return false even while it's true
+            log("[share] Shared to app: " + result.app); // On Android result.app is currently empty. On iOS it's empty when sharing is cancelled (result.completed=false)
+            
+            resolve(result);
+        };
+
+        var onError = function(msg) {
+            err("[share] Sharing failed with message: " + msg);
+            
+            reject(msg);
+        };
+
+        window.plugins.socialsharing.shareWithOptions(options, onSuccess, onError);
+    };
+    
+    var shareWithFacebook = function(requestedOptions, resolve, reject) {
+        // FIXME: TODO
+        reject("TODO");
+    };
+    var shareWithTwitter = function(requestedOptions, resolve, reject) {
+        // FIXME: TODO
+        reject("TODO");
+    };
+    var shareWithWhatsapp = function(requestedOptions, resolve, reject) {
+        // FIXME: TODO
+        reject("TODO");
+    };
+    
+    
+	shareProtected.socialShare = function(options, resolve, reject) {
+        
+		if (typeof options !== 'object') {
+            options = {};
+			war("[share] parameter options must be object!");
+		}
+        
+        if (!options.type) {
+            options.type = "chooser";
+        }
+
+        if (!window.plugins || !window.plugins.socialsharing) {
+
+			// plugin is not installed
+            err("[share] missing cordova plugin");
+			return reject("missing cordova plugin");
+		}
+		
+        
+        if (options.type == "chooser") {
+            if (!options.url) {
+                err("[share] missing parameter url");
+                return reject("missing parameter url");
+            }
+            
+            return shareWithChooser(options, resolve, reject);
+        }
+        
+        if (options.type == "facebook") {
+            if (!options.url) {
+                err("[share] missing parameter url");
+                return reject("missing parameter url");
+            }
+            
+            return shareWithFacebook(options, resolve, reject);
+        }
+        
+        if (options.type == "twitter") {
+            if (!options.url) {
+                err("[share] missing parameter url");
+                return reject("missing parameter url");
+            }
+            
+            return shareWithTwitter(options, resolve, reject);
+        }
+        
+        if (options.type == "whatsapp") {
+            if (!options.url) {
+                err("[share] missing parameter url");
+                return reject("missing parameter url");
+            }
+            
+            return shareWithWhatsapp(options, resolve, reject);
+        }
+
+        err("[share] type not valid");        
+        return reject("type not valid");
+        
+	};
+    
+    return shareProtected;
+})();
+
+
+/**
+ * @name Stargate#socialShare
+ * @memberof Stargate
+ *
+ * @description share an url on a social network
+ *
+ * @param {object} options
+ */
+stargatePublic.socialShare = function(options) {
+    
+    if (!isStargateInitialized) {
+        return Promise.reject("Stargate not initialized, call Stargate.initialize first!");
+    }
+    if (!isStargateOpen) {
+        return Promise.reject("Stargate closed, wait for Stargate.initialize to complete!");
+    }
+    
+    
+    var result = new Promise(function(resolve,reject){
+        
+        share.socialShare(options, resolve, reject);
+    });
+    
+    
+    return result;
+};
 
 /* global URI, URITemplate  */
 
