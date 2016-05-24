@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: Admanager.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: Admanager.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/**
+ * AdManager module needs cordova-plugin-admobpro, cordova-plugin-mopub
+ * @module src/modules/AdManager
+ * @type {Object}
+ * @requires ./Utils.js,./Decorators.js
+ */
+(function(Utils, Decorators, _modules){
+
+
+    var POSITIONS = {
+            NO_CHANGE: 0,
+            TOP_LEFT: 1,
+            TOP_CENTER: 2,
+            TOP_RIGHT: 3,
+            LEFT: 4,
+            CENTER: 5,
+            RIGHT: 6,
+            BOTTOM_LEFT: 7,
+            BOTTOM_CENTER: 8,
+            BOTTOM_RIGHT: 9,
+            POS_XY: 10
+    };
+
+    var SIZES = {
+            SMART_BANNER: 'SMART_BANNER',
+            BANNER: 'BANNER',
+            MEDIUM_RECTANGLE: 'MEDIUM_RECTANGLE',
+            FULL_BANNER: 'FULL_BANNER',
+            LEADERBOARD: 'LEADERBOARD',
+            SKYSCRAPER: 'SKYSCRAPER'
+    };
+
+    var admobid = {};
+    var LOG = new Utils.Logger("all","[AdManager]");
+
+    if(/(android)/i.test(navigator.userAgent) ) {
+        admobid = { // for Android
+            banner: 'ca-app-pub-6869992474017983/9375997553',
+            interstitial: 'ca-app-pub-6869992474017983/1657046752'
+        };
+    } else if(/(ipod|iphone|ipad)/i.test(navigator.userAgent)) {
+        admobid = { // for iOS
+            banner: 'ca-app-pub-6869992474017983/4806197152',
+            interstitial: 'ca-app-pub-6869992474017983/7563979554'
+        };
+    } else {
+        admobid = { // for Windows Phone
+            banner: 'ca-app-pub-6869992474017983/8878394753',
+            interstitial: 'ca-app-pub-6869992474017983/1355127956'
+        };
+    }
+
+    function AdManager(){
+        LOG.i(POSITIONS, SIZES);
+    }
+    
+    /*
+    createBanner(adId/options, success, fail);
+    removeBanner();
+    showBanner(position);
+    showBannerAtXY(x, y);
+    hideBanner();
+
+    // use interstitial
+    prepareInterstitial(adId/options, success, fail);
+    showInterstitial();
+    isInterstitialReady(function(ready){ if(ready){ } });
+
+    // use reward video
+    prepareRewardVideoAd(adId/options, success, fail);
+    showRewardVideoAd();
+
+    // set values for configuration and targeting
+    setOptions(options, success, fail);
+    
+    // get user ad settings
+    getAdSettings(function(inf){ inf.adId; inf.adTrackingEnabled; }, fail);
+    */
+    AdManager.prototype.createBanner = function(){LOG.d("NotImplemented");};
+    AdManager.prototype.removeBanner = function(){LOG.d("NotImplemented");};
+    AdManager.prototype.showBanner = function(){LOG.d("NotImplemented");};
+    AdManager.prototype.showBannerAtGivenXY = function(){LOG.d("NotImplemented");};
+    AdManager.prototype.showBannerAtSelectedPosition = function(){LOG.d("NotImplemented");};
+    AdManager.prototype.hideBanner = function(){LOG.d("NotImplemented");};
+    AdManager.prototype.prepareInterstitial = function(){LOG.d("NotImplemented");};
+    AdManager.prototype.showInterstitial = function(){LOG.d("NotImplemented");};
+    AdManager.prototype.prepareRewardVideoAd = function(){LOG.d("NotImplemented");};
+    AdManager.prototype.registerAdEvents = function(){LOG.d("NotImplemented");};
+    AdManager.prototype.showRewardVideoAd = function(){LOG.d("NotImplemented");};
+    AdManager.prototype.setOptions = function(){LOG.d("NotImplemented");};    
+
+    function isCordovaPluginDefined(){
+        return window.plugins &amp;&amp; typeof window.plugins.AdMob !== "undefined";
+    }
+    
+    // unwrap it as soon as implemented
+    for(var method in AdManager.prototype){
+        if(AdManager.prototype.hasOwnProperty(method)){
+            AdManager.prototype[method] = Decorators.requireCondition(isCordovaPluginDefined, 
+                                AdManager.prototype[method], 
+                                AdManager.prototype, 
+                                "cordova-plugin-admob not installed", 
+                                "warn");
+        }
+    }
+    
+    _modules.AdManager = new AdManager();
+
+})(stargateModules.Utils, stargateModules.Decorators, stargateModules);</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-src_modules_AdManager.html">src/modules/AdManager</a></li><li><a href="module-src_modules_Decorators.html">src/modules/Decorators</a></li><li><a href="module-src_modules_File.html">src/modules/File</a></li><li><a href="module-src_modules_Game.html">src/modules/Game</a></li><li><a href="module-src_modules_Utils.html">src/modules/Utils</a></li></ul><h3>Classes</h3><ul><li><a href="module-src_modules_Game.html">src/modules/Game</a></li><li><a href="module-src_modules_Utils.jsonpRequest.html">jsonpRequest</a></li><li><a href="module-src_modules_Utils.Logger.html">Logger</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.5.4</a> on Tue May 24 2016 12:50:57 GMT+0200 (CEST)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

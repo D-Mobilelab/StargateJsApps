@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Home</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Home</h1>
+
+    
+
+
+
+    
+
+
+    <h3> </h3>
+
+
+
+
+
+
+
+
+
+
+    
+
+
+
+
+    <section>
+        <article><p><a href="https://travis-ci.org/BuongiornoMIP/StargateJsApps"><img src="http://img.shields.io/travis/D-Mobilelab/StargateJsApps.svg?branch=master&amp;style=flat" alt="Travis"></a></p>
+<p><a href="https://coveralls.io/github/BuongiornoMIP/StargateJsApps?branch=master"><img src="https://coveralls.io/repos/D-Mobilelab/StargateJsApps/badge.svg?branch=master&amp;service=github" alt="Coverage Status"></a></p>
+<h1>StargateJsApps</h1><p><a href="https://gitter.im/D-Mobilelab/StargateJsApps?utm_source=badge&amp;utm_medium=badge&amp;utm_campaign=pr-badge&amp;utm_content=badge"><img src="https://badges.gitter.im/D-Mobilelab/StargateJsApps.svg" alt="Join the chat at https://gitter.im/D-Mobilelab/StargateJsApps"></a></p>
+<p>StargateJS hybridization library for HTML5 apps</p>
+<h1>Introduction</h1><p>StargateJsApps is an hybridization library for hosted apps built around ManifoldJS approach to hybrid application.</p>
+<p>Hosted apps are hybrid application that have their files served remotely by a web server and that are described by a manifest (W3C specification)</p>
+<p>ManifoldJS is Cordova plugin developed by Microsoft that inject all Cordova dependency after the page is loaded, decoupling the native platform implementation with the web app.</p>
+<p>StargateJsApps take advantage of the manifest to store it's configuration, like features to enable or remote api information.</p>
+<p><a href="http://d-mobilelab.github.io/StargateJsApps/0.3.4/docs/">Technical Documentation: http://d-mobilelab.github.io/StargateJsApps/dist/0.3.7/</a></p>
+<h1>Installation</h1><h3>manual</h3><p>use stargate.js or stargate.min.js in dist/ folder</p>
+<h3>bower</h3><p>Install stargate bower package and save to dependencies (not dev dependencies):</p>
+<pre class="prettyprint source"><code>$ bower install -S stargatejs-apps#~v0.2.2</code></pre><h1>API Reference</h1><h2>Stargate.initialize(configurations, callback)</h2><p>Initialization of Stargate, you have to pass a configuration object and a callback that will be called when initialization has been finished.</p>
+<p>Return a promise fulfilled when initialization has been finished.</p>
+<p>If initialize has already been called then it will log a warning and will just execute the callback and return a promise that will be immediately fullfilled.</p>
+<p>If initialize is called when we are outside hybrid environment (see <a href="#stargateishybrid">Stargate.isHybrid</a>) then it will just execute the callback and return a promise that will be immediately fullfilled.</p>
+<p>The callback is called with a boolean result indicating if we are inside hybrid environment or not (see <a href="#stargateishybrid">Stargate.isHybrid</a>). Also the promise is fullfilled with the same boolean result.</p>
+<h3>Configurations parameter</h3><p>It's a javascript object with configurations.</p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>modules</em></td>
+<td>Array of string</td>
+<td>List of modules to initialize</td>
+<td><code>[&quot;mfp&quot;,&quot;iapbase&quot;,&quot;appsflyer&quot;,&quot;game&quot;]</code></td>
+</tr>
+<tr>
+<td><em>modules_conf</em></td>
+<td>Object</td>
+<td>Configuration of submodule</td>
+<td><code>{}</code></td>
+</tr>
+</tbody>
+</table>
+<h4>modules configuration list</h4><table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>iap</em></td>
+<td>InApp purchase module</td>
+</tr>
+<tr>
+<td><em>iapbase</em></td>
+<td>InApp purchase module without refresh on initialize</td>
+</tr>
+<tr>
+<td><em>mfp</em></td>
+<td>Mobile Fingerprint purchase module</td>
+</tr>
+<tr>
+<td><em>appsflyer</em></td>
+<td>AppsFlyer module</td>
+</tr>
+<tr>
+<td><em>game</em></td>
+<td>Offline game module</td>
+</tr>
+</tbody>
+</table>
+<h4>modules_conf configuration object</h4><table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>iap</em></td>
+<td>InApp purchase configuration object</td>
+<td><code>undefined</code></td>
+</tr>
+<tr>
+<td><em>mfp</em></td>
+<td>Mobile Fingerprint configuration object</td>
+<td><code>undefined</code></td>
+</tr>
+</tbody>
+</table>
+<h4>modules_conf mfp configuration configuration object</h4><table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Description</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>country</em></td>
+<td>Country to use for mfp</td>
+<td><code>&quot;it&quot;</code></td>
+</tr>
+</tbody>
+</table>
+<p>There are two more variable needed for Mobile FingerPrint to work and these variable are retrieved from the manifest.json inside the app:</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>namespace</em></td>
+<td>namespace</td>
+</tr>
+<tr>
+<td><em>label</em></td>
+<td>label</td>
+</tr>
+</tbody>
+</table>
+<h4>modules_conf iap or iapbase configuration configuration object</h4><table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Description</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>id</em></td>
+<td>Product id as registred on store</td>
+<td><code>&quot;stargate.test.spec.subscription&quot;</code></td>
+</tr>
+<tr>
+<td><em>alias</em></td>
+<td>Product alias</td>
+<td><code>&quot;Stargate Test Subscription&quot;</code></td>
+</tr>
+<tr>
+<td><em>type</em></td>
+<td>Type of product; it can be: FREE_SUBSCRIPTION, PAID_SUBSCRIPTION, CONSUMABLE, NON_CONSUMABLE</td>
+<td><code>&quot;PAID_SUBSCRIPTION&quot;</code></td>
+</tr>
+</tbody>
+</table>
+<h3>Example Usage</h3><pre class="prettyprint source lang-javascript"><code>
+var configurations = {
+    modules: [&quot;mfp&quot;, &quot;appsflyer&quot;, &quot;iapbase&quot;, &quot;game&quot;],
+    modules_conf: {
+        &quot;iap&quot;: {
+            &quot;id&quot;: &quot;stargate.test.spec.subscription&quot;,
+            &quot;alias&quot;: &quot;Stargate Test Subscription&quot;,
+            &quot;type&quot;: &quot;PAID_SUBSCRIPTION&quot;
+        },
+        &quot;mfp&quot;: {
+            &quot;country&quot;: &quot;us&quot;
+        }
+    }
+};
+
+var callback = function(result) {
+    console.log(&quot;Stargate initialized with result: &quot;+result);
+};
+
+// you can use the callback ...
+Stargate.initialize(configurations, callback);
+
+// ... or the promise interface
+Stargate.initialize(configurations, function(){})
+    .then(function(result) {
+        console.log(&quot;Stargate initialized with result: &quot;+result);
+    })
+    .fail(
+    function(error) {
+        console.error(&quot;Stargate initialization error: &quot;, error);
+    });</code></pre><h2>Stargate.isInitialized()</h2><p>get initialization status: true when initialization is already called</p>
+<p>Return boolean</p>
+<h2>Stargate.isOpen()</h2><p>get initialization status: true when initialization is done</p>
+<p>Return boolean</p>
+<h2>Stargate.isHybrid()</h2><p>get hybrid container status: true when we're running inside the hybrid app</p>
+<blockquote>
+<p>Internally it check if there is an url query parameter called &quot;hybrid&quot; with value 1, or if there is a cookie or a localStorage with the same name and value. </p>
+</blockquote>
+<p>Return boolean</p>
+<h2>Stargate.openUrl(url)</h2><p>Open external url with InApp Browser</p>
+<h2>Stargate.setAnalyticsCallback(callBackFunction)</h2><p>Set the callback to call when an analytic event need to be sent.</p>
+<p>Please call this before <a href="#stargateinitializeconfigurations-callback">Stargate.initialize</a>, so it can track events logged on initialize too, like MFP.</p>
+<h2>Stargate.setConversionDataCallback(callBackFunction)</h2><p>Set the callback to call when converion data from AppsFlyer are received.
+You may need to save the data you receive, becouse you'll only got that data the first time the app is run after installation.</p>
+<p>Please call this before <a href="#stargateinitializeconfigurations-callback">Stargate.initialize</a>, so it can call you during initialize too.</p>
+<h2>Stargate.checkConnection([callbackSuccess=function(){}], [callbackError=function(){}])</h2><h3>Example Usage</h3><pre class="prettyprint source lang-javascript"><code>var info = Stargate.checkConnection();
+Stargate.checkConnection(function(info){ console.log(info.networkState, info.type); });
+// info is equal to: {'networkState': &quot;wifi|3g|4g|none&quot;, type:&quot;online|offline&quot;}</code></pre><p>The connection info object is updated to the last connection status change 
+the networkState is retrieved from navigator.connection.type of cordova-plugin-network-information plugin</p>
+<h2>Stargate.getDeviceID(callbackSuccess, callbackError)</h2><p>Call callbackSuccess with an object with the device id like this:
+{'deviceID': deviceID}
+deviceID got from uuid of device plugin</p>
+<h2>Stargate.setStatusbarVisibility(visibility, callbackSuccess, callbackError)</h2><p>Show/hide device status bar</p>
+<p>Parameter boolean visibility</p>
+<h2>Stargate.facebookLogin(scope, callbackSuccess, callbackError)</h2><p>Facebook connect</p>
+<p>Parameter string scope: scope list separeted with comma</p>
+<h2>Stargate.facebookShare(url, callbackSuccess, callbackError)</h2><p>Facebook sharing</p>
+<p>Parameter string url: shared url</p>
+<h2>Stargate.inAppPurchaseSubscription(callbackSuccess, callbackError, subscriptionUrl, returnUrl)</h2><p>IAP subscription</p>
+<h2>Stargate.inAppRestore(callbackSuccess, callbackError, subscriptionUrl, returnUrl)</h2><p>IAP restore</p>
+<h2>Stargate.inAppProductInfo(productId, callbackSuccess, callbackError)</h2><p>IAP product information</p>
+<p>Call callbacks with information about a product got from store</p>
+<p>productId - product id about to query for information on store</p>
+<p>callbackSuccess - a function that will be called when information are ready</p>
+<p>callbackError - a function that will be called in case of error</p>
+<pre class="prettyprint source lang-javascript"><code>// example of object sent to success callback
+{
+    &quot;id&quot;: &quot;stargate.test.spec.product1&quot;,
+    &quot;alias&quot;: &quot;Test Spec Product 1&quot;,
+    &quot;title&quot;: &quot;Test Spec Product 1&quot;,
+    &quot;description&quot;: &quot;Test Spec Product 1&quot;,
+    &quot;currency&quot;: &quot;EUR&quot;,
+    &quot;price&quot;: &quot;0,99 €&quot;,
+    &quot;type&quot;: &quot;paid subscription&quot;,
+    &quot;canPurchase&quot;: true,
+    &quot;downloaded&quot;: false,
+    &quot;downloading&quot;: false,
+    &quot;loaded&quot;: true,
+    &quot;owned&quot;: false,
+    &quot;state&quot;: &quot;valid&quot;,
+    &quot;transaction&quot;: null,
+    &quot;valid&quot;: true
+}</code></pre><h2>Stargate.getVersion()</h2><p>return current Stargate version</p>
+<h2>Stargate.getAppInformation()</h2><p>return {object} with this information:</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>cordova</em></td>
+<td>Cordova version</td>
+</tr>
+<tr>
+<td><em>manufacturer</em></td>
+<td>device manufacter</td>
+</tr>
+<tr>
+<td><em>model</em></td>
+<td>device model</td>
+</tr>
+<tr>
+<td><em>platform</em></td>
+<td>platform (Android, iOs, etc)</td>
+</tr>
+<tr>
+<td><em>deviceId</em></td>
+<td>device UUID</td>
+</tr>
+<tr>
+<td><em>version</em></td>
+<td>platform version</td>
+</tr>
+<tr>
+<td><em>packageVersion</em></td>
+<td>package version</td>
+</tr>
+<tr>
+<td><em>packageName</em></td>
+<td>package name ie: com.stargatejs.test</td>
+</tr>
+<tr>
+<td><em>packageBuild</em></td>
+<td>package build number</td>
+</tr>
+<tr>
+<td><em>stargate</em></td>
+<td>stargate version</td>
+</tr>
+<tr>
+<td><em>stargateModules</em></td>
+<td>modules initialized</td>
+</tr>
+<tr>
+<td><em>stargateError</em></td>
+<td>initialization error</td>
+</tr>
+</tbody>
+</table>
+<h2><del>Stargate.googleLogin(callbackSuccess, callbackError)</del></h2><p>not implemented</p>
+<h2><del>Stargate.ad.initialize(data,callbackSuccess, callbackError)</del></h2><p>not implemented</p>
+<h2><del>Stargate.ad.createBanner(data,callbackSuccess, callbackError)</del></h2><p>not implemented</p>
+<h2><del>Stargate.ad.hideBanner(data,callbackSuccess, callbackError)</del></h2><p>not implemented</p>
+<h2><del>Stargate.ad.removeBanner(data,callbackSuccess, callbackError)</del></h2><p>not implemented</p>
+<h2><del>Stargate.ad.showBannerAtSelectedPosition(data,callbackSuccess, callbackError)</del></h2><p>not implemented</p>
+<h2><del>Stargate.ad.showBannerAtGivenXY(data,callbackSuccess, callbackError)</del></h2><p>not implemented</p>
+<h2><del>Stargate.ad.registerAdEvents(data,callbackSuccess, callbackError)</del></h2><p>not implemented</p>
+<h2><del>Stargate.ad.prepareInterstitial(data,callbackSuccess, callbackError)</del></h2><p>not implemented</p>
+<h2><del>Stargate.ad.showInterstitial(data,callbackSuccess, callbackError)</del></h2><p>not implemented</p>
+<h1>Internal design</h1><h2>stargate configuration</h2><p>Inside manifest there is an object that holds all configuration options of Stargate. This configuration is loaded with ManifoldJS hostedwebapp plugin.</p>
+<h2>initialization and device ready</h2><ol>
+<li>Stargate.initialize() save user configuration sent as parameter and attach to the cordova deviceready event the internal function onDeviceReady()</li>
+<li>onDeviceReady() request all needed data from plugin and internal async modules; wait for all request to complete, save the data received and call onPluginReady()</li>
+<li>onPluginReady() is the main internal initialization function where all syncronous processing is performed</li>
+</ol>
+<h2>gulp tasks</h2><ul>
+<li>build</li>
+<li>lint</li>
+<li>test</li>
+<li>karma</li>
+<li>watch</li>
+</ul>
+<h2>release process</h2><ol>
+<li>npm test</li>
+<li>change version in package.json</li>
+<li>gulp build</li>
+<li>git commit -m &quot;New revision x.x.x&quot; dist/ package.json</li>
+<li>git tag -a vx.x.x -m &quot;Added xxxx. Changed xxxx. Fixed: xxxx&quot;</li>
+<li>git push --tags</li>
+</ol>
+<p>==to automate==</p>
+<h2>travis-ci</h2><p>Travis build the project on every push and check for lint and test errors. It also send the test coverage to coveralls.io</p>
+<h1>Contribute</h1><ul>
+<li>git clone</li>
+<li>npm install</li>
+<li>bower install</li>
+<li>gulp build</li>
+</ul></article>
+    </section>
+
+
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-src_modules_AdManager.html">src/modules/AdManager</a></li><li><a href="module-src_modules_Decorators.html">src/modules/Decorators</a></li><li><a href="module-src_modules_File.html">src/modules/File</a></li><li><a href="module-src_modules_Game.html">src/modules/Game</a></li><li><a href="module-src_modules_Utils.html">src/modules/Utils</a></li></ul><h3>Classes</h3><ul><li><a href="module-src_modules_Game.html">src/modules/Game</a></li><li><a href="module-src_modules_Utils.jsonpRequest.html">jsonpRequest</a></li><li><a href="module-src_modules_Utils.Logger.html">Logger</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.5.4</a> on Tue May 24 2016 12:50:57 GMT+0200 (CEST)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>
