@@ -2,17 +2,8 @@ var share = (function(){
 
     
 	var shareProtected = {};
-
-	var shareWithChooser = function(requestedOptions, resolve, reject) {
-        // this is the complete list of currently supported params you can pass to the plugin (all optional)
-        var fullOptions = {
-            message: 'share this', // not supported on some apps (Facebook, Instagram)
-            subject: 'the subject', // fi. for email
-            files: ['', ''], // an array of filenames either locally or remotely
-            url: 'https://www.website.com/foo/#bar?a=b',
-            chooserTitle: 'Pick an app' // Android only, you can override the default share sheet title
-        };
-        
+    
+    var getOptions = function(requestedOptions) {
         var availableOptions = ["message", "subject", "files", "chooserTitle"];
         var options = {
             url: requestedOptions.url
@@ -22,6 +13,20 @@ var share = (function(){
                 options[availableOption] = requestedOptions[availableOption];
             }
         });
+        return options;
+    };
+    
+	var shareWithChooser = function(requestedOptions, resolve, reject) {
+        // this is the complete list of currently supported params you can pass to the plugin (all optional)
+        //var fullOptions = {
+        //    message: 'share this', // not supported on some apps (Facebook, Instagram)
+        //    subject: 'the subject', // fi. for email
+        //    files: ['', ''], // an array of filenames either locally or remotely
+        //    url: 'https://www.website.com/foo/#bar?a=b',
+        //    chooserTitle: 'Pick an app' // Android only, you can override the default share sheet title
+        //};
+        
+        var options = getOptions(requestedOptions);
         
         var onSuccess = function(result) {
             log("[share] Share completed? " + result.completed); // On Android apps mostly return false even while it's true
@@ -40,16 +45,71 @@ var share = (function(){
     };
     
     var shareWithFacebook = function(requestedOptions, resolve, reject) {
-        // FIXME: TODO
-        reject("TODO");
+        var onSuccess = function(result) {
+            log("[share] Facebook share completed, result: ", result);
+            resolve(result);
+        };
+
+        var onError = function(msg) {
+            err("[share] Facebook sharing failed with message: " + msg);
+            reject(msg);
+        };
+        
+        window.plugins.socialsharing.shareViaFacebook(
+            "",
+            null,
+            requestedOptions.url,
+            onSuccess,
+            onError
+        );
     };
+    
     var shareWithTwitter = function(requestedOptions, resolve, reject) {
-        // FIXME: TODO
-        reject("TODO");
+        var onSuccess = function(result) {
+            log("[share] Twitter share completed, result: ", result);
+            resolve(result);
+        };
+
+        var onError = function(msg) {
+            err("[share] Twitter sharing failed with message: " + msg);
+            reject(msg);
+        };
+        
+        var message = "";
+        if ("message" in requestedOptions) {
+            message = requestedOptions.message;
+        }
+        window.plugins.socialsharing.shareViaTwitter(
+            message,
+            null,
+            requestedOptions.url,
+            onSuccess,
+            onError
+        );
     };
     var shareWithWhatsapp = function(requestedOptions, resolve, reject) {
-        // FIXME: TODO
-        reject("TODO");
+        var onSuccess = function(result) {
+            log("[share] Whatsapp share completed, result: ", result);
+            resolve(result);
+        };
+
+        var onError = function(msg) {
+            err("[share] Whatsapp sharing failed with message: " + msg);
+            reject(msg);
+        };
+        
+        var message = "";
+        if ("message" in requestedOptions) {
+            message = requestedOptions.message;
+        }
+        
+        window.plugins.socialsharing.shareViaWhatsApp(
+            message,
+            null,
+            requestedOptions.url,
+            onSuccess,
+            onError
+        );
     };
     
     
@@ -71,40 +131,24 @@ var share = (function(){
 			return reject("missing cordova plugin");
 		}
 		
+        if (!options.url) {
+            err("[share] missing parameter url");
+            return reject("missing parameter url");
+        }
         
         if (options.type == "chooser") {
-            if (!options.url) {
-                err("[share] missing parameter url");
-                return reject("missing parameter url");
-            }
-            
             return shareWithChooser(options, resolve, reject);
         }
         
         if (options.type == "facebook") {
-            if (!options.url) {
-                err("[share] missing parameter url");
-                return reject("missing parameter url");
-            }
-            
             return shareWithFacebook(options, resolve, reject);
         }
         
         if (options.type == "twitter") {
-            if (!options.url) {
-                err("[share] missing parameter url");
-                return reject("missing parameter url");
-            }
-            
             return shareWithTwitter(options, resolve, reject);
         }
         
         if (options.type == "whatsapp") {
-            if (!options.url) {
-                err("[share] missing parameter url");
-                return reject("missing parameter url");
-            }
-            
             return shareWithWhatsapp(options, resolve, reject);
         }
 
