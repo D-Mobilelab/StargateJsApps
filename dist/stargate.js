@@ -5053,14 +5053,24 @@
                 var percentage = Math.round((progressEvent.loaded / progressEvent.total) * 100);
                 _onProgress({percentage:percentage,type:type});
             };
-        }
-
+        }       
+        
+        var currentSize = gameObject.size.replace("KB", "").replace("MB", "").replace(",", ".").trim();
+        var conversion = {KB:1, MB:2, GB:3, TB:5};
+        // var isKB = gameObject.size.indexOf("KB") > -1 ? true : false;
+        var isMB = gameObject.size.indexOf("MB") > -1 ? true : false;
+        var bytes = currentSize * Math.pow(1024, isMB ? conversion.MB : conversion.KB);
+        
         var saveAsName = gameObject.id;
         function start(){
             _onStart({type:"download"});
-
+            var spaceEnough = fileModule.requestFileSystem(1, bytes);
             LOG.d("Get ga_for_game and gamifive info, fly my minipony!");
-            return storeOfflineData(saveAsName)
+            return spaceEnough
+                .then(function(result){
+                    LOG.i("Space is ok, can download:", bytes, result);
+                    return storeOfflineData(saveAsName);
+                })
                 .then(function(results){
                     LOG.d("Ga for game and gamifive info stored!", results);
                     LOG.d("Start Download:", gameObject.id, gameObject.response_api_dld.binary_url);
@@ -5169,7 +5179,7 @@
         });
 
     };
-
+    
     /**
      * play
      *
