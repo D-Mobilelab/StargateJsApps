@@ -359,6 +359,15 @@ var onPluginReady = function (resolve) {
             )
         );
     }
+        
+    if (haveRequestedFeature("adv") && stargateModules.AdManager) {
+        // save initialization promise, to wait for
+        modulePromises.push(
+            stargateModules.AdManager.initialize(
+                getModuleConf("adv")
+            )
+        );
+    }
     
     
     // wait for all module initializations before calling the webapp
