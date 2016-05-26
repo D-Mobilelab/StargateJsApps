@@ -112,6 +112,36 @@ var share = (function(){
         );
     };
     
+    shareProtected.canShareVia = function(via, url) {
+        
+        return new Promise(function(resolve){
+            
+            // canShareVia: 
+            //   via, message, subject, fileOrFileArray, url, successCallback, errorCallback
+            window.plugins.socialsharing.canShareVia(
+                via,
+                null,
+                null,
+                null,
+                url,
+                function(e){
+                    log("[share] canShareVia "+via+" result true: ", e);
+                    resolve({
+                        "network": via,
+                        "available": true
+                    });
+                },
+                function(e){
+                    log("[share] canShareVia "+via+" result false: ", e);
+                    resolve({
+                        "network": via,
+                        "available": false
+                    });
+                }
+            );
+        });
+    };
+    
     
 	shareProtected.socialShare = function(options, resolve, reject) {
         
@@ -182,6 +212,88 @@ stargatePublic.socialShare = function(options) {
     var result = new Promise(function(resolve,reject){
         
         share.socialShare(options, resolve, reject);
+    });
+    
+    
+    return result;
+};
+
+/**
+ * @name Stargate#socialShareAvailable
+ * @memberof Stargate
+ *
+ * @description return a promise with an array of available social networks
+ *
+ * @param {object} options
+ * @param {Array} options.socials - list of social network to check
+ * 
+ */
+stargatePublic.socialShareAvailable = function(options) {
+    
+    if (!isStargateInitialized) {
+        return Promise.reject("Stargate not initialized, call Stargate.initialize first!");
+    }
+    if (!isStargateOpen) {
+        return Promise.reject("Stargate closed, wait for Stargate.initialize to complete!");
+    }
+    
+    if (!window.plugins || !window.plugins.socialsharing) {
+        // plugin is not installed
+        err("[share] missing cordova plugin");
+        return Promise.reject("missing cordova plugin");
+    }
+    
+    if (!options.socials || options.socials.constructor !== Array) {
+        err("[share] missing array parameter socials");
+        return Promise.reject("missing array parameter socials");
+    }
+    
+    if (!options.url) {
+        err("[share] missing parameter url");
+        return Promise.reject("missing parameter url");
+    }
+    
+    
+    var result = new Promise(function(resolve,reject){
+        
+        var socialsAvailabilityPromises = [];
+    
+        var knownSocialNetworks = [
+            "facebook",
+            "whatsapp",
+            "twitter",
+            "instagram"
+        ];
+        knownSocialNetworks.forEach(function(element) {
+            // check only requested networks
+            if (element in options.socials) {
+                
+                socialsAvailabilityPromises.push(
+                    
+                    share.canShareVia(element, options.url)
+                );
+            }
+        });
+        
+        Promise.all(socialsAvailabilityPromises).then(function(values) { 
+            
+            var availableNetworks = [];
+            // values is like:
+            //  [{"network": "facebook", "available": false},
+            //   {"network": "twitter", "available": false}]
+            values.forEach(function(element) {
+                if (element.available) {
+                    availableNetworks.push(element.network);
+                }
+            });
+            
+            resolve(availableNetworks);
+            
+        }, function(reason) {
+            
+            err(reason);
+            reject(reason);
+        });
     });
     
     
