@@ -5,10 +5,11 @@
   "main": "dist/stargate.js",
   "scripts": {
     "preversion": "npm test",
-    "postversion": "git checkout gh-pages && git add -A gh-pages/ && git commit -m 'Updated' && git push origin gh-pages && git checkout master",
-    "version": "gulp build && git add dist/ && npm run docs",
+    "postversion": "",
+    "version": "gulp build && git add dist/",
     "clean": "rm -r gh-pages",
     "docs": "node bin/generate_docs",
+    "adddocs": "npm run docs && git checkout gh-pages && git add -A gh-pages/ && git commit -m 'Updated' && git push origin gh-pages && git checkout master",
     "test": "rm -rf coverage/* && gulp lint && gulp karma:singlerun --browsers=PhantomJS --reporters=mocha,coverage,coveralls"
   },
   "bin": {
