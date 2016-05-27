@@ -254,6 +254,9 @@
      * @returns {Promise<boolean|FileError|Number>} - true if all has gone good, 403 if unathorized, FileError in case can write in the folder
      * */
     Game.prototype.download = function(gameObject, callbacks){
+        // Clone object for security
+        var self = this;
+        gameObject = JSON.parse(JSON.stringify(gameObject));
         var err;
         if(this.isDownloading()){
             err = {type:"error",description:"AlreadyDownloading"};
@@ -268,7 +271,6 @@
         }
 
         var alreadyExists = this.isGameDownloaded(gameObject.id);
-        var self = this;
         // Defaults
         callbacks = callbacks ? callbacks : {};
         var _onProgress = callbacks.onProgress ? callbacks.onProgress : function(){};
