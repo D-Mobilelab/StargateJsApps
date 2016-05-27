@@ -18,7 +18,7 @@
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.4.5";
+    var stargatePackageVersion = "0.5.0";
     var stargatePublic = {};
     
     var stargateModules = {};       
@@ -4544,6 +4544,9 @@ stargatePublic.socialShareAvailable = function(options) {
      * @returns {Promise<boolean|FileError|Number>} - true if all has gone good, 403 if unathorized, FileError in case can write in the folder
      * */
     Game.prototype.download = function(gameObject, callbacks){
+        // Clone object for security
+        var self = this;
+        gameObject = JSON.parse(JSON.stringify(gameObject));
         var err;
         if(this.isDownloading()){
             err = {type:"error",description:"AlreadyDownloading"};
@@ -4558,7 +4561,6 @@ stargatePublic.socialShareAvailable = function(options) {
         }
 
         var alreadyExists = this.isGameDownloaded(gameObject.id);
-        var self = this;
         // Defaults
         callbacks = callbacks ? callbacks : {};
         var _onProgress = callbacks.onProgress ? callbacks.onProgress : function(){};
@@ -4574,14 +4576,24 @@ stargatePublic.socialShareAvailable = function(options) {
                 var percentage = Math.round((progressEvent.loaded / progressEvent.total) * 100);
                 _onProgress({percentage:percentage,type:type});
             };
-        }
-
+        }       
+        
+        var currentSize = gameObject.size.replace("KB", "").replace("MB", "").replace(",", ".").trim();
+        var conversion = {KB:1, MB:2, GB:3, TB:5};
+        // var isKB = gameObject.size.indexOf("KB") > -1 ? true : false;
+        var isMB = gameObject.size.indexOf("MB") > -1 ? true : false;
+        var bytes = currentSize * Math.pow(1024, isMB ? conversion.MB : conversion.KB);
+        
         var saveAsName = gameObject.id;
         function start(){
             _onStart({type:"download"});
-
+            var spaceEnough = fileModule.requestFileSystem(1, bytes);
             LOG.d("Get ga_for_game and gamifive info, fly my minipony!");
-            return storeOfflineData(saveAsName)
+            return spaceEnough
+                .then(function(result){
+                    LOG.i("Space is ok, can download:", bytes, result);
+                    return storeOfflineData(saveAsName);
+                })
                 .then(function(results){
                     LOG.d("Ga for game and gamifive info stored!", results);
                     LOG.d("Start Download:", gameObject.id, gameObject.response_api_dld.binary_url);
@@ -4690,7 +4702,7 @@ stargatePublic.socialShareAvailable = function(options) {
         });
 
     };
-
+    
     /**
      * play
      *
