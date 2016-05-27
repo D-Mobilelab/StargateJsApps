@@ -9,7 +9,7 @@
     "version": "gulp build && git add dist/ && npm run docs",
     "clean": "rm -r gh-pages",
     "docs": "node bin/generate_docs",
-    "test": "gulp lint && gulp karma:singlerun --browsers=PhantomJS --reporters=mocha,coverage,coveralls"
+    "test": "rm -rf coverage/* && gulp lint && gulp karma:singlerun --browsers=PhantomJS --reporters=mocha,coverage,coveralls"
   },
   "bin": {
     "docs": "bin/generate_docs.js"
