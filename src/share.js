@@ -266,12 +266,14 @@ stargatePublic.socialShareAvailable = function(options) {
         ];
         knownSocialNetworks.forEach(function(element) {
             // check only requested networks
-            if (element in options.socials) {
+            
+            if (options.socials.indexOf(element) !== -1) {
                 
                 socialsAvailabilityPromises.push(
                     
                     share.canShareVia(element, options.url)
                 );
+                
             }
         });
         
@@ -285,8 +287,10 @@ stargatePublic.socialShareAvailable = function(options) {
                 if (element.available) {
                     availableNetworks.push(element.network);
                 }
+                //log("element: ", element);
             });
-            
+            //log("values: ", values);
+            //log("availableNetworks: ", availableNetworks);
             resolve(availableNetworks);
             
         }, function(reason) {
