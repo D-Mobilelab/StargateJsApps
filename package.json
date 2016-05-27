@@ -6,7 +6,7 @@
   "scripts": {
     "preversion": "npm test",
     "postversion": "git checkout gh-pages && git add -A gh-pages/ && git commit -m 'Updated' && git push origin gh-pages && git checkout master",
-    "version": "gulp build && npm run docs",
+    "version": "gulp build && git add dist/ && npm run docs",
     "clean": "rm -r gh-pages",
     "docs": "node bin/generate_docs",
     "test": "gulp lint && gulp karma:singlerun --browsers=PhantomJS --reporters=mocha,coverage,coveralls"
@@ -54,6 +54,7 @@
     "jasmine-ajax": "^3.2.0",
     "jasmine-core": "^2.3.4",
     "jasmine-reporters": "^2.0.7",
+    "jsdoc": "^3.4.0",
     "jsdoc-to-markdown": "^1.3.3",
     "jshint": "~2.8.0",
     "jshint-stylish": "^2.1.0",
