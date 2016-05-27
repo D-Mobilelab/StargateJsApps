@@ -1,6 +1,6 @@
 
 
-fdescribe("Stargate share", function() {
+describe("Stargate share", function() {
     
     beforeEach(function() {
 		hybrid_conf = null;
@@ -39,19 +39,20 @@ fdescribe("Stargate share", function() {
         }
         window.plugins.socialsharing = {
             shareWithOptions: function(options, onSuccess, onError) {
-                //
+                onSuccess(true);
             },
             shareViaFacebook: function(msg, img, url, onSuccess, onError) {
-                //
+                onSuccess(true);
             },
             shareViaTwitter: function(msg, img, url, onSuccess, onError) {
-                //
+                onSuccess(true);
             },
             shareViaWhatsApp: function(msg, img, url, onSuccess, onError) {
-                //
+                onSuccess(true);
             },
             canShareVia: function(via, message, subject, fileOrFileArray, url, onSuccess, onError) {
-                //
+                //onError();
+				onSuccess(true);
             }
         };
     });
@@ -120,6 +121,163 @@ fdescribe("Stargate share", function() {
         
 		res.catch(function(message) {
             expect(message).toMatch(/Stargate closed/);
+		    done();
+		});
+	});
+	
+	it("socialShare shareViaFacebook", function(done) {
+		
+        isStargateInitialized = true;
+        isStargateOpen = true;
+        
+        var options = {
+			"url": "http://www.google.com",
+			"type": "facebook"
+		};
+
+		var res = stargatePublic.socialShare(options);
+        
+        expect(res.then).toBeDefined();
+        
+		res.catch(function(message) {
+			console.log("stargatePublic.socialShare catch: "+message);
+            expect(message).not.toBeDefined();
+		    done();
+		});
+		
+		res.then(function(result) {
+			//console.log("stargatePublic.socialShare catch: "+result);
+            expect(result).not.toBeFalsy();
+		    done();
+		});
+	});
+	
+	it("socialShare shareWithTwitter", function(done) {
+		
+        isStargateInitialized = true;
+        isStargateOpen = true;
+        
+        var options = {
+			"url": "http://www.google.com",
+			"type": "twitter"
+		};
+
+		var res = stargatePublic.socialShare(options);
+        
+        expect(res.then).toBeDefined();
+        
+		res.catch(function(message) {
+			console.log("stargatePublic.socialShare catch: "+message);
+            expect(message).not.toBeDefined();
+		    done();
+		});
+		
+		res.then(function(result) {
+			//console.log("stargatePublic.socialShare catch: "+result);
+            expect(result).not.toBeFalsy();
+		    done();
+		});
+	});
+	
+	it("socialShare shareWithWhatsapp", function(done) {
+		
+        isStargateInitialized = true;
+        isStargateOpen = true;
+        
+        var options = {
+			"url": "http://www.google.com",
+			"type": "whatsapp"
+		};
+
+		var res = stargatePublic.socialShare(options);
+        
+        expect(res.then).toBeDefined();
+        
+		res.catch(function(message) {
+			console.log("stargatePublic.socialShare catch: "+message);
+            expect(message).not.toBeDefined();
+		    done();
+		});
+		
+		res.then(function(result) {
+			//console.log("stargatePublic.socialShare catch: "+result);
+            expect(result).not.toBeFalsy();
+		    done();
+		});
+	});
+	
+	it("socialShare shareWithChooser", function(done) {
+		
+        isStargateInitialized = true;
+        isStargateOpen = true;
+        
+        var options = {
+			"url": "http://www.google.com",
+			"type": "chooser"
+		};
+
+		var res = stargatePublic.socialShare(options);
+        
+        expect(res.then).toBeDefined();
+        
+		res.catch(function(message) {
+			console.log("stargatePublic.socialShare catch: "+message);
+            expect(message).not.toBeDefined();
+		    done();
+		});
+		
+		res.then(function(result) {
+			//console.log("stargatePublic.socialShare catch: "+result);
+            expect(result).not.toBeFalsy();
+		    done();
+		});
+	});
+	
+	it("socialShare socialShareAvailable parameter error", function(done) {
+		
+        isStargateInitialized = true;
+        isStargateOpen = true;
+        
+        var options = {
+			"url": "http://www.google.com",
+			"socials": "invalidparam"
+		};
+
+		var res = stargatePublic.socialShareAvailable(options);
+        
+        expect(res.then).toBeDefined();
+        
+		res.catch(function(message) {
+			//console.log("stargatePublic.socialShare catch: "+message);
+            expect(message).toMatch(/missing array parameter socials/);
+		    done();
+		});
+	});
+	
+	it("socialShare socialShareAvailable", function(done) {
+		
+        isStargateInitialized = true;
+        isStargateOpen = true;
+        
+        var options = {
+			"url": "http://www.google.com",
+			"socials": ["facebook", "twitter", "instagram"]
+		};
+
+		var res = stargatePublic.socialShareAvailable(options);
+        
+        expect(res.then).toBeDefined();
+        
+		res.catch(function(message) {
+			console.log("stargatePublic.socialShare catch: "+message);
+            expect(message).not.toBeDefined();
+		    done();
+		});
+		
+		res.then(function(result) {
+			//console.log("stargatePublic.socialShareAvailable result: "+result);
+            expect(result).not.toBeFalsy();
+            expect(result).toEqual(options.socials);
 		    done();
 		});
 	});
