@@ -1,11 +1,18 @@
 describe("Stargate AdManager tests", function() {
+    var oldConsoleLog = console.log;
+    var oldConsoleInfo = console.info;
+    var oldConsoleWarn = console.warn;
     
     beforeEach(function() {
-
+        console.log = jasmine.createSpy();
+        console.info = jasmine.createSpy();
+        console.warn = jasmine.createSpy();
     });
     
 	afterEach(function() {
-
+        console.log = oldConsoleLog;
+        console.info = oldConsoleInfo;
+        console.warn = oldConsoleWarn;
 	});
     
     it("Public interface should be defined",function(){        
