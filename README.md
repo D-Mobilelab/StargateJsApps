@@ -1,6 +1,6 @@
-[![Travis](http://img.shields.io/travis/D-Mobilelab/StargateJsApps.svg?branch=master&style=flat)](https://travis-ci.org/BuongiornoMIP/StargateJsApps)
+[![Travis](http://img.shields.io/travis/D-Mobilelab/StargateJsApps.svg?branch=master&style=flat)](https://travis-ci.org/D-Mobilelab/StargateJsApps)
 
-[![Coverage Status](https://coveralls.io/repos/D-Mobilelab/StargateJsApps/badge.svg?branch=master&service=github)](https://coveralls.io/github/BuongiornoMIP/StargateJsApps?branch=master)
+[![Coverage Status](https://coveralls.io/repos/D-Mobilelab/StargateJsApps/badge.svg?branch=master&service=github)](https://coveralls.io/github/D-Mobilelab/StargateJsApps?branch=master)
 
 
 
@@ -204,7 +204,44 @@ Facebook connect
 
 Parameter string scope: scope list separeted with comma
 
+## Stargate.socialShare(options)
+
+Share an url on a social network
+
+### Parameters
+
+#### options object
+
+Options key|Description|Example
+--- | --- | ---
+*type* | String: social network to use (chooser, facebook, twitter, whatsapp) | chooser
+*url* | String: url to share | "http://www.google.com/?utm_source=stargate"
+
+### Returns
+
+Promise fullfilled when sharing is done
+
+## Stargate.socialShareAvailable(options)
+
+Return a list of social networks application installed on user device
+
+### Parameters
+
+#### options object
+
+Options key|Description|Example
+--- | --- | ---
+*socials* | Array of strings: social network to check if available (chooser, facebook, twitter, whatsapp) | chooser
+*url* | String: url to share | "http://www.google.com/?utm_source=stargate"
+
+### Returns
+
+Promise fullfilled with an array with the list social network available from the ones requested with parameter "option.socials"
+
+
 ## Stargate.facebookShare(url, callbackSuccess, callbackError)
+
+@deprecated since 0.5.0
 
 Facebook sharing
 
