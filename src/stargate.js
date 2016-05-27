@@ -453,8 +453,14 @@ var onDeviceReady = function (resolve, reject) {
             }
         }
 
-        baseUrl = results[1].start_url;
-
+        if (results[1].stargateConf.webapp_start_url) {
+            baseUrl = results[1].stargateConf.webapp_start_url;
+        } else if (results[1].start_url) {
+            baseUrl = results[1].start_url;
+        } else {
+            baseUrl = "";
+        }
+        
         stargateConf = results[1].stargateConf;
 
         // execute remaining initialization
@@ -567,9 +573,3 @@ var haveRequestedFeature = function(feature) {
     }
     return false;
 };
-
-
-
-
-
-

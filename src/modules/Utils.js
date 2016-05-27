@@ -298,6 +298,7 @@
      * @param {String} options.url - http or whatever
      * @param {String} [options.responseType="blob"] - possible values arraybuffer|blob
      * @param {String} [options.mimeType="image/jpeg"] - possible values "image/png"|"image/jpeg" used only if "blob" is set as responseType
+     * @param {Boolean} options.withCredentials - set with credentials before send
      * @param {Function} [_onProgress=function(){}]
      * @returns {Promise<Blob|ArrayBuffer|Error>}
      */
@@ -307,7 +308,11 @@
             var request = new XMLHttpRequest();
             request.open ("GET", options.url, true);
             request.responseType = options.responseType || "blob";
-            request.withCredentials = true;
+            
+            if(options.withCredentials){
+               request.withCredentials = options.withCredentials; 
+            }
+                        
             function transferComplete(){
                 var result;
                 switch(options.responseType){

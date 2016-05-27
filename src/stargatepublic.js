@@ -492,5 +492,3 @@ stargatePublic.getVersion = function() {
 stargatePublic.getAppInformation = function() {
     return appInformation;
 };
-
-stargatePublic.ad = new AdStargate();

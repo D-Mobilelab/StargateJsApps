@@ -97,10 +97,10 @@ gulp.task('watch', function () {
 
 
 gulp.task('concatModulesInOrder', function(){
-    return gulp.src("src/modules/**/*.js")
+    return gulp.src("src/modules/*.js")
         .pipe(depsOrder())
         .pipe(concat("modules.js"))
-        .pipe(gulp.dest("src/modules.js"));
+        .pipe(gulp.dest("src/"));
 });
 
 
@@ -170,7 +170,7 @@ gulp.task('karma', ['concatModulesInOrder','build'], function (done) {
 	new karma.Server(karmaConf, done).start();
 });
 
-gulp.task('karma:singlerun', ['build'], function (done) {
+gulp.task('karma:singlerun', ['concatModulesInOrder','build'], function (done) {
 
 	karmaConf.singleRun = true;
 	argv.browsers && (karmaConf.browsers = argv.browsers.trim().split(','));
