@@ -8,7 +8,7 @@
     "postversion": "",
     "version": "gulp build && git add dist/",
     "clean": "rm -r gh-pages",
-    "docs": "node bin/generate_docs",
+    "docs": "rm -rf gh-pages/* && node bin/generate_docs",
     "adddocs": "npm run docs && git checkout gh-pages && git pull && git add -A gh-pages/ && git commit -m 'Updated' && git push origin gh-pages && git checkout master",
     "test": "rm -rf coverage/* && gulp lint && gulp karma:singlerun --browsers=PhantomJS --reporters=mocha,coverage,coveralls"
   },
