@@ -495,18 +495,12 @@ var isHybridEnvironment = function() {
     return false;
 };
 
-var stargateBusy = false;
-
-// - not used, enable if needed -
-//var isBusy = function() { return stargateBusy; };
 
 var setBusy = function(value) {
     if (value) {
-        stargateBusy = true;
         startLoading();
     }
     else {
-        stargateBusy = false;
         stopLoading();
     }
 };
