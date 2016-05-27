@@ -5006,6 +5006,9 @@
      * @returns {Promise<boolean|FileError|Number>} - true if all has gone good, 403 if unathorized, FileError in case can write in the folder
      * */
     Game.prototype.download = function(gameObject, callbacks){
+        // Clone object for security
+        var self = this;
+        gameObject = JSON.parse(JSON.stringify(gameObject));
         var err;
         if(this.isDownloading()){
             err = {type:"error",description:"AlreadyDownloading"};
@@ -5020,7 +5023,6 @@
         }
 
         var alreadyExists = this.isGameDownloaded(gameObject.id);
-        var self = this;
         // Defaults
         callbacks = callbacks ? callbacks : {};
         var _onProgress = callbacks.onProgress ? callbacks.onProgress : function(){};
@@ -5036,14 +5038,24 @@
                 var percentage = Math.round((progressEvent.loaded / progressEvent.total) * 100);
                 _onProgress({percentage:percentage,type:type});
             };
-        }
-
+        }       
+        
+        var currentSize = gameObject.size.replace("KB", "").replace("MB", "").replace(",", ".").trim();
+        var conversion = {KB:1, MB:2, GB:3, TB:5};
+        // var isKB = gameObject.size.indexOf("KB") > -1 ? true : false;
+        var isMB = gameObject.size.indexOf("MB") > -1 ? true : false;
+        var bytes = currentSize * Math.pow(1024, isMB ? conversion.MB : conversion.KB);
+        
         var saveAsName = gameObject.id;
         function start(){
             _onStart({type:"download"});
-
+            var spaceEnough = fileModule.requestFileSystem(1, bytes);
             LOG.d("Get ga_for_game and gamifive info, fly my minipony!");
-            return storeOfflineData(saveAsName)
+            return spaceEnough
+                .then(function(result){
+                    LOG.i("Space is ok, can download:", bytes, result);
+                    return storeOfflineData(saveAsName);
+                })
                 .then(function(results){
                     LOG.d("Ga for game and gamifive info stored!", results);
                     LOG.d("Start Download:", gameObject.id, gameObject.response_api_dld.binary_url);
@@ -5152,7 +5164,7 @@
         });
 
     };
-
+    
     /**
      * play
      *
@@ -5770,39 +5782,14 @@
 })(stargateModules);
 
 /**
- * AdManager module needs cordova-plugin-admobpro, cordova-plugin-mopub
+ * AdManager module needs https://github.com/appfeel/admob-google-cordova
  * @module src/modules/AdManager
  * @type {Object}
  * @requires ./Utils.js,./Decorators.js
  */
 (function(Utils, Decorators, _modules){
 
-
-    var POSITIONS = {
-            NO_CHANGE: 0,
-            TOP_LEFT: 1,
-            TOP_CENTER: 2,
-            TOP_RIGHT: 3,
-            LEFT: 4,
-            CENTER: 5,
-            RIGHT: 6,
-            BOTTOM_LEFT: 7,
-            BOTTOM_CENTER: 8,
-            BOTTOM_RIGHT: 9,
-            POS_XY: 10
-    };
-
-    var SIZES = {
-            SMART_BANNER: 'SMART_BANNER',
-            BANNER: 'BANNER',
-            MEDIUM_RECTANGLE: 'MEDIUM_RECTANGLE',
-            FULL_BANNER: 'FULL_BANNER',
-            LEADERBOARD: 'LEADERBOARD',
-            SKYSCRAPER: 'SKYSCRAPER'
-    };
-
     var admobid = {};
-    var LOG = new Utils.Logger("all","[AdManager]");
 
     if(/(android)/i.test(navigator.userAgent) ) {
         admobid = { // for Android
@@ -5821,47 +5808,82 @@
         };
     }
 
-    function AdManager(){
-        LOG.i(POSITIONS, SIZES);
+    function AdManager(){}
+    
+    var platform;    
+    var supportedPlatform = ["ios","android"];
+    function checkSupport(arr, val) {
+        return arr.some(function(arrVal){ return val === arrVal;});
     }
     
-    /*
-    createBanner(adId/options, success, fail);
-    removeBanner();
-    showBanner(position);
-    showBannerAtXY(x, y);
-    hideBanner();
-
-    // use interstitial
-    prepareInterstitial(adId/options, success, fail);
-    showInterstitial();
-    isInterstitialReady(function(ready){ if(ready){ } });
-
-    // use reward video
-    prepareRewardVideoAd(adId/options, success, fail);
-    showRewardVideoAd();
-
-    // set values for configuration and targeting
-    setOptions(options, success, fail);
+    AdManager.prototype.initialize = function(options){
+        platform = window.device.platform.toLowerCase();
+        
+        if(checkSupport(supportedPlatform, platform)){
+            this.AD_TYPE = window.admob.AD_TYPE;
+            this.AD_SIZE = window.admob.AD_SIZE;
+            this.LOG = new Utils.Logger("all","[AdManager]");
+            this.LOG.i("initialize admob with", platform, options[platform]);
+            this.setOptions(options[platform]);
+            return Promise.resolve("OK");           
+        } else {
+            return Promise.reject([platform, "Unsupported"].join(" "));
+        }        
+    };
     
-    // get user ad settings
-    getAdSettings(function(inf){ inf.adId; inf.adTrackingEnabled; }, fail);
-    */
-    AdManager.prototype.createBanner = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.removeBanner = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.showBanner = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.showBannerAtGivenXY = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.showBannerAtSelectedPosition = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.hideBanner = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.prepareInterstitial = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.showInterstitial = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.prepareRewardVideoAd = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.registerAdEvents = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.showRewardVideoAd = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.setOptions = function(){LOG.d("NotImplemented");};    
+    AdManager.prototype.createBanner = function(options){
+        this.LOG.i("createBanner");
+        var self = this;
+        options = Utils.extend(self.options, options || {});
+        return new Promise(function(resolve, reject){
+            window.admob.createBannerView(options, resolve, reject);
+        });
+    };
+    
+    AdManager.prototype.removeBanner = function(){
+        window.admob.destroyBannerView();
+        return Promise.resolve("OK");
+    };
+    
+    AdManager.prototype.showBanner = function(){
+        return new Promise(function(resolve, reject){
+            window.admob.showBannerAd(true, resolve, reject);
+        });
+    };
+    
+    AdManager.prototype.showBannerAtGivenXY = function(){this.LOG.d("NotImplemented");};
+    AdManager.prototype.showBannerAtSelectedPosition = function(){this.LOG.d("NotImplemented");};
+    
+    AdManager.prototype.hideBanner = function(){        
+        return new Promise(function(resolve, reject){
+            window.admob.showBannerAd(false, resolve, reject);
+        });        
+    };
+    
+    AdManager.prototype.prepareInterstitial = function(options){
+        var self = this;
+        return new Promise(function(resolve, reject){
+            window.admob.requestInterstitialAd(Utils.extend(self.options, options || {}), resolve, reject);                        
+        });
+    };
+    
+    AdManager.prototype.showInterstitial = function(){
+        return new Promise(function(resolve, reject){
+            window.admob.showInterstitialAd(resolve, reject);
+        });
+    };
+    
+    AdManager.prototype.registerAdEvents = function(eventManager){
+        this.LOG.d("NotImplemented", eventManager);
+    };
+    
+    AdManager.prototype.setOptions = function(options){
+        this.options = options || {};
+        window.admob.setOptions(options || {});
+    };
 
     function isCordovaPluginDefined(){
-        return window.plugins && typeof window.plugins.AdMob !== "undefined";
+        return window.admob !== "undefined";
     }
     
     // unwrap it as soon as implemented
@@ -5870,7 +5892,7 @@
             AdManager.prototype[method] = Decorators.requireCondition(isCordovaPluginDefined, 
                                 AdManager.prototype[method], 
                                 AdManager.prototype, 
-                                "cordova-plugin-admob not installed", 
+                                "try cordova plugin add cordova-admob:plugin not installed", 
                                 "warn");
         }
     }
@@ -6815,6 +6837,15 @@ var onPluginReady = function (resolve) {
         modulePromises.push(
             stargateModules.game._protected.initialize(
                 getModuleConf("game")
+            )
+        );
+    }
+        
+    if (haveRequestedFeature("adv") && stargateModules.AdManager) {
+        // save initialization promise, to wait for
+        modulePromises.push(
+            stargateModules.AdManager.initialize(
+                getModuleConf("adv")
             )
         );
     }
@@ -9177,39 +9208,14 @@ stargatePublic.socialShareAvailable = function(options) {
 })(stargateModules);
 
 /**
- * AdManager module needs cordova-plugin-admobpro, cordova-plugin-mopub
+ * AdManager module needs https://github.com/appfeel/admob-google-cordova
  * @module src/modules/AdManager
  * @type {Object}
  * @requires ./Utils.js,./Decorators.js
  */
 (function(Utils, Decorators, _modules){
 
-
-    var POSITIONS = {
-            NO_CHANGE: 0,
-            TOP_LEFT: 1,
-            TOP_CENTER: 2,
-            TOP_RIGHT: 3,
-            LEFT: 4,
-            CENTER: 5,
-            RIGHT: 6,
-            BOTTOM_LEFT: 7,
-            BOTTOM_CENTER: 8,
-            BOTTOM_RIGHT: 9,
-            POS_XY: 10
-    };
-
-    var SIZES = {
-            SMART_BANNER: 'SMART_BANNER',
-            BANNER: 'BANNER',
-            MEDIUM_RECTANGLE: 'MEDIUM_RECTANGLE',
-            FULL_BANNER: 'FULL_BANNER',
-            LEADERBOARD: 'LEADERBOARD',
-            SKYSCRAPER: 'SKYSCRAPER'
-    };
-
     var admobid = {};
-    var LOG = new Utils.Logger("all","[AdManager]");
 
     if(/(android)/i.test(navigator.userAgent) ) {
         admobid = { // for Android
@@ -9228,47 +9234,82 @@ stargatePublic.socialShareAvailable = function(options) {
         };
     }
 
-    function AdManager(){
-        LOG.i(POSITIONS, SIZES);
+    function AdManager(){}
+    
+    var platform;    
+    var supportedPlatform = ["ios","android"];
+    function checkSupport(arr, val) {
+        return arr.some(function(arrVal){ return val === arrVal;});
     }
     
-    /*
-    createBanner(adId/options, success, fail);
-    removeBanner();
-    showBanner(position);
-    showBannerAtXY(x, y);
-    hideBanner();
-
-    // use interstitial
-    prepareInterstitial(adId/options, success, fail);
-    showInterstitial();
-    isInterstitialReady(function(ready){ if(ready){ } });
-
-    // use reward video
-    prepareRewardVideoAd(adId/options, success, fail);
-    showRewardVideoAd();
-
-    // set values for configuration and targeting
-    setOptions(options, success, fail);
+    AdManager.prototype.initialize = function(options){
+        platform = window.device.platform.toLowerCase();
+        
+        if(checkSupport(supportedPlatform, platform)){
+            this.AD_TYPE = window.admob.AD_TYPE;
+            this.AD_SIZE = window.admob.AD_SIZE;
+            this.LOG = new Utils.Logger("all","[AdManager]");
+            this.LOG.i("initialize admob with", platform, options[platform]);
+            this.setOptions(options[platform]);
+            return Promise.resolve("OK");           
+        } else {
+            return Promise.reject([platform, "Unsupported"].join(" "));
+        }        
+    };
     
-    // get user ad settings
-    getAdSettings(function(inf){ inf.adId; inf.adTrackingEnabled; }, fail);
-    */
-    AdManager.prototype.createBanner = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.removeBanner = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.showBanner = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.showBannerAtGivenXY = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.showBannerAtSelectedPosition = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.hideBanner = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.prepareInterstitial = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.showInterstitial = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.prepareRewardVideoAd = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.registerAdEvents = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.showRewardVideoAd = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.setOptions = function(){LOG.d("NotImplemented");};    
+    AdManager.prototype.createBanner = function(options){
+        this.LOG.i("createBanner");
+        var self = this;
+        options = Utils.extend(self.options, options || {});
+        return new Promise(function(resolve, reject){
+            window.admob.createBannerView(options, resolve, reject);
+        });
+    };
+    
+    AdManager.prototype.removeBanner = function(){
+        window.admob.destroyBannerView();
+        return Promise.resolve("OK");
+    };
+    
+    AdManager.prototype.showBanner = function(){
+        return new Promise(function(resolve, reject){
+            window.admob.showBannerAd(true, resolve, reject);
+        });
+    };
+    
+    AdManager.prototype.showBannerAtGivenXY = function(){this.LOG.d("NotImplemented");};
+    AdManager.prototype.showBannerAtSelectedPosition = function(){this.LOG.d("NotImplemented");};
+    
+    AdManager.prototype.hideBanner = function(){        
+        return new Promise(function(resolve, reject){
+            window.admob.showBannerAd(false, resolve, reject);
+        });        
+    };
+    
+    AdManager.prototype.prepareInterstitial = function(options){
+        var self = this;
+        return new Promise(function(resolve, reject){
+            window.admob.requestInterstitialAd(Utils.extend(self.options, options || {}), resolve, reject);                        
+        });
+    };
+    
+    AdManager.prototype.showInterstitial = function(){
+        return new Promise(function(resolve, reject){
+            window.admob.showInterstitialAd(resolve, reject);
+        });
+    };
+    
+    AdManager.prototype.registerAdEvents = function(eventManager){
+        this.LOG.d("NotImplemented", eventManager);
+    };
+    
+    AdManager.prototype.setOptions = function(options){
+        this.options = options || {};
+        window.admob.setOptions(options || {});
+    };
 
     function isCordovaPluginDefined(){
-        return window.plugins && typeof window.plugins.AdMob !== "undefined";
+        return window.admob !== "undefined";
     }
     
     // unwrap it as soon as implemented
@@ -9277,7 +9318,7 @@ stargatePublic.socialShareAvailable = function(options) {
             AdManager.prototype[method] = Decorators.requireCondition(isCordovaPluginDefined, 
                                 AdManager.prototype[method], 
                                 AdManager.prototype, 
-                                "cordova-plugin-admob not installed", 
+                                "try cordova plugin add cordova-admob:plugin not installed", 
                                 "warn");
         }
     }
