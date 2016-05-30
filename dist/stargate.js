@@ -1,13 +1,14 @@
 /*!
  * URI.js - Mutating URLs
  *
- * Version: 1.17.1
+ * Version: 1.17.0
  *
  * Author: Rodney Rehm
  * Web: http://medialize.github.io/URI.js/
  *
  * Licensed under
  *   MIT License http://www.opensource.org/licenses/mit-license
+ *   GPL v3 http://opensource.org/licenses/GPL-3.0
  *
  */
 (function (root, factory) {
@@ -71,7 +72,7 @@
     return this;
   }
 
-  URI.version = '1.17.1';
+  URI.version = '1.17.0';
 
   var p = URI.prototype;
   var hasOwn = Object.prototype.hasOwnProperty;
@@ -794,35 +795,18 @@
     }
   };
   URI.hasQuery = function(data, name, value, withinArray) {
-    switch (getType(name)) {
-      case 'String':
-        // Nothing to do here
-        break;
-
-      case 'RegExp':
-        for (var key in data) {
-          if (hasOwn.call(data, key)) {
-            if (name.test(key) && (value === undefined || URI.hasQuery(data, key, value))) {
-              return true;
-            }
+    if (typeof name === 'object') {
+      for (var key in name) {
+        if (hasOwn.call(name, key)) {
+          if (!URI.hasQuery(data, key, name[key])) {
+            return false;
           }
         }
+      }
 
-        return false;
-
-      case 'Object':
-        for (var _key in name) {
-          if (hasOwn.call(name, _key)) {
-            if (!URI.hasQuery(data, _key, name[_key])) {
-              return false;
-            }
-          }
-        }
-
-        return true;
-
-      default:
-        throw new TypeError('URI.hasQuery() accepts a string, regular expression or object as the name parameter');
+      return true;
+    } else if (typeof name !== 'string') {
+      throw new TypeError('URI.hasQuery() accepts an object, string as the name parameter');
     }
 
     switch (getType(value)) {
@@ -1240,6 +1224,8 @@
 
   // compound accessors
   p.origin = function(v, build) {
+    var parts;
+
     if (this._parts.urn) {
       return v === undefined ? '' : this;
     }
@@ -1247,10 +1233,7 @@
     if (v === undefined) {
       var protocol = this.protocol();
       var authority = this.authority();
-      if (!authority) {
-        return '';
-      }
-
+      if (!authority) return '';
       return (protocol ? protocol + '://' : '') + this.authority();
     } else {
       var origin = URI(v);
@@ -1834,8 +1817,6 @@
       return this;
     }
 
-    _path = URI.recodePath(_path);
-
     var _was_relative;
     var _leadingParents = '';
     var _parent, _pos;
@@ -1866,7 +1847,7 @@
 
     // resolve parents
     while (true) {
-      _parent = _path.search(/\/\.\.(\/|$)/);
+      _parent = _path.indexOf('/..');
       if (_parent === -1) {
         // no more ../ to resolve
         break;
@@ -1888,6 +1869,7 @@
       _path = _leadingParents + _path.substring(1);
     }
 
+    _path = URI.recodePath(_path);
     this._parts.path = _path;
     this.build(!build);
     return this;
@@ -2182,13 +2164,14 @@
  * URI.js - Mutating URLs
  * URI Template Support - http://tools.ietf.org/html/rfc6570
  *
- * Version: 1.17.1
+ * Version: 1.17.0
  *
  * Author: Rodney Rehm
  * Web: http://medialize.github.io/URI.js/
  *
  * Licensed under
  *   MIT License http://www.opensource.org/licenses/mit-license
+ *   GPL v3 http://opensource.org/licenses/GPL-3.0
  *
  */
 (function (root, factory) {
@@ -3935,7 +3918,7 @@
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.4.5";
+    var stargatePackageVersion = "0.5.0";
     var stargatePublic = {};
     
     var stargateModules = {};       
@@ -5023,6 +5006,9 @@
      * @returns {Promise<boolean|FileError|Number>} - true if all has gone good, 403 if unathorized, FileError in case can write in the folder
      * */
     Game.prototype.download = function(gameObject, callbacks){
+        // Clone object for security
+        var self = this;
+        gameObject = JSON.parse(JSON.stringify(gameObject));
         var err;
         if(this.isDownloading()){
             err = {type:"error",description:"AlreadyDownloading"};
@@ -5037,7 +5023,6 @@
         }
 
         var alreadyExists = this.isGameDownloaded(gameObject.id);
-        var self = this;
         // Defaults
         callbacks = callbacks ? callbacks : {};
         var _onProgress = callbacks.onProgress ? callbacks.onProgress : function(){};
@@ -5053,14 +5038,24 @@
                 var percentage = Math.round((progressEvent.loaded / progressEvent.total) * 100);
                 _onProgress({percentage:percentage,type:type});
             };
-        }
-
+        }       
+        
+        var currentSize = gameObject.size.replace("KB", "").replace("MB", "").replace(",", ".").trim();
+        var conversion = {KB:1, MB:2, GB:3, TB:5};
+        // var isKB = gameObject.size.indexOf("KB") > -1 ? true : false;
+        var isMB = gameObject.size.indexOf("MB") > -1 ? true : false;
+        var bytes = currentSize * Math.pow(1024, isMB ? conversion.MB : conversion.KB);
+        
         var saveAsName = gameObject.id;
         function start(){
             _onStart({type:"download"});
-
+            var spaceEnough = fileModule.requestFileSystem(1, bytes);
             LOG.d("Get ga_for_game and gamifive info, fly my minipony!");
-            return storeOfflineData(saveAsName)
+            return spaceEnough
+                .then(function(result){
+                    LOG.i("Space is ok, can download:", bytes, result);
+                    return storeOfflineData(saveAsName);
+                })
                 .then(function(results){
                     LOG.d("Ga for game and gamifive info stored!", results);
                     LOG.d("Start Download:", gameObject.id, gameObject.response_api_dld.binary_url);
@@ -5169,7 +5164,7 @@
         });
 
     };
-
+    
     /**
      * play
      *
@@ -5787,39 +5782,14 @@
 })(stargateModules);
 
 /**
- * AdManager module needs cordova-plugin-admobpro, cordova-plugin-mopub
+ * AdManager module needs https://github.com/appfeel/admob-google-cordova
  * @module src/modules/AdManager
  * @type {Object}
  * @requires ./Utils.js,./Decorators.js
  */
 (function(Utils, Decorators, _modules){
 
-
-    var POSITIONS = {
-            NO_CHANGE: 0,
-            TOP_LEFT: 1,
-            TOP_CENTER: 2,
-            TOP_RIGHT: 3,
-            LEFT: 4,
-            CENTER: 5,
-            RIGHT: 6,
-            BOTTOM_LEFT: 7,
-            BOTTOM_CENTER: 8,
-            BOTTOM_RIGHT: 9,
-            POS_XY: 10
-    };
-
-    var SIZES = {
-            SMART_BANNER: 'SMART_BANNER',
-            BANNER: 'BANNER',
-            MEDIUM_RECTANGLE: 'MEDIUM_RECTANGLE',
-            FULL_BANNER: 'FULL_BANNER',
-            LEADERBOARD: 'LEADERBOARD',
-            SKYSCRAPER: 'SKYSCRAPER'
-    };
-
     var admobid = {};
-    var LOG = new Utils.Logger("all","[AdManager]");
 
     if(/(android)/i.test(navigator.userAgent) ) {
         admobid = { // for Android
@@ -5838,47 +5808,82 @@
         };
     }
 
-    function AdManager(){
-        LOG.i(POSITIONS, SIZES);
+    function AdManager(){}
+    
+    var platform;    
+    var supportedPlatform = ["ios","android"];
+    function checkSupport(arr, val) {
+        return arr.some(function(arrVal){ return val === arrVal;});
     }
     
-    /*
-    createBanner(adId/options, success, fail);
-    removeBanner();
-    showBanner(position);
-    showBannerAtXY(x, y);
-    hideBanner();
-
-    // use interstitial
-    prepareInterstitial(adId/options, success, fail);
-    showInterstitial();
-    isInterstitialReady(function(ready){ if(ready){ } });
-
-    // use reward video
-    prepareRewardVideoAd(adId/options, success, fail);
-    showRewardVideoAd();
-
-    // set values for configuration and targeting
-    setOptions(options, success, fail);
+    AdManager.prototype.initialize = function(options){
+        platform = window.device.platform.toLowerCase();
+        
+        if(checkSupport(supportedPlatform, platform)){
+            this.AD_TYPE = window.admob.AD_TYPE;
+            this.AD_SIZE = window.admob.AD_SIZE;
+            this.LOG = new Utils.Logger("all","[AdManager]");
+            this.LOG.i("initialize admob with", platform, options[platform]);
+            this.setOptions(options[platform]);
+            return Promise.resolve("OK");           
+        } else {
+            return Promise.reject([platform, "Unsupported"].join(" "));
+        }        
+    };
     
-    // get user ad settings
-    getAdSettings(function(inf){ inf.adId; inf.adTrackingEnabled; }, fail);
-    */
-    AdManager.prototype.createBanner = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.removeBanner = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.showBanner = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.showBannerAtGivenXY = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.showBannerAtSelectedPosition = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.hideBanner = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.prepareInterstitial = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.showInterstitial = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.prepareRewardVideoAd = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.registerAdEvents = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.showRewardVideoAd = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.setOptions = function(){LOG.d("NotImplemented");};    
+    AdManager.prototype.createBanner = function(options){
+        this.LOG.i("createBanner");
+        var self = this;
+        options = Utils.extend(self.options, options || {});
+        return new Promise(function(resolve, reject){
+            window.admob.createBannerView(options, resolve, reject);
+        });
+    };
+    
+    AdManager.prototype.removeBanner = function(){
+        window.admob.destroyBannerView();
+        return Promise.resolve("OK");
+    };
+    
+    AdManager.prototype.showBanner = function(){
+        return new Promise(function(resolve, reject){
+            window.admob.showBannerAd(true, resolve, reject);
+        });
+    };
+    
+    AdManager.prototype.showBannerAtGivenXY = function(){this.LOG.d("NotImplemented");};
+    AdManager.prototype.showBannerAtSelectedPosition = function(){this.LOG.d("NotImplemented");};
+    
+    AdManager.prototype.hideBanner = function(){        
+        return new Promise(function(resolve, reject){
+            window.admob.showBannerAd(false, resolve, reject);
+        });        
+    };
+    
+    AdManager.prototype.prepareInterstitial = function(options){
+        var self = this;
+        return new Promise(function(resolve, reject){
+            window.admob.requestInterstitialAd(Utils.extend(self.options, options || {}), resolve, reject);                        
+        });
+    };
+    
+    AdManager.prototype.showInterstitial = function(){
+        return new Promise(function(resolve, reject){
+            window.admob.showInterstitialAd(resolve, reject);
+        });
+    };
+    
+    AdManager.prototype.registerAdEvents = function(eventManager){
+        this.LOG.d("NotImplemented", eventManager);
+    };
+    
+    AdManager.prototype.setOptions = function(options){
+        this.options = options || {};
+        window.admob.setOptions(options || {});
+    };
 
     function isCordovaPluginDefined(){
-        return window.plugins && typeof window.plugins.AdMob !== "undefined";
+        return window.admob !== "undefined";
     }
     
     // unwrap it as soon as implemented
@@ -5887,7 +5892,7 @@
             AdManager.prototype[method] = Decorators.requireCondition(isCordovaPluginDefined, 
                                 AdManager.prototype[method], 
                                 AdManager.prototype, 
-                                "cordova-plugin-admob not installed", 
+                                "try cordova plugin add cordova-admob:plugin not installed", 
                                 "warn");
         }
     }
@@ -6835,6 +6840,15 @@ var onPluginReady = function (resolve) {
             )
         );
     }
+        
+    if (haveRequestedFeature("adv") && stargateModules.AdManager) {
+        // save initialization promise, to wait for
+        modulePromises.push(
+            stargateModules.AdManager.initialize(
+                getModuleConf("adv")
+            )
+        );
+    }
     
     
     // wait for all module initializations before calling the webapp
@@ -6929,8 +6943,14 @@ var onDeviceReady = function (resolve, reject) {
             }
         }
 
-        baseUrl = results[1].start_url;
-
+        if (results[1].stargateConf.webapp_start_url) {
+            baseUrl = results[1].stargateConf.webapp_start_url;
+        } else if (results[1].start_url) {
+            baseUrl = results[1].start_url;
+        } else {
+            baseUrl = "";
+        }
+        
         stargateConf = results[1].stargateConf;
 
         // execute remaining initialization
@@ -6965,18 +6985,12 @@ var isHybridEnvironment = function() {
     return false;
 };
 
-var stargateBusy = false;
-
-// - not used, enable if needed -
-//var isBusy = function() { return stargateBusy; };
 
 var setBusy = function(value) {
     if (value) {
-        stargateBusy = true;
         startLoading();
     }
     else {
-        stargateBusy = false;
         stopLoading();
     }
 };
@@ -7043,6 +7057,312 @@ var haveRequestedFeature = function(feature) {
     }
     return false;
 };
+var share = (function(){
+
+    
+	var shareProtected = {};
+    
+    var getOptions = function(requestedOptions) {
+        var availableOptions = ["message", "subject", "files", "chooserTitle"];
+        var options = {
+            url: requestedOptions.url
+        };
+        availableOptions.forEach(function(availableOption) {
+            if (availableOption in requestedOptions) {
+                options[availableOption] = requestedOptions[availableOption];
+            }
+        });
+        return options;
+    };
+    
+	var shareWithChooser = function(requestedOptions, resolve, reject) {
+        // this is the complete list of currently supported params you can pass to the plugin (all optional)
+        //var fullOptions = {
+        //    message: 'share this', // not supported on some apps (Facebook, Instagram)
+        //    subject: 'the subject', // fi. for email
+        //    files: ['', ''], // an array of filenames either locally or remotely
+        //    url: 'https://www.website.com/foo/#bar?a=b',
+        //    chooserTitle: 'Pick an app' // Android only, you can override the default share sheet title
+        //};
+        
+        var options = getOptions(requestedOptions);
+        
+        var onSuccess = function(result) {
+            log("[share] Share completed? " + result.completed); // On Android apps mostly return false even while it's true
+            log("[share] Shared to app: " + result.app); // On Android result.app is currently empty. On iOS it's empty when sharing is cancelled (result.completed=false)
+            
+            resolve(result);
+        };
+
+        var onError = function(msg) {
+            err("[share] Sharing failed with message: " + msg);
+            
+            reject(msg);
+        };
+
+        window.plugins.socialsharing.shareWithOptions(options, onSuccess, onError);
+    };
+    
+    var shareWithFacebook = function(requestedOptions, resolve, reject) {
+        var onSuccess = function(result) {
+            log("[share] Facebook share completed, result: ", result);
+            resolve(result);
+        };
+
+        var onError = function(msg) {
+            err("[share] Facebook sharing failed with message: " + msg);
+            reject(msg);
+        };
+        
+        window.plugins.socialsharing.shareViaFacebook(
+            "",
+            null,
+            requestedOptions.url,
+            onSuccess,
+            onError
+        );
+    };
+    
+    var shareWithTwitter = function(requestedOptions, resolve, reject) {
+        var onSuccess = function(result) {
+            log("[share] Twitter share completed, result: ", result);
+            resolve(result);
+        };
+
+        var onError = function(msg) {
+            err("[share] Twitter sharing failed with message: " + msg);
+            reject(msg);
+        };
+        
+        var message = "";
+        if ("message" in requestedOptions) {
+            message = requestedOptions.message;
+        }
+        window.plugins.socialsharing.shareViaTwitter(
+            message,
+            null,
+            requestedOptions.url,
+            onSuccess,
+            onError
+        );
+    };
+    var shareWithWhatsapp = function(requestedOptions, resolve, reject) {
+        var onSuccess = function(result) {
+            log("[share] Whatsapp share completed, result: ", result);
+            resolve(result);
+        };
+
+        var onError = function(msg) {
+            err("[share] Whatsapp sharing failed with message: " + msg);
+            reject(msg);
+        };
+        
+        var message = "";
+        if ("message" in requestedOptions) {
+            message = requestedOptions.message;
+        }
+        
+        window.plugins.socialsharing.shareViaWhatsApp(
+            message,
+            null,
+            requestedOptions.url,
+            onSuccess,
+            onError
+        );
+    };
+    
+    shareProtected.canShareVia = function(via, url) {
+        
+        return new Promise(function(resolve){
+            
+            // canShareVia: 
+            //   via, message, subject, fileOrFileArray, url, successCallback, errorCallback
+            window.plugins.socialsharing.canShareVia(
+                via,
+                null,
+                null,
+                null,
+                url,
+                function(e){
+                    log("[share] canShareVia "+via+" result true: ", e);
+                    resolve({
+                        "network": via,
+                        "available": true
+                    });
+                },
+                function(e){
+                    log("[share] canShareVia "+via+" result false: ", e);
+                    resolve({
+                        "network": via,
+                        "available": false
+                    });
+                }
+            );
+        });
+    };
+    
+    
+	shareProtected.socialShare = function(options, resolve, reject) {
+        
+		if (typeof options !== 'object') {
+            options = {};
+			war("[share] parameter options must be object!");
+		}
+        
+        if (!options.type) {
+            options.type = "chooser";
+        }
+
+        if (!window.plugins || !window.plugins.socialsharing) {
+
+			// plugin is not installed
+            err("[share] missing cordova plugin");
+			return reject("missing cordova plugin");
+		}
+		
+        if (!options.url) {
+            err("[share] missing parameter url");
+            return reject("missing parameter url");
+        }
+        
+        if (options.type == "chooser") {
+            return shareWithChooser(options, resolve, reject);
+        }
+        
+        if (options.type == "facebook") {
+            return shareWithFacebook(options, resolve, reject);
+        }
+        
+        if (options.type == "twitter") {
+            return shareWithTwitter(options, resolve, reject);
+        }
+        
+        if (options.type == "whatsapp") {
+            return shareWithWhatsapp(options, resolve, reject);
+        }
+
+        err("[share] type not valid");        
+        return reject("type not valid");
+        
+	};
+    
+    return shareProtected;
+})();
+
+
+/**
+ * @name Stargate#socialShare
+ * @memberof Stargate
+ *
+ * @description share an url on a social network
+ *
+ * @param {object} options
+ */
+stargatePublic.socialShare = function(options) {
+    
+    if (!isStargateInitialized) {
+        return Promise.reject("Stargate not initialized, call Stargate.initialize first!");
+    }
+    if (!isStargateOpen) {
+        return Promise.reject("Stargate closed, wait for Stargate.initialize to complete!");
+    }
+    
+    
+    var result = new Promise(function(resolve,reject){
+        
+        share.socialShare(options, resolve, reject);
+    });
+    
+    
+    return result;
+};
+
+/**
+ * @name Stargate#socialShareAvailable
+ * @memberof Stargate
+ *
+ * @description return a promise with an array of available social networks
+ *
+ * @param {object} options
+ * @param {Array} options.socials - list of social network to check
+ * 
+ */
+stargatePublic.socialShareAvailable = function(options) {
+    
+    if (!isStargateInitialized) {
+        return Promise.reject("Stargate not initialized, call Stargate.initialize first!");
+    }
+    if (!isStargateOpen) {
+        return Promise.reject("Stargate closed, wait for Stargate.initialize to complete!");
+    }
+    
+    if (!window.plugins || !window.plugins.socialsharing) {
+        // plugin is not installed
+        err("[share] missing cordova plugin");
+        return Promise.reject("missing cordova plugin");
+    }
+    
+    if (!options.socials || options.socials.constructor !== Array) {
+        err("[share] missing array parameter socials");
+        return Promise.reject("missing array parameter socials");
+    }
+    
+    if (!options.url) {
+        err("[share] missing parameter url");
+        return Promise.reject("missing parameter url");
+    }
+    
+    
+    var result = new Promise(function(resolve,reject){
+        
+        var socialsAvailabilityPromises = [];
+    
+        var knownSocialNetworks = [
+            "facebook",
+            "whatsapp",
+            "twitter",
+            "instagram"
+        ];
+        knownSocialNetworks.forEach(function(element) {
+            // check only requested networks
+            
+            if (options.socials.indexOf(element) !== -1) {
+                
+                socialsAvailabilityPromises.push(
+                    
+                    share.canShareVia(element, options.url)
+                );
+                
+            }
+        });
+        
+        Promise.all(socialsAvailabilityPromises).then(function(values) { 
+            
+            var availableNetworks = [];
+            // values is like:
+            //  [{"network": "facebook", "available": false},
+            //   {"network": "twitter", "available": false}]
+            values.forEach(function(element) {
+                if (element.available) {
+                    availableNetworks.push(element.network);
+                }
+                //log("element: ", element);
+            });
+            //log("values: ", values);
+            //log("availableNetworks: ", availableNetworks);
+            resolve(availableNetworks);
+            
+        }, function(reason) {
+            
+            err(reason);
+            reject(reason);
+        });
+    });
+    
+    
+    return result;
+};
+
 /**
  * Utils module
  * @module src/modules/Utils
@@ -8124,6 +8444,9 @@ var haveRequestedFeature = function(feature) {
      * @returns {Promise<boolean|FileError|Number>} - true if all has gone good, 403 if unathorized, FileError in case can write in the folder
      * */
     Game.prototype.download = function(gameObject, callbacks){
+        // Clone object for security
+        var self = this;
+        gameObject = JSON.parse(JSON.stringify(gameObject));
         var err;
         if(this.isDownloading()){
             err = {type:"error",description:"AlreadyDownloading"};
@@ -8138,7 +8461,6 @@ var haveRequestedFeature = function(feature) {
         }
 
         var alreadyExists = this.isGameDownloaded(gameObject.id);
-        var self = this;
         // Defaults
         callbacks = callbacks ? callbacks : {};
         var _onProgress = callbacks.onProgress ? callbacks.onProgress : function(){};
@@ -8154,14 +8476,24 @@ var haveRequestedFeature = function(feature) {
                 var percentage = Math.round((progressEvent.loaded / progressEvent.total) * 100);
                 _onProgress({percentage:percentage,type:type});
             };
-        }
-
+        }       
+        
+        var currentSize = gameObject.size.replace("KB", "").replace("MB", "").replace(",", ".").trim();
+        var conversion = {KB:1, MB:2, GB:3, TB:5};
+        // var isKB = gameObject.size.indexOf("KB") > -1 ? true : false;
+        var isMB = gameObject.size.indexOf("MB") > -1 ? true : false;
+        var bytes = currentSize * Math.pow(1024, isMB ? conversion.MB : conversion.KB);
+        
         var saveAsName = gameObject.id;
         function start(){
             _onStart({type:"download"});
-
+            var spaceEnough = fileModule.requestFileSystem(1, bytes);
             LOG.d("Get ga_for_game and gamifive info, fly my minipony!");
-            return storeOfflineData(saveAsName)
+            return spaceEnough
+                .then(function(result){
+                    LOG.i("Space is ok, can download:", bytes, result);
+                    return storeOfflineData(saveAsName);
+                })
                 .then(function(results){
                     LOG.d("Ga for game and gamifive info stored!", results);
                     LOG.d("Start Download:", gameObject.id, gameObject.response_api_dld.binary_url);
@@ -8270,7 +8602,7 @@ var haveRequestedFeature = function(feature) {
         });
 
     };
-
+    
     /**
      * play
      *
@@ -8888,39 +9220,14 @@ var haveRequestedFeature = function(feature) {
 })(stargateModules);
 
 /**
- * AdManager module needs cordova-plugin-admobpro, cordova-plugin-mopub
+ * AdManager module needs https://github.com/appfeel/admob-google-cordova
  * @module src/modules/AdManager
  * @type {Object}
  * @requires ./Utils.js,./Decorators.js
  */
 (function(Utils, Decorators, _modules){
 
-
-    var POSITIONS = {
-            NO_CHANGE: 0,
-            TOP_LEFT: 1,
-            TOP_CENTER: 2,
-            TOP_RIGHT: 3,
-            LEFT: 4,
-            CENTER: 5,
-            RIGHT: 6,
-            BOTTOM_LEFT: 7,
-            BOTTOM_CENTER: 8,
-            BOTTOM_RIGHT: 9,
-            POS_XY: 10
-    };
-
-    var SIZES = {
-            SMART_BANNER: 'SMART_BANNER',
-            BANNER: 'BANNER',
-            MEDIUM_RECTANGLE: 'MEDIUM_RECTANGLE',
-            FULL_BANNER: 'FULL_BANNER',
-            LEADERBOARD: 'LEADERBOARD',
-            SKYSCRAPER: 'SKYSCRAPER'
-    };
-
     var admobid = {};
-    var LOG = new Utils.Logger("all","[AdManager]");
 
     if(/(android)/i.test(navigator.userAgent) ) {
         admobid = { // for Android
@@ -8939,47 +9246,82 @@ var haveRequestedFeature = function(feature) {
         };
     }
 
-    function AdManager(){
-        LOG.i(POSITIONS, SIZES);
+    function AdManager(){}
+    
+    var platform;    
+    var supportedPlatform = ["ios","android"];
+    function checkSupport(arr, val) {
+        return arr.some(function(arrVal){ return val === arrVal;});
     }
     
-    /*
-    createBanner(adId/options, success, fail);
-    removeBanner();
-    showBanner(position);
-    showBannerAtXY(x, y);
-    hideBanner();
-
-    // use interstitial
-    prepareInterstitial(adId/options, success, fail);
-    showInterstitial();
-    isInterstitialReady(function(ready){ if(ready){ } });
-
-    // use reward video
-    prepareRewardVideoAd(adId/options, success, fail);
-    showRewardVideoAd();
-
-    // set values for configuration and targeting
-    setOptions(options, success, fail);
+    AdManager.prototype.initialize = function(options){
+        platform = window.device.platform.toLowerCase();
+        
+        if(checkSupport(supportedPlatform, platform)){
+            this.AD_TYPE = window.admob.AD_TYPE;
+            this.AD_SIZE = window.admob.AD_SIZE;
+            this.LOG = new Utils.Logger("all","[AdManager]");
+            this.LOG.i("initialize admob with", platform, options[platform]);
+            this.setOptions(options[platform]);
+            return Promise.resolve("OK");           
+        } else {
+            return Promise.reject([platform, "Unsupported"].join(" "));
+        }        
+    };
     
-    // get user ad settings
-    getAdSettings(function(inf){ inf.adId; inf.adTrackingEnabled; }, fail);
-    */
-    AdManager.prototype.createBanner = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.removeBanner = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.showBanner = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.showBannerAtGivenXY = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.showBannerAtSelectedPosition = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.hideBanner = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.prepareInterstitial = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.showInterstitial = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.prepareRewardVideoAd = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.registerAdEvents = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.showRewardVideoAd = function(){LOG.d("NotImplemented");};
-    AdManager.prototype.setOptions = function(){LOG.d("NotImplemented");};    
+    AdManager.prototype.createBanner = function(options){
+        this.LOG.i("createBanner");
+        var self = this;
+        options = Utils.extend(self.options, options || {});
+        return new Promise(function(resolve, reject){
+            window.admob.createBannerView(options, resolve, reject);
+        });
+    };
+    
+    AdManager.prototype.removeBanner = function(){
+        window.admob.destroyBannerView();
+        return Promise.resolve("OK");
+    };
+    
+    AdManager.prototype.showBanner = function(){
+        return new Promise(function(resolve, reject){
+            window.admob.showBannerAd(true, resolve, reject);
+        });
+    };
+    
+    AdManager.prototype.showBannerAtGivenXY = function(){this.LOG.d("NotImplemented");};
+    AdManager.prototype.showBannerAtSelectedPosition = function(){this.LOG.d("NotImplemented");};
+    
+    AdManager.prototype.hideBanner = function(){        
+        return new Promise(function(resolve, reject){
+            window.admob.showBannerAd(false, resolve, reject);
+        });        
+    };
+    
+    AdManager.prototype.prepareInterstitial = function(options){
+        var self = this;
+        return new Promise(function(resolve, reject){
+            window.admob.requestInterstitialAd(Utils.extend(self.options, options || {}), resolve, reject);                        
+        });
+    };
+    
+    AdManager.prototype.showInterstitial = function(){
+        return new Promise(function(resolve, reject){
+            window.admob.showInterstitialAd(resolve, reject);
+        });
+    };
+    
+    AdManager.prototype.registerAdEvents = function(eventManager){
+        this.LOG.d("NotImplemented", eventManager);
+    };
+    
+    AdManager.prototype.setOptions = function(options){
+        this.options = options || {};
+        window.admob.setOptions(options || {});
+    };
 
     function isCordovaPluginDefined(){
-        return window.plugins && typeof window.plugins.AdMob !== "undefined";
+        return window.admob !== "undefined";
     }
     
     // unwrap it as soon as implemented
@@ -8988,7 +9330,7 @@ var haveRequestedFeature = function(feature) {
             AdManager.prototype[method] = Decorators.requireCondition(isCordovaPluginDefined, 
                                 AdManager.prototype[method], 
                                 AdManager.prototype, 
-                                "cordova-plugin-admob not installed", 
+                                "try cordova plugin add cordova-admob:plugin not installed", 
                                 "warn");
         }
     }
