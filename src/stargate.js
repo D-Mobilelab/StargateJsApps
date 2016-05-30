@@ -161,13 +161,6 @@ var hybrid_conf = {},
 
 /**
  * 
- * this is get from manifest
- * 
- */
-var baseUrl;
-
-/**
- * 
  * Application information set on initialize
  * 
  */
@@ -184,40 +177,6 @@ var appInformation = {
     stargate: null,
     stargateModules: null,
     stargateError: null 
-};
-
-var updateStatusBar = function() {
-
-    if (typeof window.StatusBar === "undefined") {
-        // missing cordova plugin
-        return err("[StatusBar] missing cordova plugin");
-    }
-    if (typeof stargateConf.statusbar === "undefined") {
-        return;
-    }
-    if (typeof stargateConf.statusbar.hideOnUrlPattern !== "undefined" && 
-        stargateConf.statusbar.hideOnUrlPattern.constructor === Array) {
-
-        var currentLocation = document.location.href;
-        var hide = false;
-
-        for (var i=0; i<stargateConf.statusbar.hideOnUrlPattern.length; i++) {
-
-            var re = new RegExp(stargateConf.statusbar.hideOnUrlPattern[i]);
-            
-            if (re.test(currentLocation)) {
-                hide = true;
-                break;
-            }
-        }
-
-        if (hide) {
-            window.StatusBar.hide();
-        }
-        else {
-            window.StatusBar.show();
-        }
-    }
 };
 
 /**
@@ -276,8 +235,6 @@ var onPluginReady = function (resolve) {
     // save stargate version to load on webapp 
     setHybridVersion();
 
-    updateStatusBar();
-
     
     if (hasFeature("mfp") && haveRequestedFeature("mfp")) {
         var mfpModuleConf = getModuleConf("mfp");
@@ -317,6 +274,10 @@ var onPluginReady = function (resolve) {
     }
 
     // initialize all modules
+    
+    stargateModules.statusbar.initialize(
+        getModuleConf("statusbar")
+    );
 
     // In-app purchase initialization
     if (haveRequestedFeature("iapbase")) {
@@ -462,14 +423,6 @@ var onDeviceReady = function (resolve, reject) {
             }
         }
 
-        if (results[1].stargateConf.webapp_start_url) {
-            baseUrl = results[1].stargateConf.webapp_start_url;
-        } else if (results[1].start_url) {
-            baseUrl = results[1].start_url;
-        } else {
-            baseUrl = "";
-        }
-        
         stargateConf = results[1].stargateConf;
 
         // execute remaining initialization
@@ -546,7 +499,7 @@ var getModuleConf = function(moduleName) {
         moduleNameLegacy = mapConfLegacy[moduleName];
     }
     
-    if (moduleNameLegacy in hybrid_conf) {
+    if (hybrid_conf && moduleNameLegacy in hybrid_conf) {
         return hybrid_conf[moduleNameLegacy];
     }
     
