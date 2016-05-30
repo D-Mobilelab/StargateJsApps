@@ -58,8 +58,6 @@ stargatePublic.initializeOffline = function(options){
                     results[1] = JSON.parse(results[1]);
                 }
 
-                baseUrl = results[1].start_url;
-
                 stargateConf = results[1].stargateConf;
                 
                 if (options.hideSplashScreen) {
