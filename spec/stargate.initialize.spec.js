@@ -58,7 +58,7 @@ var manifest_mock = {
         "features": {
             "newton": false,
             "facebookconnect": true,
-            "mfp": false,
+            "mfp": true,
             "gesturePlaymeVertical": false,
             "gplusconnect": false,
             "androidMenuPlayme": false,
@@ -119,9 +119,13 @@ var cordova_mock = {
     }
 };
 
+
+var statusbar_visibility = null;
+var statusbar_color = null;
 var statusbar_mock = {
-	hide: function() {},
-	show: function() {}
+	hide: function() {statusbar_visibility=false;},
+	show: function() {statusbar_visibility=true;},
+    backgroundColorByHexString: function(color) {statusbar_color=color;},
 };
 
 var navigator_splashscreen_mock = {
