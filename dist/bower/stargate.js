@@ -18,7 +18,7 @@
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.5.0";
+    var stargatePackageVersion = "0.5.1";
     var stargatePublic = {};
     
     var stargateModules = {};       
@@ -2412,8 +2412,7 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
     //  * call the callback and return a resolving promise
     if (!isStargateRunningInsideHybrid) {
 
-        log("version "+stargatePackageVersion+" running outside hybrid; "+
-            "loaded from server version: v"+getStargateVersionToLoad());
+        log("version "+stargatePackageVersion+" running outside hybrid ");
 
         if(callback){callback(isStargateRunningInsideHybrid);}
         
