@@ -5985,6 +5985,94 @@ var webappsFixes = (function() {
 
 	return waf;
 })();
+
+
+stargateModules.statusbar = (function(){
+
+    var sbProtected = {};
+    
+    sbProtected.initialize = function(initializeConf) {
+        if (typeof window.StatusBar === "undefined") {
+            // missing cordova plugin
+            return err("[StatusBar] missing cordova plugin");
+        }
+        
+        
+        if (!initializeConf ||
+            initializeConf.constructor !== Object ||
+            Object.keys(initializeConf).length === 0) {
+                
+            if (stargateConf.statusbar) {
+                initializeConf = stargateConf.statusbar;
+            } else {
+                return;
+            }
+        }
+        
+        if (typeof initializeConf.hideOnUrlPattern !== "undefined" && 
+            initializeConf.hideOnUrlPattern.constructor === Array) {
+
+            var currentLocation = document.location.href;
+            var hide = false;
+
+            for (var i=0; i<initializeConf.hideOnUrlPattern.length; i++) {
+
+                var re = new RegExp(initializeConf.hideOnUrlPattern[i]);
+                
+                if (re.test(currentLocation)) {
+                    hide = true;
+                    break;
+                }
+            }
+            
+            
+            if (hide) {
+                window.StatusBar.hide();
+            }
+            else {
+                window.StatusBar.show();
+            }
+        }
+        
+        if (initializeConf.color) {
+            //log("color: "+initializeConf.color);
+            window.StatusBar.backgroundColorByHexString(initializeConf.color);
+        }
+    };
+    
+    sbProtected.setVisibility = function(visibility, callbackSuccess, callbackError) {
+        if (typeof window.StatusBar === "undefined") {
+            // missing cordova plugin
+            err("[StatusBar] missing cordova plugin");
+            return callbackError("missing cordova plugin");
+        }
+
+        if (visibility) {
+            window.StatusBar.show();
+            return callbackSuccess("statusbar shown");
+        }
+
+        window.StatusBar.hide();
+        return callbackSuccess("statusbar hided");
+    };
+    
+    return sbProtected;
+})();
+
+
+stargatePublic.setStatusbarVisibility = function(visibility, callbackSuccess, callbackError) {
+
+    if (!isStargateInitialized) {
+        return callbackError("Stargate not initialized, call Stargate.initialize first!");
+    }
+    if (!isStargateOpen) {
+        callbackError("Stargate closed, wait for Stargate.initialize to complete!");
+        return false;
+    }
+
+    return stargateModules.statusbar.setVisibility(visibility, callbackSuccess, callbackError);
+};
+
 // global variable used by old stargate client
 // @deprecated since v0.1.2
 window.pubKey = '';
@@ -6044,8 +6132,6 @@ stargatePublic.initializeOffline = function(options){
                 if (typeof results[1] !== 'object') {
                     results[1] = JSON.parse(results[1]);
                 }
-
-                baseUrl = results[1].start_url;
 
                 stargateConf = results[1].stargateConf;
                 
@@ -6242,13 +6328,13 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
     
     initializePromise = new Promise(function(resolve,reject){
         
+        var deviceReadyHandler = function() {
+            onDeviceReady(resolve, reject);
+            document.removeEventListener("deviceready",deviceReadyHandler, false);
+        };
         
         // finish the initialization of cordova plugin when deviceReady is received
-        document.addEventListener('deviceready', function(){
-            
-            onDeviceReady(resolve, reject);
-            
-        }, false);
+        document.addEventListener('deviceready', deviceReadyHandler, false);
     });
     
     isStargateInitialized = true;
@@ -6424,32 +6510,6 @@ stargatePublic.goToWebIndex = function(){
     log("Redirect to", webUrl);
     loadUrl(webUrl);
 };
-
-stargatePublic.setStatusbarVisibility = function(visibility, callbackSuccess, callbackError) {
-
-    if (!isStargateInitialized) {
-        return callbackError("Stargate not initialized, call Stargate.initialize first!");
-    }
-    if (!isStargateOpen) {
-        callbackError("Stargate closed, wait for Stargate.initialize to complete!");
-        return false;
-    }
-
-    if (typeof window.StatusBar === "undefined") {
-        // missing cordova plugin
-        err("[StatusBar] missing cordova plugin");
-        return callbackError("missing cordova plugin");
-    }
-
-    if (visibility) {
-        window.StatusBar.show();
-        return callbackSuccess("statusbar shown");
-    }
-
-    window.StatusBar.hide();
-    return callbackSuccess("statusbar hided");
-};
-
 
 stargatePublic.getVersion = function() {
     return stargatePackageVersion;
@@ -6642,13 +6702,6 @@ var hybrid_conf = {},
 
 /**
  * 
- * this is get from manifest
- * 
- */
-var baseUrl;
-
-/**
- * 
  * Application information set on initialize
  * 
  */
@@ -6665,40 +6718,6 @@ var appInformation = {
     stargate: null,
     stargateModules: null,
     stargateError: null 
-};
-
-var updateStatusBar = function() {
-
-    if (typeof window.StatusBar === "undefined") {
-        // missing cordova plugin
-        return err("[StatusBar] missing cordova plugin");
-    }
-    if (typeof stargateConf.statusbar === "undefined") {
-        return;
-    }
-    if (typeof stargateConf.statusbar.hideOnUrlPattern !== "undefined" && 
-        stargateConf.statusbar.hideOnUrlPattern.constructor === Array) {
-
-        var currentLocation = document.location.href;
-        var hide = false;
-
-        for (var i=0; i<stargateConf.statusbar.hideOnUrlPattern.length; i++) {
-
-            var re = new RegExp(stargateConf.statusbar.hideOnUrlPattern[i]);
-            
-            if (re.test(currentLocation)) {
-                hide = true;
-                break;
-            }
-        }
-
-        if (hide) {
-            window.StatusBar.hide();
-        }
-        else {
-            window.StatusBar.show();
-        }
-    }
 };
 
 /**
@@ -6757,8 +6776,6 @@ var onPluginReady = function (resolve) {
     // save stargate version to load on webapp 
     setHybridVersion();
 
-    updateStatusBar();
-
     
     if (hasFeature("mfp") && haveRequestedFeature("mfp")) {
         var mfpModuleConf = getModuleConf("mfp");
@@ -6798,6 +6815,10 @@ var onPluginReady = function (resolve) {
     }
 
     // initialize all modules
+    
+    stargateModules.statusbar.initialize(
+        getModuleConf("statusbar")
+    );
 
     // In-app purchase initialization
     if (haveRequestedFeature("iapbase")) {
@@ -6943,14 +6964,6 @@ var onDeviceReady = function (resolve, reject) {
             }
         }
 
-        if (results[1].stargateConf.webapp_start_url) {
-            baseUrl = results[1].stargateConf.webapp_start_url;
-        } else if (results[1].start_url) {
-            baseUrl = results[1].start_url;
-        } else {
-            baseUrl = "";
-        }
-        
         stargateConf = results[1].stargateConf;
 
         // execute remaining initialization
@@ -7027,7 +7040,7 @@ var getModuleConf = function(moduleName) {
         moduleNameLegacy = mapConfLegacy[moduleName];
     }
     
-    if (moduleNameLegacy in hybrid_conf) {
+    if (hybrid_conf && moduleNameLegacy in hybrid_conf) {
         return hybrid_conf[moduleNameLegacy];
     }
     
@@ -7224,6 +7237,8 @@ var share = (function(){
             err("[share] missing parameter url");
             return reject("missing parameter url");
         }
+        
+        log("[share] Sharing url: "+options.url+" on: "+options.type, options);
         
         if (options.type == "chooser") {
             return shareWithChooser(options, resolve, reject);
@@ -9371,7 +9386,7 @@ var MFP = (function(){
      *
      */
 	MobileFingerPrint.check = function(initializeConf){
-
+		
 		//if (window.localStorage.getItem('mfpCheckDone')){
 		//	return;
 		//}
@@ -9416,13 +9431,13 @@ var MFP = (function(){
 
 	MobileFingerPrint.setSession = function(pony){
 
-		// baseUrl: read from main stargate.js
-		var appUrl = baseUrl;
+		// get appurl from configuration
+		var appUrl = stargatePublic.conf.getWebappStartUrl();
 		if (window.localStorage.getItem('appUrl')){
 			appUrl = window.localStorage.getItem('appUrl');
 		}
 
-		var currentUrl = new URI(baseUrl);
+		var currentUrl = new URI(appUrl);
 
 		// stargateConf.api.mfpSetUriTemplate:
 		// '{protocol}://{hostname}/mfpset.php{?url}&{pony}'
