@@ -431,13 +431,12 @@
             .then(function(entries){
 
                 //Search for an /index.html$/
-                return entries.filter(function(entry){
-                    var isIndex = new RegExp(/index\.html$/i);
-                    return isIndex.test(entry.path);
+                return entries.filter(function(entry){                    
+                    return isIndexHtml(entry.path);
                 });
             })
             .then(function(entry){
-                LOG.d(entry);
+                LOG.d("Playing this",entry);
                 var address = entry[0].internalURL + "?hybrid=1";
                 if(window.device.platform.toLowerCase() == "ios"){
                     LOG.d("Play ios", address);
@@ -461,11 +460,10 @@
         return fileModule.readDir(constants.GAMES_DIR + gameID)
             .then(function(entries){
                 LOG.d("_getIndexHtmlById readDir", entries);
-                return entries.filter(function(entry){
-                    var isIndex = new RegExp(/index\.html$/i);
-                    return isIndex.test(entry.path);
+                return entries.filter(function(entry){                    
+                    return isIndexHtml(entry.path);
                 });
-            });
+            });            
     }
 
     /**
