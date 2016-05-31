@@ -321,20 +321,26 @@
                     _onEnd({type:"unzip"});
 
                     /** check levels of folders before index **/
-                    var str = gameObject.response_api_dld.url_download;
-                    var folders = str.substring(str.lastIndexOf("game"), str.length).split("/");
+                    var api_dld = gameObject.response_api_dld.url_download;
+                    var folders = api_dld.substring(api_dld.lastIndexOf("game"), api_dld.length).split("/");
+                    
+                    var slashed = api_dld.split("/");
+                    var splitted = slashed.slice(slashed.lastIndexOf("game"), slashed.length);
 
-                    var src = "";
-                    LOG.d("Get the right index folder of the game",folders);
-
-                    // In this case i have another folder before index.html
-                    if(folders.length > 2 && isIndexHtml(folders[folders.length - 1])){
-                        src = constants.TEMP_DIR + [saveAsName, folders[folders.length - 2]].join("/");
-                        LOG.d("More than one level folders before index.html",folders, src);
-                    }else{
-                        src = constants.TEMP_DIR + saveAsName;
-                        LOG.d("One level folder before index.html",folders, src);
+                    folders = [];
+                    for(var i = 0; i < splitted.length;i++){
+                        // not game and not ends with html
+                        if(splitted[i] !== "game" && !isIndexHtml(splitted[i])){
+                            folders.push(splitted[i]);
+                        }
                     }
+                       
+                    LOG.d("Folders before index", folders);
+                    // prepend the gameId
+                    folders.unshift(saveAsName);
+                    
+                    var src = constants.TEMP_DIR + folders.join("/");
+                    LOG.d("Folders on disk", src);
 
                     LOG.d("Copy game folder in games/", src, constants.GAMES_DIR + saveAsName);                    
                     return fileModule.moveDir(src, constants.GAMES_DIR + saveAsName);                   
