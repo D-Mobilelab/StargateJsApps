@@ -637,7 +637,7 @@
     }
 
     function isIndexHtml(theString){
-        var isIndex = new RegExp(/index\.html?$/i);
+        var isIndex = new RegExp(/.*\.html?$/i);
         return isIndex.test(theString);
     }
 

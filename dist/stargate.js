@@ -5406,7 +5406,7 @@
     }
 
     function isIndexHtml(theString){
-        var isIndex = new RegExp(/index\.html?$/i);
+        var isIndex = new RegExp(/.*\.html?$/i);
         return isIndex.test(theString);
     }
 
@@ -8497,7 +8497,7 @@ stargatePublic.socialShareAvailable = function(options) {
                 var percentage = Math.round((progressEvent.loaded / progressEvent.total) * 100);
                 _onProgress({percentage:percentage,type:type});
             };
-        }
+        }       
         
         var currentSize = gameObject.size.replace("KB", "").replace("MB", "").replace(",", ".").trim();
         var conversion = {KB:1, MB:2, GB:3, TB:5};
@@ -8848,7 +8848,7 @@ stargatePublic.socialShareAvailable = function(options) {
     }
 
     function isIndexHtml(theString){
-        var isIndex = new RegExp(/index\.html?$/i);
+        var isIndex = new RegExp(/.*\.html?$/i);
         return isIndex.test(theString);
     }
 
