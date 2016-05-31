@@ -1,14 +1,13 @@
 /*!
  * URI.js - Mutating URLs
  *
- * Version: 1.17.0
+ * Version: 1.17.1
  *
  * Author: Rodney Rehm
  * Web: http://medialize.github.io/URI.js/
  *
  * Licensed under
  *   MIT License http://www.opensource.org/licenses/mit-license
- *   GPL v3 http://opensource.org/licenses/GPL-3.0
  *
  */
 (function (root, factory) {
@@ -72,7 +71,7 @@
     return this;
   }
 
-  URI.version = '1.17.0';
+  URI.version = '1.17.1';
 
   var p = URI.prototype;
   var hasOwn = Object.prototype.hasOwnProperty;
@@ -795,18 +794,35 @@
     }
   };
   URI.hasQuery = function(data, name, value, withinArray) {
-    if (typeof name === 'object') {
-      for (var key in name) {
-        if (hasOwn.call(name, key)) {
-          if (!URI.hasQuery(data, key, name[key])) {
-            return false;
+    switch (getType(name)) {
+      case 'String':
+        // Nothing to do here
+        break;
+
+      case 'RegExp':
+        for (var key in data) {
+          if (hasOwn.call(data, key)) {
+            if (name.test(key) && (value === undefined || URI.hasQuery(data, key, value))) {
+              return true;
+            }
           }
         }
-      }
 
-      return true;
-    } else if (typeof name !== 'string') {
-      throw new TypeError('URI.hasQuery() accepts an object, string as the name parameter');
+        return false;
+
+      case 'Object':
+        for (var _key in name) {
+          if (hasOwn.call(name, _key)) {
+            if (!URI.hasQuery(data, _key, name[_key])) {
+              return false;
+            }
+          }
+        }
+
+        return true;
+
+      default:
+        throw new TypeError('URI.hasQuery() accepts a string, regular expression or object as the name parameter');
     }
 
     switch (getType(value)) {
@@ -1224,8 +1240,6 @@
 
   // compound accessors
   p.origin = function(v, build) {
-    var parts;
-
     if (this._parts.urn) {
       return v === undefined ? '' : this;
     }
@@ -1233,7 +1247,10 @@
     if (v === undefined) {
       var protocol = this.protocol();
       var authority = this.authority();
-      if (!authority) return '';
+      if (!authority) {
+        return '';
+      }
+
       return (protocol ? protocol + '://' : '') + this.authority();
     } else {
       var origin = URI(v);
@@ -1817,6 +1834,8 @@
       return this;
     }
 
+    _path = URI.recodePath(_path);
+
     var _was_relative;
     var _leadingParents = '';
     var _parent, _pos;
@@ -1847,7 +1866,7 @@
 
     // resolve parents
     while (true) {
-      _parent = _path.indexOf('/..');
+      _parent = _path.search(/\/\.\.(\/|$)/);
       if (_parent === -1) {
         // no more ../ to resolve
         break;
@@ -1869,7 +1888,6 @@
       _path = _leadingParents + _path.substring(1);
     }
 
-    _path = URI.recodePath(_path);
     this._parts.path = _path;
     this.build(!build);
     return this;
@@ -2164,14 +2182,13 @@
  * URI.js - Mutating URLs
  * URI Template Support - http://tools.ietf.org/html/rfc6570
  *
- * Version: 1.17.0
+ * Version: 1.17.1
  *
  * Author: Rodney Rehm
  * Web: http://medialize.github.io/URI.js/
  *
  * Licensed under
  *   MIT License http://www.opensource.org/licenses/mit-license
- *   GPL v3 http://opensource.org/licenses/GPL-3.0
  *
  */
 (function (root, factory) {
@@ -5073,20 +5090,26 @@
                     _onEnd({type:"unzip"});
 
                     /** check levels of folders before index **/
-                    var str = gameObject.response_api_dld.url_download;
-                    var folders = str.substring(str.lastIndexOf("game"), str.length).split("/");
+                    var api_dld = gameObject.response_api_dld.url_download;
+                    var folders = api_dld.substring(api_dld.lastIndexOf("game"), api_dld.length).split("/");
+                    
+                    var slashed = api_dld.split("/");
+                    var splitted = slashed.slice(slashed.lastIndexOf("game"), slashed.length);
 
-                    var src = "";
-                    LOG.d("Get the right index folder of the game",folders);
-
-                    // In this case i have another folder before index.html
-                    if(folders.length > 2 && isIndexHtml(folders[folders.length - 1])){
-                        src = constants.TEMP_DIR + [saveAsName, folders[folders.length - 2]].join("/");
-                        LOG.d("More than one level folders before index.html",folders, src);
-                    }else{
-                        src = constants.TEMP_DIR + saveAsName;
-                        LOG.d("One level folder before index.html",folders, src);
+                    folders = [];
+                    for(var i = 0; i < splitted.length;i++){
+                        // not game and not ends with html
+                        if(splitted[i] !== "game" && !isIndexHtml(splitted[i])){
+                            folders.push(splitted[i]);
+                        }
                     }
+                       
+                    LOG.d("Folders before index", folders);
+                    // prepend the gameId
+                    folders.unshift(saveAsName);
+                    
+                    var src = constants.TEMP_DIR + folders.join("/");
+                    LOG.d("Folders on disk", src);
 
                     LOG.d("Copy game folder in games/", src, constants.GAMES_DIR + saveAsName);                    
                     return fileModule.moveDir(src, constants.GAMES_DIR + saveAsName);                   
@@ -5183,13 +5206,12 @@
             .then(function(entries){
 
                 //Search for an /index.html$/
-                return entries.filter(function(entry){
-                    var isIndex = new RegExp(/index\.html$/i);
-                    return isIndex.test(entry.path);
+                return entries.filter(function(entry){                    
+                    return isIndexHtml(entry.path);
                 });
             })
             .then(function(entry){
-                LOG.d(entry);
+                LOG.d("Playing this",entry);
                 var address = entry[0].internalURL + "?hybrid=1";
                 if(window.device.platform.toLowerCase() == "ios"){
                     LOG.d("Play ios", address);
@@ -5213,11 +5235,10 @@
         return fileModule.readDir(constants.GAMES_DIR + gameID)
             .then(function(entries){
                 LOG.d("_getIndexHtmlById readDir", entries);
-                return entries.filter(function(entry){
-                    var isIndex = new RegExp(/index\.html$/i);
-                    return isIndex.test(entry.path);
+                return entries.filter(function(entry){                    
+                    return isIndexHtml(entry.path);
                 });
-            });
+            });            
     }
 
     /**
@@ -5385,7 +5406,7 @@
     }
 
     function isIndexHtml(theString){
-        var isIndex = new RegExp(/index\.html$/i);
+        var isIndex = new RegExp(/index\.html?$/i);
         return isIndex.test(theString);
     }
 
@@ -8476,7 +8497,7 @@ stargatePublic.socialShareAvailable = function(options) {
                 var percentage = Math.round((progressEvent.loaded / progressEvent.total) * 100);
                 _onProgress({percentage:percentage,type:type});
             };
-        }       
+        }
         
         var currentSize = gameObject.size.replace("KB", "").replace("MB", "").replace(",", ".").trim();
         var conversion = {KB:1, MB:2, GB:3, TB:5};
@@ -8511,20 +8532,26 @@ stargatePublic.socialShareAvailable = function(options) {
                     _onEnd({type:"unzip"});
 
                     /** check levels of folders before index **/
-                    var str = gameObject.response_api_dld.url_download;
-                    var folders = str.substring(str.lastIndexOf("game"), str.length).split("/");
+                    var api_dld = gameObject.response_api_dld.url_download;
+                    var folders = api_dld.substring(api_dld.lastIndexOf("game"), api_dld.length).split("/");
+                    
+                    var slashed = api_dld.split("/");
+                    var splitted = slashed.slice(slashed.lastIndexOf("game"), slashed.length);
 
-                    var src = "";
-                    LOG.d("Get the right index folder of the game",folders);
-
-                    // In this case i have another folder before index.html
-                    if(folders.length > 2 && isIndexHtml(folders[folders.length - 1])){
-                        src = constants.TEMP_DIR + [saveAsName, folders[folders.length - 2]].join("/");
-                        LOG.d("More than one level folders before index.html",folders, src);
-                    }else{
-                        src = constants.TEMP_DIR + saveAsName;
-                        LOG.d("One level folder before index.html",folders, src);
+                    folders = [];
+                    for(var i = 0; i < splitted.length;i++){
+                        // not game and not ends with html
+                        if(splitted[i] !== "game" && !isIndexHtml(splitted[i])){
+                            folders.push(splitted[i]);
+                        }
                     }
+                       
+                    LOG.d("Folders before index", folders);
+                    // prepend the gameId
+                    folders.unshift(saveAsName);
+                    
+                    var src = constants.TEMP_DIR + folders.join("/");
+                    LOG.d("Folders on disk", src);
 
                     LOG.d("Copy game folder in games/", src, constants.GAMES_DIR + saveAsName);                    
                     return fileModule.moveDir(src, constants.GAMES_DIR + saveAsName);                   
@@ -8621,13 +8648,12 @@ stargatePublic.socialShareAvailable = function(options) {
             .then(function(entries){
 
                 //Search for an /index.html$/
-                return entries.filter(function(entry){
-                    var isIndex = new RegExp(/index\.html$/i);
-                    return isIndex.test(entry.path);
+                return entries.filter(function(entry){                    
+                    return isIndexHtml(entry.path);
                 });
             })
             .then(function(entry){
-                LOG.d(entry);
+                LOG.d("Playing this",entry);
                 var address = entry[0].internalURL + "?hybrid=1";
                 if(window.device.platform.toLowerCase() == "ios"){
                     LOG.d("Play ios", address);
@@ -8651,11 +8677,10 @@ stargatePublic.socialShareAvailable = function(options) {
         return fileModule.readDir(constants.GAMES_DIR + gameID)
             .then(function(entries){
                 LOG.d("_getIndexHtmlById readDir", entries);
-                return entries.filter(function(entry){
-                    var isIndex = new RegExp(/index\.html$/i);
-                    return isIndex.test(entry.path);
+                return entries.filter(function(entry){                    
+                    return isIndexHtml(entry.path);
                 });
-            });
+            });            
     }
 
     /**
@@ -8823,7 +8848,7 @@ stargatePublic.socialShareAvailable = function(options) {
     }
 
     function isIndexHtml(theString){
-        var isIndex = new RegExp(/index\.html$/i);
+        var isIndex = new RegExp(/index\.html?$/i);
         return isIndex.test(theString);
     }
 
