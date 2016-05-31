@@ -237,8 +237,7 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
     //  * call the callback and return a resolving promise
     if (!isStargateRunningInsideHybrid) {
 
-        log("version "+stargatePackageVersion+" running outside hybrid; "+
-            "loaded from server version: v"+getStargateVersionToLoad());
+        log("version "+stargatePackageVersion+" running outside hybrid ");
 
         if(callback){callback(isStargateRunningInsideHybrid);}
         
