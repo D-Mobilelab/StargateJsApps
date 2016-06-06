@@ -7316,9 +7316,9 @@ stargatePublic.socialShareAvailable = function(options) {
         return Promise.reject("missing cordova plugin");
     }
     
-    if (!options.socials || options.socials.constructor !== Array) {
-        err("[share] missing array parameter socials");
-        return Promise.reject("missing array parameter socials");
+    if (!options.socials || typeof options.socials !== "object") {
+        err("[share] missing object parameter socials");
+        return Promise.reject("missing object parameter socials");
     }
     
     if (!options.url) {
@@ -7340,7 +7340,7 @@ stargatePublic.socialShareAvailable = function(options) {
         knownSocialNetworks.forEach(function(element) {
             // check only requested networks
             
-            if (options.socials.indexOf(element) !== -1) {
+            if (options.socials[element]) {
                 
                 socialsAvailabilityPromises.push(
                     
@@ -7352,14 +7352,12 @@ stargatePublic.socialShareAvailable = function(options) {
         
         Promise.all(socialsAvailabilityPromises).then(function(values) { 
             
-            var availableNetworks = [];
+            var availableNetworks = {};
             // values is like:
             //  [{"network": "facebook", "available": false},
             //   {"network": "twitter", "available": false}]
             values.forEach(function(element) {
-                if (element.available) {
-                    availableNetworks.push(element.network);
-                }
+                availableNetworks[element.network] = element.available;
                 //log("element: ", element);
             });
             //log("values: ", values);
