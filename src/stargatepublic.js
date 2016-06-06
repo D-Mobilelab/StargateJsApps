@@ -58,8 +58,6 @@ stargatePublic.initializeOffline = function(options){
                     results[1] = JSON.parse(results[1]);
                 }
 
-                baseUrl = results[1].start_url;
-
                 stargateConf = results[1].stargateConf;
                 
                 if (options.hideSplashScreen) {
@@ -239,8 +237,7 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
     //  * call the callback and return a resolving promise
     if (!isStargateRunningInsideHybrid) {
 
-        log("version "+stargatePackageVersion+" running outside hybrid; "+
-            "loaded from server version: v"+getStargateVersionToLoad());
+        log("version "+stargatePackageVersion+" running outside hybrid ");
 
         if(callback){callback(isStargateRunningInsideHybrid);}
         
@@ -255,13 +252,13 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
     
     initializePromise = new Promise(function(resolve,reject){
         
+        var deviceReadyHandler = function() {
+            onDeviceReady(resolve, reject);
+            document.removeEventListener("deviceready",deviceReadyHandler, false);
+        };
         
         // finish the initialization of cordova plugin when deviceReady is received
-        document.addEventListener('deviceready', function(){
-            
-            onDeviceReady(resolve, reject);
-            
-        }, false);
+        document.addEventListener('deviceready', deviceReadyHandler, false);
     });
     
     isStargateInitialized = true;
@@ -437,32 +434,6 @@ stargatePublic.goToWebIndex = function(){
     log("Redirect to", webUrl);
     loadUrl(webUrl);
 };
-
-stargatePublic.setStatusbarVisibility = function(visibility, callbackSuccess, callbackError) {
-
-    if (!isStargateInitialized) {
-        return callbackError("Stargate not initialized, call Stargate.initialize first!");
-    }
-    if (!isStargateOpen) {
-        callbackError("Stargate closed, wait for Stargate.initialize to complete!");
-        return false;
-    }
-
-    if (typeof window.StatusBar === "undefined") {
-        // missing cordova plugin
-        err("[StatusBar] missing cordova plugin");
-        return callbackError("missing cordova plugin");
-    }
-
-    if (visibility) {
-        window.StatusBar.show();
-        return callbackSuccess("statusbar shown");
-    }
-
-    window.StatusBar.hide();
-    return callbackSuccess("statusbar hided");
-};
-
 
 stargatePublic.getVersion = function() {
     return stargatePackageVersion;

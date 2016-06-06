@@ -166,6 +166,8 @@ var share = (function(){
             return reject("missing parameter url");
         }
         
+        log("[share] Sharing url: "+options.url+" on: "+options.type, options);
+        
         if (options.type == "chooser") {
             return shareWithChooser(options, resolve, reject);
         }

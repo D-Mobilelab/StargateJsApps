@@ -31,7 +31,7 @@ var MFP = (function(){
      *
      */
 	MobileFingerPrint.check = function(initializeConf){
-
+		
 		//if (window.localStorage.getItem('mfpCheckDone')){
 		//	return;
 		//}
@@ -76,13 +76,13 @@ var MFP = (function(){
 
 	MobileFingerPrint.setSession = function(pony){
 
-		// baseUrl: read from main stargate.js
-		var appUrl = baseUrl;
+		// get appurl from configuration
+		var appUrl = stargatePublic.conf.getWebappStartUrl();
 		if (window.localStorage.getItem('appUrl')){
 			appUrl = window.localStorage.getItem('appUrl');
 		}
 
-		var currentUrl = new URI(baseUrl);
+		var currentUrl = new URI(appUrl);
 
 		// stargateConf.api.mfpSetUriTemplate:
 		// '{protocol}://{hostname}/mfpset.php{?url}&{pony}'
