@@ -305,6 +305,8 @@ var onPluginReady = function (resolve) {
     
     // apply webapp fixes
     webappsFixes.init();
+
+    codepush.initialize();
     
     var modulePromises = [];
     
@@ -375,6 +377,9 @@ var onStargateReady = function(resolve, error) {
     }
     if (error && (error instanceof Error)) {
         appInformation.stargateError = error.toString();
+    }
+    if (window.navigator && window.navigator.connection && window.navigator.connection.type) {
+        appInformation.connectionType = window.navigator.connection.type;
     }
     
     //execute callback
