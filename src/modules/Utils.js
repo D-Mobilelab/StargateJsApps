@@ -193,6 +193,7 @@
      * @returns {String} the string composed
      * */
     function composeApiString(api, params){
+        api = api.split("?")[0].slice(0);
         api += "?";
         var qs = "";
 

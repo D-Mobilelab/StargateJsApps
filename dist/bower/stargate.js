@@ -220,6 +220,7 @@
      * @returns {String} the string composed
      * */
     function composeApiString(api, params){
+        api = api.split("?")[0].slice(0);
         api += "?";
         var qs = "";
 
@@ -1084,7 +1085,7 @@
             
             var timestamp = String(Date.now());
             var sdkURLFresh = composeApiString(CONF.sdk_url, {"v":timestamp});
-            var dixieURLFresh = composeApiString(CONF.dixie_url, {"v":timestamp});
+            var dixieURLFresh = composeApiString(CONF.dixie_url, {"v":timestamp,"country":"xx-gameasy"});
             
             // CHECKING VERSION? PLEASE DO IT :(
             if(CONF.sdk_url !== ""){
@@ -1096,7 +1097,6 @@
                 LOG.d("isDixieDownloaded", isDixieDownloaded, "get dixie anyway", dixieURLFresh);
                 tasks.push(new fileModule.download(dixieURLFresh, constants.SDK_DIR, "dixie.js").promise);
             }
-            
             return Promise.all(tasks);
         });
     }
