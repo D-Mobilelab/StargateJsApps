@@ -96,14 +96,6 @@ gulp.task('watch', function () {
 });
 
 
-gulp.task('concatModulesInOrder', function(){
-    return gulp.src("src/modules/*.js")
-        .pipe(depsOrder())
-        .pipe(concat("modules.js"))
-        .pipe(gulp.dest("src/"));
-});
-
-
 gulp.task('lint:jshint', function() {
 	return gulp.src('src/**/*.js')
 
@@ -160,7 +152,7 @@ gulp.task('demo:run', ['build:src'], function(cb) {
 });
 */
 
-gulp.task('karma', ['concatModulesInOrder','build'], function (done) {
+gulp.task('karma', ['build'], function (done) {
 
 	// default to don't do single run
 	argv.singlerun && (karmaConf.singleRun = true);
@@ -170,7 +162,7 @@ gulp.task('karma', ['concatModulesInOrder','build'], function (done) {
 	new karma.Server(karmaConf, done).start();
 });
 
-gulp.task('karma:singlerun', ['concatModulesInOrder','build'], function (done) {
+gulp.task('karma:singlerun', ['build'], function (done) {
 
 	karmaConf.singleRun = true;
 	argv.browsers && (karmaConf.browsers = argv.browsers.trim().split(','));
