@@ -232,7 +232,7 @@
             
             var timestamp = String(Date.now());
             var sdkURLFresh = composeApiString(CONF.sdk_url, {"v":timestamp});
-            var dixieURLFresh = composeApiString(CONF.dixie_url, {"v":timestamp});
+            var dixieURLFresh = composeApiString(CONF.dixie_url, {"v":timestamp,"country":"xx-gameasy"});
             
             // CHECKING VERSION? PLEASE DO IT :(
             if(CONF.sdk_url !== ""){
