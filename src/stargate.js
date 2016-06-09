@@ -447,8 +447,9 @@ var isHybridEnvironment = function() {
 
     // check url for hybrid query param
     var uri = window.URI(document.location.href);
+    var protocol = uri.protocol();
 
-    if (uri.protocol() === "file") {
+    if (protocol === "file" || protocol === "cdvfile") {
         return true;
     }
 
