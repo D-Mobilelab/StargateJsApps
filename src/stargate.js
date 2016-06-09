@@ -305,6 +305,8 @@ var onPluginReady = function (resolve) {
     
     // apply webapp fixes
     webappsFixes.init();
+
+    codepush.initialize();
     
     var modulePromises = [];
     
@@ -376,6 +378,9 @@ var onStargateReady = function(resolve, error) {
     if (error && (error instanceof Error)) {
         appInformation.stargateError = error.toString();
     }
+    if (window.navigator && window.navigator.connection && window.navigator.connection.type) {
+        appInformation.connectionType = window.navigator.connection.type;
+    }
     
     //execute callback
     initializeCallback(true);
@@ -442,6 +447,12 @@ var isHybridEnvironment = function() {
 
     // check url for hybrid query param
     var uri = window.URI(document.location.href);
+    var protocol = uri.protocol();
+
+    if (protocol === "file" || protocol === "cdvfile") {
+        return true;
+    }
+
     if (uri.hasQuery('hybrid')) {
         return true;
     }
