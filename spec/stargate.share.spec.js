@@ -249,7 +249,7 @@ describe("Stargate share", function() {
         
 		res.catch(function(message) {
 			//console.log("stargatePublic.socialShare catch: "+message);
-            expect(message).toMatch(/missing array parameter socials/);
+            expect(message).toMatch(/missing object parameter socials/);
 		    done();
 		});
 	});
@@ -261,9 +261,18 @@ describe("Stargate share", function() {
         
         var options = {
 			"url": "http://www.google.com",
-			"socials": ["facebook", "twitter", "instagram"]
+			"socials": {
+				"facebook": true,
+				"twitter": true,
+				"instagram": false
+			}
 		};
-
+		var expectedResult = {};
+		for (var key in options.socials) {
+			if (options.socials[key]) {
+				expectedResult[key] = true;
+			}
+		}
 		var res = stargatePublic.socialShareAvailable(options);
         
         expect(res.then).toBeDefined();
@@ -277,7 +286,7 @@ describe("Stargate share", function() {
 		res.then(function(result) {
 			//console.log("stargatePublic.socialShareAvailable result: "+result);
             expect(result).not.toBeFalsy();
-            expect(result).toEqual(options.socials);
+            expect(result).toEqual(expectedResult);
 		    done();
 		});
 	});

@@ -231,12 +231,18 @@ Return a list of social networks application installed on user device
 
 Options key|Description|Example
 --- | --- | ---
-*socials* | Array of strings: social network to check if available (chooser, facebook, twitter, whatsapp) | chooser
+*socials* | Object with socials to check if available (facebook, twitter, whatsapp) | {"facebook": true, "twitter": true, "instagram": false }
 *url* | String: url to share | "http://www.google.com/?utm_source=stargate"
 
 ### Returns
 
-Promise fullfilled with an array with the list social network available from the ones requested with parameter "option.socials"
+Promise fullfilled with an object with social networks availablility from the ones requested with parameter "option.socials"
+For example:
+    {
+        "facebook": true,
+        "twitter": true,
+        "instagram": false
+    }
 
 
 ## Stargate.facebookShare(url, callbackSuccess, callbackError)
