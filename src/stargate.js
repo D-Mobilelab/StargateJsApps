@@ -447,6 +447,11 @@ var isHybridEnvironment = function() {
 
     // check url for hybrid query param
     var uri = window.URI(document.location.href);
+
+    if (uri.protocol() === "file") {
+        return true;
+    }
+
     if (uri.hasQuery('hybrid')) {
         return true;
     }
