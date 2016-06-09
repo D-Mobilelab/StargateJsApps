@@ -7,12 +7,12 @@
  * Analytics is a module to track events sending it to a webapp callback.
  * It's used internally in Stargate to track events like MFP get.
  * Before using it you need to set the callback calling {@link Stargate#setAnalyticsCallback}
- * 
+ *
  */
-var analytics = (function(){
+var analytics = (function() {
 
-	var cb;
-	var ana = {};
+	                                        var cb;
+	                                        var ana = {};
 
 	/**
      * @name analytics#track
@@ -22,18 +22,18 @@ var analytics = (function(){
      *
      * @param {object} event
      */
-	ana.track = function(trackedEvent) {
+	                                        ana.track = function(trackedEvent) {
 
-		if (typeof cb !== 'function') {
-			return log("[analytics] callback not set!");
+		                                        if (typeof cb !== 'function') {
+			                                        return log("[analytics] callback not set!");
 		}
 
 		// send it
-		try {
-			cb(trackedEvent);
+		                                        try {
+			                                        cb(trackedEvent);
 		}
 		catch (error) {
-			err("[analytics] callback error: "+error, error);
+			                                        err("[analytics] callback error: " + error, error);
 		}
 	};
 
@@ -45,11 +45,11 @@ var analytics = (function(){
      *
      * @param {function} callback
      */
-	ana.setCallback = function(callback) {
-		cb = callback;
+	                                        ana.setCallback = function(callback) {
+		                                        cb = callback;
 	};
 
-	return ana;
+	                                        return ana;
 })();
 
 
@@ -63,5 +63,5 @@ var analytics = (function(){
  */
 stargatePublic.setAnalyticsCallback = function(callback) {
 
-	analytics.setCallback(callback);
+	                                        analytics.setCallback(callback);
 };

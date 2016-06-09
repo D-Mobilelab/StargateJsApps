@@ -1,10 +1,10 @@
 
 
-var appsflyer = (function(){
+var appsflyer = (function() {
 
-	var af = {};
-	var cb;
-	
+	                                        var af = {};
+	                                        var cb;
+
 	/*
 		https://support.appsflyer.com/hc/en-us/articles/207032126-AppsFlyer-SDK-Integration-Android
 		https://support.appsflyer.com/hc/en-us/articles/207032096-Accessing-AppsFlyer-Attribution-Conversion-Data-from-the-SDK-Deferred-Deeplinking-
@@ -24,53 +24,53 @@ var appsflyer = (function(){
 		"install_time": "2014-05-23 20:12:16.751"
 		}
 	*/
-	var conversionData = {};
+	                                        var conversionData = {};
 
-	af.init = function() {
+	                                        af.init = function() {
 
-		if (!window.plugins || !window.plugins.appsFlyer) {
+		                                        if (!window.plugins || !window.plugins.appsFlyer) {
 
 			// plugin is not installed
 
-			return err("[appsflyer] missing cordova plugin");
+			                                        return err("[appsflyer] missing cordova plugin");
 		}
 
-		if (typeof stargateConf.appstore_appid === "undefined") {
-			return err("[appsflyer] missing manifest configuration: appstore_appid");
+		                                        if (typeof stargateConf.appstore_appid === "undefined") {
+			                                        return err("[appsflyer] missing manifest configuration: appstore_appid");
 		}
-		if (typeof stargateConf.appsflyer_devkey === "undefined") {
-			return err("[appsflyer] missing manifest configuration: appsflyer_devkey");
+		                                        if (typeof stargateConf.appsflyer_devkey === "undefined") {
+			                                        return err("[appsflyer] missing manifest configuration: appsflyer_devkey");
 	    }
 
 	    //
 	    // apInitArgs[0] => AppsFlyer Developer Key
 	    // apInitArgs[1] => iOS App Store Id
 	    //
-		var apInitArgs = [stargateConf.appsflyer_devkey];
-	    
-	    if (isRunningOnIos()) {
-	        apInitArgs.push(stargateConf.appstore_appid);
+		                                        var apInitArgs = [stargateConf.appsflyer_devkey];
+
+	                                            if (isRunningOnIos()) {
+	                                                apInitArgs.push(stargateConf.appstore_appid);
 	    }
 
-	    document.addEventListener('onInstallConversionDataLoaded', function(e){
-		    conversionData = e.detail;
-		    
-		    if (typeof cb !== 'function') {
-				return log("[appsflyer] callback not set!");
+	                                            document.addEventListener('onInstallConversionDataLoaded', function(e) {
+		                                            conversionData = e.detail;
+
+		                                            if (typeof cb !== 'function') {
+				                                        return log("[appsflyer] callback not set!");
 			}
 
 			// send it
-			try {
-				cb(conversionData);
-				log("[appsflyer] parameters sent to webapp callback: "+JSON.stringify(conversionData));
+			                                        try {
+				                                        cb(conversionData);
+				                                        log("[appsflyer] parameters sent to webapp callback: " + JSON.stringify(conversionData));
 			}
 			catch (error) {
-				err("[appsflyer] callback error: "+error, error);
+				                                        err("[appsflyer] callback error: " + error, error);
 			}
 
 		}, false);
 
-		window.plugins.appsFlyer.initSdk(apInitArgs);
+		                                        window.plugins.appsFlyer.initSdk(apInitArgs);
 	};
 
 	/**
@@ -81,11 +81,11 @@ var appsflyer = (function(){
      *
      * @param {function} callback
      */
-	af.setCallback = function(callback) {
-		cb = callback;
+	                                        af.setCallback = function(callback) {
+		                                        cb = callback;
 	};
 
-	return af;
+	                                        return af;
 
 })();
 
@@ -102,6 +102,6 @@ var appsflyer = (function(){
  */
 stargatePublic.setConversionDataCallback = function(callback) {
 
-	appsflyer.setCallback(callback);
+	                                        appsflyer.setCallback(callback);
 };
 
