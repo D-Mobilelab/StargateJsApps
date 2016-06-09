@@ -1918,7 +1918,9 @@
         };
     }
 
-    function AdManager(){}
+    function AdManager(){
+        this.LOG = new Utils.Logger("OFF", "ADMANAGER");
+    }
     
     var platform;    
     var supportedPlatform = ["ios","android"];
