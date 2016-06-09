@@ -229,15 +229,20 @@
             var isDixieDownloaded = results[0],
                 isSdkDownloaded = results[1],
                 tasks = [];
-
-            if(!isSdkDownloaded && CONF.sdk_url !== ""){
-                LOG.d("get SDK");
-                tasks.push(new fileModule.download(CONF.sdk_url, constants.SDK_DIR, "gfsdk.min.js").promise);
+            
+            var timestamp = String(Date.now());
+            var sdkURLFresh = composeApiString(CONF.sdk_url, {"v":timestamp});
+            var dixieURLFresh = composeApiString(CONF.dixie_url, {"v":timestamp,"country":"xx-gameasy"});
+            
+            // CHECKING VERSION? PLEASE DO IT :(
+            if(CONF.sdk_url !== ""){
+                LOG.d("isDixieDownloaded", isSdkDownloaded, "get SDK anyway", sdkURLFresh);
+                tasks.push(new fileModule.download(sdkURLFresh, constants.SDK_DIR, "gfsdk.min.js").promise);
             }
 
-            if(!isDixieDownloaded && CONF.dixie_url !== ""){
-                LOG.d("get dixie");
-                tasks.push(new fileModule.download(CONF.dixie_url, constants.SDK_DIR, "dixie.js").promise);
+            if(CONF.dixie_url !== ""){
+                LOG.d("isDixieDownloaded", isDixieDownloaded, "get dixie anyway", dixieURLFresh);
+                tasks.push(new fileModule.download(dixieURLFresh, constants.SDK_DIR, "dixie.js").promise);
             }
             return Promise.all(tasks);
         });
