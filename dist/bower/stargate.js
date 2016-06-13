@@ -4643,7 +4643,8 @@ var codepush = (function(){
     var registeredCallbacks = {};
     
     var onSyncStatus = function(status) {
-        log("[CodePush] syncStatus: " + status);
+        log("[CodePush] syncStatus: " + 
+            protectedInterface.syncStatus[status]);
         
         if (registeredCallbacks[status] && Array === registeredCallbacks[status].constructor) {
             registeredCallbacks[status].forEach(function(cb){
@@ -4704,7 +4705,7 @@ var codepush = (function(){
     var onDownloadProgress = function(downloadProgress) {
         if (downloadProgress) {
             // Update "downloading" modal with current download %
-            log("[CodePush] Downloading " + downloadProgress.receivedBytes + " of " + downloadProgress);
+            log("[CodePush] Downloading " + downloadProgress.receivedBytes + " of " + downloadProgress.totalBytes);
         }
     };
 
