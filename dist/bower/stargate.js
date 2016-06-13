@@ -4673,7 +4673,8 @@ var codepush = (function(){
     var registeredCallbacks = {};
     
     var onSyncStatus = function(status) {
-        log("[CodePush] syncStatus: " + status);
+        log("[CodePush] syncStatus: " + 
+            protectedInterface.syncStatus[status]);
         
         if (registeredCallbacks[status] && Array === registeredCallbacks[status].constructor) {
             registeredCallbacks[status].forEach(function(cb){
@@ -4712,7 +4713,26 @@ var codepush = (function(){
      * SyncStatus.INSTALLING_UPDATE
      * Intermediate status - the update package is about to be installed.
      */
-    protectedInterface.syncStatus = window.SyncStatus;
+    protectedInterface.syncStatus = {
+        0: "UP_TO_DATE",
+        1: "UPDATE_INSTALLED",
+        2: "UPDATE_IGNORED",
+        3: "ERROR",
+        4: "IN_PROGRESS",
+        5: "CHECKING_FOR_UPDATE",
+        6: "AWAITING_USER_ACTION",
+        7: "DOWNLOADING_PACKAGE",
+        8: "INSTALLING_UPDATE",
+        AWAITING_USER_ACTION: 6,
+        CHECKING_FOR_UPDATE: 5,
+        DOWNLOADING_PACKAGE: 7,
+        ERROR: 3,
+        INSTALLING_UPDATE: 8,
+        IN_PROGRESS: 4,
+        UPDATE_IGNORED: 2,
+        UPDATE_INSTALLED: 1,
+        UP_TO_DATE: 0,
+    };
 
     protectedInterface.registerForNotification = function(status, callback) {
         if (!status) {
@@ -4734,7 +4754,7 @@ var codepush = (function(){
     var onDownloadProgress = function(downloadProgress) {
         if (downloadProgress) {
             // Update "downloading" modal with current download %
-            log("[CodePush] Downloading " + downloadProgress.receivedBytes + " of " + downloadProgress);
+            log("[CodePush] Downloading " + downloadProgress.receivedBytes + " of " + downloadProgress.totalBytes);
         }
     };
 
@@ -4743,6 +4763,8 @@ var codepush = (function(){
             err("[CodePush] missing cordova plugin!");
             return false;
         }
+
+        protectedInterface.syncStatus = window.SyncStatus;
 
         // Silently check for the update, but
         // display a custom downloading UI

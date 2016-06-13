@@ -1,13 +1,14 @@
 /*!
  * URI.js - Mutating URLs
  *
- * Version: 1.17.1
+ * Version: 1.17.0
  *
  * Author: Rodney Rehm
  * Web: http://medialize.github.io/URI.js/
  *
  * Licensed under
  *   MIT License http://www.opensource.org/licenses/mit-license
+ *   GPL v3 http://opensource.org/licenses/GPL-3.0
  *
  */
 (function (root, factory) {
@@ -71,7 +72,7 @@
     return this;
   }
 
-  URI.version = '1.17.1';
+  URI.version = '1.17.0';
 
   var p = URI.prototype;
   var hasOwn = Object.prototype.hasOwnProperty;
@@ -794,35 +795,18 @@
     }
   };
   URI.hasQuery = function(data, name, value, withinArray) {
-    switch (getType(name)) {
-      case 'String':
-        // Nothing to do here
-        break;
-
-      case 'RegExp':
-        for (var key in data) {
-          if (hasOwn.call(data, key)) {
-            if (name.test(key) && (value === undefined || URI.hasQuery(data, key, value))) {
-              return true;
-            }
+    if (typeof name === 'object') {
+      for (var key in name) {
+        if (hasOwn.call(name, key)) {
+          if (!URI.hasQuery(data, key, name[key])) {
+            return false;
           }
         }
+      }
 
-        return false;
-
-      case 'Object':
-        for (var _key in name) {
-          if (hasOwn.call(name, _key)) {
-            if (!URI.hasQuery(data, _key, name[_key])) {
-              return false;
-            }
-          }
-        }
-
-        return true;
-
-      default:
-        throw new TypeError('URI.hasQuery() accepts a string, regular expression or object as the name parameter');
+      return true;
+    } else if (typeof name !== 'string') {
+      throw new TypeError('URI.hasQuery() accepts an object, string as the name parameter');
     }
 
     switch (getType(value)) {
@@ -1240,6 +1224,8 @@
 
   // compound accessors
   p.origin = function(v, build) {
+    var parts;
+
     if (this._parts.urn) {
       return v === undefined ? '' : this;
     }
@@ -1247,10 +1233,7 @@
     if (v === undefined) {
       var protocol = this.protocol();
       var authority = this.authority();
-      if (!authority) {
-        return '';
-      }
-
+      if (!authority) return '';
       return (protocol ? protocol + '://' : '') + this.authority();
     } else {
       var origin = URI(v);
@@ -1834,8 +1817,6 @@
       return this;
     }
 
-    _path = URI.recodePath(_path);
-
     var _was_relative;
     var _leadingParents = '';
     var _parent, _pos;
@@ -1866,7 +1847,7 @@
 
     // resolve parents
     while (true) {
-      _parent = _path.search(/\/\.\.(\/|$)/);
+      _parent = _path.indexOf('/..');
       if (_parent === -1) {
         // no more ../ to resolve
         break;
@@ -1888,6 +1869,7 @@
       _path = _leadingParents + _path.substring(1);
     }
 
+    _path = URI.recodePath(_path);
     this._parts.path = _path;
     this.build(!build);
     return this;
@@ -2182,13 +2164,14 @@
  * URI.js - Mutating URLs
  * URI Template Support - http://tools.ietf.org/html/rfc6570
  *
- * Version: 1.17.1
+ * Version: 1.17.0
  *
  * Author: Rodney Rehm
  * Web: http://medialize.github.io/URI.js/
  *
  * Licensed under
  *   MIT License http://www.opensource.org/licenses/mit-license
+ *   GPL v3 http://opensource.org/licenses/GPL-3.0
  *
  */
 (function (root, factory) {
@@ -8590,7 +8573,8 @@ var codepush = (function(){
     var registeredCallbacks = {};
     
     var onSyncStatus = function(status) {
-        log("[CodePush] syncStatus: " + status);
+        log("[CodePush] syncStatus: " + 
+            protectedInterface.syncStatus[status]);
         
         if (registeredCallbacks[status] && Array === registeredCallbacks[status].constructor) {
             registeredCallbacks[status].forEach(function(cb){
@@ -8629,7 +8613,26 @@ var codepush = (function(){
      * SyncStatus.INSTALLING_UPDATE
      * Intermediate status - the update package is about to be installed.
      */
-    protectedInterface.syncStatus = window.SyncStatus;
+    protectedInterface.syncStatus = {
+        0: "UP_TO_DATE",
+        1: "UPDATE_INSTALLED",
+        2: "UPDATE_IGNORED",
+        3: "ERROR",
+        4: "IN_PROGRESS",
+        5: "CHECKING_FOR_UPDATE",
+        6: "AWAITING_USER_ACTION",
+        7: "DOWNLOADING_PACKAGE",
+        8: "INSTALLING_UPDATE",
+        AWAITING_USER_ACTION: 6,
+        CHECKING_FOR_UPDATE: 5,
+        DOWNLOADING_PACKAGE: 7,
+        ERROR: 3,
+        INSTALLING_UPDATE: 8,
+        IN_PROGRESS: 4,
+        UPDATE_IGNORED: 2,
+        UPDATE_INSTALLED: 1,
+        UP_TO_DATE: 0,
+    };
 
     protectedInterface.registerForNotification = function(status, callback) {
         if (!status) {
@@ -8651,7 +8654,7 @@ var codepush = (function(){
     var onDownloadProgress = function(downloadProgress) {
         if (downloadProgress) {
             // Update "downloading" modal with current download %
-            log("[CodePush] Downloading " + downloadProgress.receivedBytes + " of " + downloadProgress);
+            log("[CodePush] Downloading " + downloadProgress.receivedBytes + " of " + downloadProgress.totalBytes);
         }
     };
 
@@ -8660,6 +8663,8 @@ var codepush = (function(){
             err("[CodePush] missing cordova plugin!");
             return false;
         }
+
+        protectedInterface.syncStatus = window.SyncStatus;
 
         // Silently check for the update, but
         // display a custom downloading UI
