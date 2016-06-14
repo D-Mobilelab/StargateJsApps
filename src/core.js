@@ -540,3 +540,19 @@ var haveRequestedFeature = function(feature) {
     }
     return false;
 };
+
+var getStargateVersionToLoad = function() {
+    if (stargateConf.stargate_version_to_load) {
+        return stargateConf.stargate_version_to_load;
+    }
+    
+    war("getStargateVersionToLoad() stargate_version_to_load must be set on manifest!");
+    // return deprecated value
+    return stargateVersion;
+};
+
+module.export = {
+    err: err,
+    war: war,
+    log: log,
+};

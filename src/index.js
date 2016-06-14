@@ -1,86 +1,9 @@
-// global variable used by old stargate client
-// @deprecated since v0.1.2
-window.pubKey = '';
-// @deprecated since v0.1.2
-window.forge = '';
 
+var core = require("./core");
+var urijs = require("urijs");
+var URI = urijs.URI;
 
-var initOfflinePromise;
-
-/**
- * Initialize offline will be resolved at the deviceready event or rejected after a timeout
- * @param {object} [options={}] - an object with offline initialization options
- * @param [options.hideSplashScreen=true] - a boolean indicating to hide or not the splash screen
- * @returns {Promise<boolean>}
- * 
- * @deprecated since v0.2.8
- * */
-stargatePublic.initializeOffline = function(options){
-
-    if(initOfflinePromise) {
-        return initOfflinePromise;
-    }
-    
-    // - start set default options -
-    if (typeof options !== "object") {
-        options = {};
-    }
-    if (! options.hasOwnProperty("hideSplashScreen")) {
-        options.hideSplashScreen = true;
-    }
-    // -- end set default options --
-    
-    isStargateInitialized = true;
-    initOfflinePromise = new Promise(function (initOfflineResolve) {
-        document.addEventListener("deviceready", function deviceReadyOffline() {
-
-            // device ready received so i'm sure to be hybrid
-            setIsHybrid();
-            
-            // get device information
-            initDevice();
-            
-            // get connection information
-            initializeConnectionStatus();
-
-            // request all asyncronous initialization to complete
-            Promise.all([
-                // include here all needed asyncronous initializazion
-                cordova.getAppVersion.getVersionNumber(),
-                getManifest()
-            ])
-            .then(function(results) {
-                // save async initialization result
-
-                appVersion = results[0];
-                
-                if (typeof results[1] !== 'object') {
-                    results[1] = JSON.parse(results[1]);
-                }
-
-                stargateConf = results[1].stargateConf;
-                
-                if (options.hideSplashScreen) {
-                    navigator.splashscreen.hide();
-                    setBusy(false);                    
-                }
-
-                // initialize finished
-                isStargateOpen = true;
-
-                log("Stargate.initializeOffline() done");
-
-                initOfflineResolve(true);
-
-            })
-            .catch(function (error) {
-                err("initializeOffline() error: "+error);
-            });
-        });
-    });
-    return initOfflinePromise;
-};
-
+var stargatePublic = {};
 
 /**
  * Stargate application configuration getters namespace
@@ -93,10 +16,10 @@ stargatePublic.conf = {};
  */
 stargatePublic.conf.getWebappStartUrl = function() {
     if (!isStargateInitialized) {
-        return err("Stargate not initialized, call Stargate.initialize first!");
+        return core.err("Stargate not initialized, call Stargate.initialize first!");
     }
     if (!isStargateOpen) {
-        return err("Stargate closed, wait for Stargate.initialize to complete!");
+        return core.err("Stargate closed, wait for Stargate.initialize to complete!");
     }
     
     var webappStartUrl = URI(stargateConf.webapp_start_url)
@@ -463,3 +386,5 @@ stargatePublic.getVersion = function() {
 stargatePublic.getAppInformation = function() {
     return appInformation;
 };
+
+module.export = stargatePublic;
