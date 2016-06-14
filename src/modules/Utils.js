@@ -372,6 +372,44 @@
         return newObject;
     }
 
+    /**
+     * get the object type. date for date, array for array ecc
+     * 
+     * @param {*} obj - any type of object
+     * @returns {String} - the type of the obj. date for example or array etc
+     */
+    function getType(obj){
+        return ({}).toString.call(obj).match(/\s([a-z|A-Z]+)/)[1].toLowerCase();
+    }
+
+    /**
+     * A function to dequerify query string
+     *
+     * @alias module:src/modules/Utils.dequerify
+     * @example
+     * var url = "http://jsonplaceholder.typicode.com/comments?postId=1
+     * var obj = dequerify(url); //obj is {"postId":"1"} 
+     * @param {Strinq} param 
+     * @returns {Object} the object with key-value pairs
+     * */
+    function dequerify(param){
+        param = param.slice(0);
+        param = decodeURIComponent(param);
+        
+        var query = param.split("?")[1];
+        if(!query){return {};}
+        
+        var keyvalue = query.split("&");
+        
+        return keyvalue.reduce(function(newObj, keyvalue){
+            var splitted = keyvalue.split("=");
+            var key = splitted[0];
+            var value = splitted[1];
+            newObj[key] = value;
+            return newObj;        
+        }, {});
+    }
+
     var exp = {
         Iterator:Iterator,
         Logger:Logger,
@@ -379,7 +417,9 @@
         getJSON:getJSON,
         jsonpRequest:jsonpRequest,
         getImageRaw:getImageRaw,
-        extend:extend
+        extend:extend,
+        getType:getType,
+        dequerify:dequerify
     };
 
     if(stargateModules){
