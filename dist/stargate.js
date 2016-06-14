@@ -7127,6 +7127,17 @@ var share = (function(){
         });
         return options;
     };
+
+    var getSocialPackage = function(social) {
+        if (isRunningOnIos()) {
+            if (social === "facebook") {
+                return "com.apple.social.facebook";
+            }
+            if (social === "twitter") {
+                return "com.apple.social.twitter";
+            }
+        }
+    };
     
 	var shareWithChooser = function(requestedOptions, resolve, reject) {
         // this is the complete list of currently supported params you can pass to the plugin (all optional)
@@ -7226,6 +7237,8 @@ var share = (function(){
     
     shareProtected.canShareVia = function(via, url) {
         
+        via = getSocialPackage(via);
+
         return new Promise(function(resolve){
             
             // canShareVia: 
