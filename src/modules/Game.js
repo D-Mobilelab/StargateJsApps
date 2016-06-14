@@ -935,6 +935,11 @@
             });
     };
 
+    function readUserJson(){
+        LOG.i("readUserJson", constants.BASE_DIR + "user.json");
+        return fileModule.readFileAsJSON(constants.BASE_DIR + "user.json");
+    }
+
     function storeOfflineData(content_id){
         /**
          * Calls for offlineData.json
@@ -947,17 +952,30 @@
          * */
         var apiGaForGames = composeApiString(CONF.ga_for_game_url, ga_for_games_qs);
         var getGaForGamesTask = new jsonpRequest(apiGaForGames).prom;
+        
+        var tasks = Promise.all([getGaForGamesTask, readUserJson()]);
 
-        return getGaForGamesTask.then(function(ga_for_game){
+        return tasks.then(function(results){
+            var ga_for_game = results[0];
+            var userJson = results[1];
+
+            if(!userJson.ponyUrl){
+                LOG.w("ponyUrl in user check undefined!", userJson.ponyUrl);
+                throw new Error("Not premium user");
+            }
+
+            var _PONYVALUE = userJson.ponyUrl.split("&_PONY=")[1];
+            LOG.d("PONYVALUE", _PONYVALUE);
             LOG.d("apiGaForGames:", apiGaForGames, "ga_for_game:", ga_for_game);
-
+            
             var gamifive_api = composeApiString(CONF.gamifive_info_api, {
-                content_id:content_id,
-                _PONY:ga_for_game._PONYVALUE,
+                content_id:content_id,                
                 format:"jsonp"
             });
 
-            LOG.d("gamifive_info_api",gamifive_api);
+            gamifive_api += userJson.ponyUrl;
+
+            LOG.d("gamifive_info_api", gamifive_api);
             return [new jsonpRequest(gamifive_api).prom, ga_for_game];
 
         }).then(function(results){
