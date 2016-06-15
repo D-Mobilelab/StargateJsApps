@@ -3237,6 +3237,8 @@ var share = (function(){
                 return "com.apple.social.twitter";
             }
         }
+
+        return social;
     };
     
 	var shareWithChooser = function(requestedOptions, resolve, reject) {
