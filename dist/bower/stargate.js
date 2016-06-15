@@ -399,6 +399,44 @@
         return newObject;
     }
 
+    /**
+     * get the object type. date for date, array for array ecc
+     * 
+     * @param {*} obj - any type of object
+     * @returns {String} - the type of the obj. date for example or array etc
+     */
+    function getType(obj){
+        return ({}).toString.call(obj).match(/\s([a-z|A-Z]+)/)[1].toLowerCase();
+    }
+
+    /**
+     * A function to dequerify query string
+     *
+     * @alias module:src/modules/Utils.dequerify
+     * @example
+     * var url = "http://jsonplaceholder.typicode.com/comments?postId=1
+     * var obj = dequerify(url); //obj is {"postId":"1"} 
+     * @param {Strinq} param 
+     * @returns {Object} the object with key-value pairs
+     * */
+    function dequerify(param){
+        param = param.slice(0);
+        param = decodeURIComponent(param);
+        
+        var query = param.split("?")[1];
+        if(!query){return {};}
+        
+        var keyvalue = query.split("&");
+        
+        return keyvalue.reduce(function(newObj, keyvalue){
+            var splitted = keyvalue.split("=");
+            var key = splitted[0];
+            var value = splitted[1];
+            newObj[key] = value;
+            return newObj;        
+        }, {});
+    }
+
     var exp = {
         Iterator:Iterator,
         Logger:Logger,
@@ -406,7 +444,9 @@
         getJSON:getJSON,
         jsonpRequest:jsonpRequest,
         getImageRaw:getImageRaw,
-        extend:extend
+        extend:extend,
+        getType:getType,
+        dequerify:dequerify
     };
 
     if(stargateModules){
@@ -824,6 +864,19 @@
             });
     };
 
+    /**
+     * getMetadata from FileEntry or DirectoryEntry
+     * @param path {String} - the path string
+     * @returns {Promise<Object|FileError>}
+     */
+    File.getMetadata = function(path){
+        return File.resolveFS(path)
+                   .then(function(entry){
+                       return new Promise(function(resolve,reject){
+                            entry.getMetadata(resolve,reject);
+                       });                        
+                   });
+    };
 
     /**
      * __transform utils function
@@ -862,7 +915,7 @@
     "use strict";
 
     var Logger = Utils.Logger,
-        composeApiString = Utils.composeApiString,
+        querify = Utils.composeApiString,
         //Iterator = Utils.Iterator,
         //getJSON = Utils.getJSON,
         jsonpRequest = Utils.jsonpRequest,
@@ -1073,7 +1126,22 @@
         });
     }
 
+    /*function getRemoteMetadata(url){
+        return new Promise(function(resolve, reject){            
+            var xhr = new XMLHttpRequest();
+            xhr.open("HEAD", url, true);
+
+            xhr.addEventListener("loadend", function(endEvent){
+                resolve(xhr.getResponseHeader("Last-Modified"));
+            });
+            xhr.send(null);
+        });
+    }*/
+
     function getSDK(){
+        var now = new Date();
+        var sdkURLFresh = querify(CONF.sdk_url, {"v":now.getTime()});
+        var dixieURLFresh = querify(CONF.dixie_url, {"v":now.getTime(), "country":"xx-gameasy"});
 
         return Promise.all([
             fileModule.fileExists(constants.SDK_DIR + "dixie.js"),
@@ -1083,18 +1151,39 @@
                 isSdkDownloaded = results[1],
                 tasks = [];
             
-            var timestamp = String(Date.now());
-            var sdkURLFresh = composeApiString(CONF.sdk_url, {"v":timestamp});
-            var dixieURLFresh = composeApiString(CONF.dixie_url, {"v":timestamp,"country":"xx-gameasy"});
-            
-            // CHECKING VERSION? PLEASE DO IT :(
-            if(CONF.sdk_url !== ""){
-                LOG.d("isDixieDownloaded", isSdkDownloaded, "get SDK anyway", sdkURLFresh);
+            if(CONF.sdk_url !== "" && !isSdkDownloaded){
+                LOG.d("isSdkDownloaded", isSdkDownloaded, "get SDK", sdkURLFresh);
                 tasks.push(new fileModule.download(sdkURLFresh, constants.SDK_DIR, "gfsdk.min.js").promise);
             }
 
-            if(CONF.dixie_url !== ""){
-                LOG.d("isDixieDownloaded", isDixieDownloaded, "get dixie anyway", dixieURLFresh);
+            if(CONF.dixie_url !== "" && !isDixieDownloaded){
+                LOG.d("isDixieDownloaded", isDixieDownloaded, "get dixie", dixieURLFresh);
+                tasks.push(new fileModule.download(dixieURLFresh, constants.SDK_DIR, "dixie.js").promise);
+            }
+            
+            return Promise.all(tasks);
+        }).then(function getSdkMetaData(){
+            // Getting file meta data            
+            return Promise.all([
+                fileModule.getMetadata(constants.SDK_DIR + "dixie.js"),        
+                fileModule.getMetadata(constants.SDK_DIR + "gfsdk.min.js")
+            ]);
+        }).then(function checkSdkDate(results){
+            var sdkMetadata = results[0],
+                dixieMetadata = results[1], 
+                tasks = [];
+            
+            var lastSdkModification = new Date(sdkMetadata.modificationTime);
+            var lastDixieModification = new Date(dixieMetadata.modificationTime);
+            
+            // lastModification day < today then download it
+            if(lastSdkModification.getDate() < now.getDate()){
+                LOG.d("updating sdk", sdkURLFresh, lastSdkModification);
+                tasks.push(new fileModule.download(sdkURLFresh, constants.SDK_DIR, "gfsdk.min.js").promise);
+            }
+
+            if(lastDixieModification.getDate() < now.getDate()){
+                LOG.d("updating dixie", dixieURLFresh, lastDixieModification);
                 tasks.push(new fileModule.download(dixieURLFresh, constants.SDK_DIR, "dixie.js").promise);
             }
             return Promise.all(tasks);
@@ -1732,7 +1821,7 @@
                 .then(function(bundleGamesIds){
 
                     obj.content_id = bundleGamesIds;
-                    var api_string = composeApiString(CONF.api, obj);
+                    var api_string = querify(CONF.api, obj);
                     LOG.d("Request bundle games meta info:", api_string);
 
                     return new jsonpRequest(api_string).prom;
@@ -1803,7 +1892,7 @@
          *  queues:{}
          * }
          * */
-        var apiGaForGames = composeApiString(CONF.ga_for_game_url, ga_for_games_qs);
+        var apiGaForGames = querify(CONF.ga_for_game_url, ga_for_games_qs);
         var getGaForGamesTask = new jsonpRequest(apiGaForGames).prom;
         
         var tasks = Promise.all([getGaForGamesTask, readUserJson()]);
@@ -1821,7 +1910,7 @@
             LOG.d("PONYVALUE", _PONYVALUE);
             LOG.d("apiGaForGames:", apiGaForGames, "ga_for_game:", ga_for_game);
             
-            var gamifive_api = composeApiString(CONF.gamifive_info_api, {
+            var gamifive_api = querify(CONF.gamifive_info_api, {
                 content_id:content_id,                
                 format:"jsonp"
             });
@@ -1860,6 +1949,62 @@
     _modules.game._public = new Game();
 
 })(stargateModules.file, stargateModules.Utils, stargateModules);
+/**
+ * EventBus module
+ * @module src/modules/EventBus
+ * @type {Object}
+ */
+/* globals ActiveXObject */
+(function(_modules){
+
+	"use strict";
+	/**
+	 * @class 
+	 * */
+	function EventBus(){
+		this.events = {};
+	}
+
+	/**
+	 * on function
+	 * @param {String} eventType - if not exists it defines a new one
+	 * @param {Function} func - the function to call when the event is triggered
+	 */
+	EventBus.prototype.on = function(eventType, func){
+		if(!this.events[eventType]){ this.events[eventType] = [];}
+		this.events[eventType].push(func);
+	};
+
+	/**
+	 * trigger function
+	 * @param {String} eventType - the eventType to trigger. if not exists nothing happens
+	 * @param {Object} data - the object data to pass to the callback functions
+	 */
+	EventBus.prototype.trigger = function(eventType, data){
+		if(!this.events[eventType] || this.events[eventType] < 1){ return; }
+		
+		this.events[eventType].map(function(func){
+			func.call(null, data || {});
+		});
+	};
+
+	/**
+	 * remove function
+	 * @param {String} eventType - the eventType
+	 * @param {Function} func - the reference of the function to remove from the list of function
+	 */
+	EventBus.prototype.remove = function(eventType, func){
+		if(!this.events[eventType]){ return; }
+
+		var index = this.events[eventType].indexOf(func);
+		if(index > -1){
+			this.events[eventType].splice(index, 1);
+		}
+	};
+
+	_modules.EventBus = EventBus;
+
+})(stargateModules);
 /**
  * Decoratos module
  * @module src/modules/Decorators

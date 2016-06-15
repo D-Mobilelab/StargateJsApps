@@ -406,6 +406,19 @@
             });
     };
 
+    /**
+     * getMetadata from FileEntry or DirectoryEntry
+     * @param path {String} - the path string
+     * @returns {Promise<Object|FileError>}
+     */
+    File.getMetadata = function(path){
+        return File.resolveFS(path)
+                   .then(function(entry){
+                       return new Promise(function(resolve,reject){
+                            entry.getMetadata(resolve,reject);
+                       });                        
+                   });
+    };
 
     /**
      * __transform utils function

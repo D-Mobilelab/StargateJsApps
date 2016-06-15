@@ -9,7 +9,7 @@
     "use strict";
 
     var Logger = Utils.Logger,
-        composeApiString = Utils.composeApiString,
+        querify = Utils.composeApiString,
         //Iterator = Utils.Iterator,
         //getJSON = Utils.getJSON,
         jsonpRequest = Utils.jsonpRequest,
@@ -220,7 +220,22 @@
         });
     }
 
+    /*function getRemoteMetadata(url){
+        return new Promise(function(resolve, reject){            
+            var xhr = new XMLHttpRequest();
+            xhr.open("HEAD", url, true);
+
+            xhr.addEventListener("loadend", function(endEvent){
+                resolve(xhr.getResponseHeader("Last-Modified"));
+            });
+            xhr.send(null);
+        });
+    }*/
+
     function getSDK(){
+        var now = new Date();
+        var sdkURLFresh = querify(CONF.sdk_url, {"v":now.getTime()});
+        var dixieURLFresh = querify(CONF.dixie_url, {"v":now.getTime(), "country":"xx-gameasy"});
 
         return Promise.all([
             fileModule.fileExists(constants.SDK_DIR + "dixie.js"),
@@ -230,18 +245,39 @@
                 isSdkDownloaded = results[1],
                 tasks = [];
             
-            var timestamp = String(Date.now());
-            var sdkURLFresh = composeApiString(CONF.sdk_url, {"v":timestamp});
-            var dixieURLFresh = composeApiString(CONF.dixie_url, {"v":timestamp,"country":"xx-gameasy"});
-            
-            // CHECKING VERSION? PLEASE DO IT :(
-            if(CONF.sdk_url !== ""){
-                LOG.d("isDixieDownloaded", isSdkDownloaded, "get SDK anyway", sdkURLFresh);
+            if(CONF.sdk_url !== "" && !isSdkDownloaded){
+                LOG.d("isSdkDownloaded", isSdkDownloaded, "get SDK", sdkURLFresh);
                 tasks.push(new fileModule.download(sdkURLFresh, constants.SDK_DIR, "gfsdk.min.js").promise);
             }
 
-            if(CONF.dixie_url !== ""){
-                LOG.d("isDixieDownloaded", isDixieDownloaded, "get dixie anyway", dixieURLFresh);
+            if(CONF.dixie_url !== "" && !isDixieDownloaded){
+                LOG.d("isDixieDownloaded", isDixieDownloaded, "get dixie", dixieURLFresh);
+                tasks.push(new fileModule.download(dixieURLFresh, constants.SDK_DIR, "dixie.js").promise);
+            }
+            
+            return Promise.all(tasks);
+        }).then(function getSdkMetaData(){
+            // Getting file meta data            
+            return Promise.all([
+                fileModule.getMetadata(constants.SDK_DIR + "dixie.js"),        
+                fileModule.getMetadata(constants.SDK_DIR + "gfsdk.min.js")
+            ]);
+        }).then(function checkSdkDate(results){
+            var sdkMetadata = results[0],
+                dixieMetadata = results[1], 
+                tasks = [];
+            
+            var lastSdkModification = new Date(sdkMetadata.modificationTime);
+            var lastDixieModification = new Date(dixieMetadata.modificationTime);
+            
+            // lastModification day < today then download it
+            if(lastSdkModification.getDate() < now.getDate()){
+                LOG.d("updating sdk", sdkURLFresh, lastSdkModification);
+                tasks.push(new fileModule.download(sdkURLFresh, constants.SDK_DIR, "gfsdk.min.js").promise);
+            }
+
+            if(lastDixieModification.getDate() < now.getDate()){
+                LOG.d("updating dixie", dixieURLFresh, lastDixieModification);
                 tasks.push(new fileModule.download(dixieURLFresh, constants.SDK_DIR, "dixie.js").promise);
             }
             return Promise.all(tasks);
@@ -879,7 +915,7 @@
                 .then(function(bundleGamesIds){
 
                     obj.content_id = bundleGamesIds;
-                    var api_string = composeApiString(CONF.api, obj);
+                    var api_string = querify(CONF.api, obj);
                     LOG.d("Request bundle games meta info:", api_string);
 
                     return new jsonpRequest(api_string).prom;
@@ -950,7 +986,7 @@
          *  queues:{}
          * }
          * */
-        var apiGaForGames = composeApiString(CONF.ga_for_game_url, ga_for_games_qs);
+        var apiGaForGames = querify(CONF.ga_for_game_url, ga_for_games_qs);
         var getGaForGamesTask = new jsonpRequest(apiGaForGames).prom;
         
         var tasks = Promise.all([getGaForGamesTask, readUserJson()]);
@@ -968,7 +1004,7 @@
             LOG.d("PONYVALUE", _PONYVALUE);
             LOG.d("apiGaForGames:", apiGaForGames, "ga_for_game:", ga_for_game);
             
-            var gamifive_api = composeApiString(CONF.gamifive_info_api, {
+            var gamifive_api = querify(CONF.gamifive_info_api, {
                 content_id:content_id,                
                 format:"jsonp"
             });
