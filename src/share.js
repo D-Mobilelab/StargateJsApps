@@ -125,27 +125,27 @@ var share = (function(){
     
     shareProtected.canShareVia = function(via, url) {
         
-        via = getSocialPackage(via);
+        var viaNative = getSocialPackage(via);
 
         return new Promise(function(resolve){
             
             // canShareVia: 
             //   via, message, subject, fileOrFileArray, url, successCallback, errorCallback
             window.plugins.socialsharing.canShareVia(
-                via,
+                viaNative,
                 null,
                 null,
                 null,
                 url,
                 function(e){
-                    log("[share] canShareVia "+via+" result true: ", e);
+                    log("[share] canShareVia "+via+" ("+viaNative+") result true: ", e);
                     resolve({
                         "network": via,
                         "available": true
                     });
                 },
                 function(e){
-                    log("[share] canShareVia "+via+" result false: ", e);
+                    log("[share] canShareVia "+via+" ("+viaNative+") result false: ", e);
                     resolve({
                         "network": via,
                         "available": false
