@@ -743,6 +743,7 @@
             if(fileModule.currentFileTransfer){
                 fileModule.currentFileTransfer.abort();
                 fileModule.currentFileTransfer = null;
+                downloading = false;
             }
 
             return true;

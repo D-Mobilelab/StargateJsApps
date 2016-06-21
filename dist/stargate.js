@@ -5217,10 +5217,18 @@
                 .then(function(){
                     //GET COVER IMAGE FOR THE GAME!
                     LOG.d("Save meta.json for:", gameObject.id);
-                    var info = {
+                    /*var info = {
                         gameId:gameObject.id,
                         size:{width:"240",height:"170",ratio:"1_4"},
                         url:gameObject.images.cover.ratio_1_4,
+                        type:"cover",
+                        method:"xhr" //!important!
+                    };*/
+
+                    var info = {
+                        gameId:gameObject.id,
+                        size:{width:"500",height:"500",ratio:"1"},
+                        url:gameObject.images.cover.ratio_1,
                         type:"cover",
                         method:"xhr" //!important!
                     };
@@ -5228,7 +5236,7 @@
                     return downloadImage(info);
 
                 })
-                .then(function(coverResult){
+                .then(function(coverResult){                    
                     LOG.d("Save meta.json for:", gameObject.id);
                     LOG.d("Download image result", coverResult);
 
@@ -5237,7 +5245,7 @@
                      * it point to the cover image with cdvfile:// protocol
                      * TODO: Build a system for file caching also for webapp
                      * **/
-                    gameObject.images.cover.ratio_1_4 = coverResult.internalURL;
+                    gameObject.images.cover.ratio_1 = coverResult.internalURL;
                     return fileModule.createFile(constants.GAMES_DIR + saveAsName, "meta.json")
                         .then(function(entry){                            
                             return fileModule.write(entry.path, JSON.stringify(gameObject));
@@ -5558,6 +5566,7 @@
             if(fileModule.currentFileTransfer){
                 fileModule.currentFileTransfer.abort();
                 fileModule.currentFileTransfer = null;
+                downloading = false;
             }
 
             return true;
@@ -5602,7 +5611,7 @@
      * @param datas.start
      * @param datas.duration
      * @param datas.content_id
-     * @returns {Promise} - The promise will be filled with the gameover html {String}     
+     * @returns {Promise<String>} - The promise will be filled with the gameover html {String}     
      */
     Game.prototype.buildGameOver = function(datas){                 
         var metaJsonPath = constants.GAMES_DIR + datas.content_id + "/meta.json";
@@ -5624,9 +5633,11 @@
                 LOG.i("Meta JSON:", metaJson);
                 return htmlString
                     .replace("{{score}}", datas.score)
+                    .replace("{{game_title}}", metaJson.title)
+                    .replace("{{game_title}}", metaJson.title)
                     .replace("{{url_share}}", metaJson.url_share)
-                    .replace("{{url_cover}}", metaJson.images.cover.ratio_1_4)
-                    .replace("{{startpage_url}}", constants.WWW_DIR + "index.html");
+                    .replace("{{url_cover}}", metaJson.images.cover.ratio_1);
+                    //.replace("{{startpage_url}}", constants.WWW_DIR + "index.html");
         });
     };
 
