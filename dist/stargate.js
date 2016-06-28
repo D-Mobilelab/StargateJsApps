@@ -4299,6 +4299,44 @@
         return newObject;
     }
 
+    /**
+     * get the object type. date for date, array for array ecc
+     * 
+     * @param {*} obj - any type of object
+     * @returns {String} - the type of the obj. date for example or array etc
+     */
+    function getType(obj){
+        return ({}).toString.call(obj).match(/\s([a-z|A-Z]+)/)[1].toLowerCase();
+    }
+
+    /**
+     * A function to dequerify query string
+     *
+     * @alias module:src/modules/Utils.dequerify
+     * @example
+     * var url = "http://jsonplaceholder.typicode.com/comments?postId=1
+     * var obj = dequerify(url); //obj is {"postId":"1"} 
+     * @param {Strinq} param 
+     * @returns {Object} the object with key-value pairs
+     * */
+    function dequerify(param){
+        param = param.slice(0);
+        param = decodeURIComponent(param);
+        
+        var query = param.split("?")[1];
+        if(!query){return {};}
+        
+        var keyvalue = query.split("&");
+        
+        return keyvalue.reduce(function(newObj, keyvalue){
+            var splitted = keyvalue.split("=");
+            var key = splitted[0];
+            var value = splitted[1];
+            newObj[key] = value;
+            return newObj;        
+        }, {});
+    }
+
     var exp = {
         Iterator:Iterator,
         Logger:Logger,
@@ -4306,7 +4344,9 @@
         getJSON:getJSON,
         jsonpRequest:jsonpRequest,
         getImageRaw:getImageRaw,
-        extend:extend
+        extend:extend,
+        getType:getType,
+        dequerify:dequerify
     };
 
     if(stargateModules){
@@ -4724,6 +4764,19 @@
             });
     };
 
+    /**
+     * getMetadata from FileEntry or DirectoryEntry
+     * @param path {String} - the path string
+     * @returns {Promise<Object|FileError>}
+     */
+    File.getMetadata = function(path){
+        return File.resolveFS(path)
+                   .then(function(entry){
+                       return new Promise(function(resolve,reject){
+                            entry.getMetadata(resolve,reject);
+                       });                        
+                   });
+    };
 
     /**
      * __transform utils function
@@ -4762,7 +4815,7 @@
     "use strict";
 
     var Logger = Utils.Logger,
-        composeApiString = Utils.composeApiString,
+        querify = Utils.composeApiString,
         //Iterator = Utils.Iterator,
         //getJSON = Utils.getJSON,
         jsonpRequest = Utils.jsonpRequest,
@@ -4973,7 +5026,22 @@
         });
     }
 
+    /*function getRemoteMetadata(url){
+        return new Promise(function(resolve, reject){            
+            var xhr = new XMLHttpRequest();
+            xhr.open("HEAD", url, true);
+
+            xhr.addEventListener("loadend", function(endEvent){
+                resolve(xhr.getResponseHeader("Last-Modified"));
+            });
+            xhr.send(null);
+        });
+    }*/
+
     function getSDK(){
+        var now = new Date();
+        var sdkURLFresh = querify(CONF.sdk_url, {"v":now.getTime()});
+        var dixieURLFresh = querify(CONF.dixie_url, {"v":now.getTime(), "country":"xx-gameasy"});
 
         return Promise.all([
             fileModule.fileExists(constants.SDK_DIR + "dixie.js"),
@@ -4983,18 +5051,39 @@
                 isSdkDownloaded = results[1],
                 tasks = [];
             
-            var timestamp = String(Date.now());
-            var sdkURLFresh = composeApiString(CONF.sdk_url, {"v":timestamp});
-            var dixieURLFresh = composeApiString(CONF.dixie_url, {"v":timestamp,"country":"xx-gameasy"});
-            
-            // CHECKING VERSION? PLEASE DO IT :(
-            if(CONF.sdk_url !== ""){
-                LOG.d("isDixieDownloaded", isSdkDownloaded, "get SDK anyway", sdkURLFresh);
+            if(CONF.sdk_url !== "" && !isSdkDownloaded){
+                LOG.d("isSdkDownloaded", isSdkDownloaded, "get SDK", sdkURLFresh);
                 tasks.push(new fileModule.download(sdkURLFresh, constants.SDK_DIR, "gfsdk.min.js").promise);
             }
 
-            if(CONF.dixie_url !== ""){
-                LOG.d("isDixieDownloaded", isDixieDownloaded, "get dixie anyway", dixieURLFresh);
+            if(CONF.dixie_url !== "" && !isDixieDownloaded){
+                LOG.d("isDixieDownloaded", isDixieDownloaded, "get dixie", dixieURLFresh);
+                tasks.push(new fileModule.download(dixieURLFresh, constants.SDK_DIR, "dixie.js").promise);
+            }
+            
+            return Promise.all(tasks);
+        }).then(function getSdkMetaData(){
+            // Getting file meta data            
+            return Promise.all([
+                fileModule.getMetadata(constants.SDK_DIR + "dixie.js"),        
+                fileModule.getMetadata(constants.SDK_DIR + "gfsdk.min.js")
+            ]);
+        }).then(function checkSdkDate(results){
+            var sdkMetadata = results[0],
+                dixieMetadata = results[1], 
+                tasks = [];
+            
+            var lastSdkModification = new Date(sdkMetadata.modificationTime);
+            var lastDixieModification = new Date(dixieMetadata.modificationTime);
+            
+            // lastModification day < today then download it
+            if(lastSdkModification.getDate() < now.getDate()){
+                LOG.d("updating sdk", sdkURLFresh, lastSdkModification);
+                tasks.push(new fileModule.download(sdkURLFresh, constants.SDK_DIR, "gfsdk.min.js").promise);
+            }
+
+            if(lastDixieModification.getDate() < now.getDate()){
+                LOG.d("updating dixie", dixieURLFresh, lastDixieModification);
                 tasks.push(new fileModule.download(dixieURLFresh, constants.SDK_DIR, "dixie.js").promise);
             }
             return Promise.all(tasks);
@@ -5111,10 +5200,18 @@
                 .then(function(){
                     //GET COVER IMAGE FOR THE GAME!
                     LOG.d("Save meta.json for:", gameObject.id);
-                    var info = {
+                    /*var info = {
                         gameId:gameObject.id,
                         size:{width:"240",height:"170",ratio:"1_4"},
                         url:gameObject.images.cover.ratio_1_4,
+                        type:"cover",
+                        method:"xhr" //!important!
+                    };*/
+
+                    var info = {
+                        gameId:gameObject.id,
+                        size:{width:"500",height:"500",ratio:"1"},
+                        url:gameObject.images.cover.ratio_1,
                         type:"cover",
                         method:"xhr" //!important!
                     };
@@ -5122,7 +5219,7 @@
                     return downloadImage(info);
 
                 })
-                .then(function(coverResult){
+                .then(function(coverResult){                    
                     LOG.d("Save meta.json for:", gameObject.id);
                     LOG.d("Download image result", coverResult);
 
@@ -5131,7 +5228,7 @@
                      * it point to the cover image with cdvfile:// protocol
                      * TODO: Build a system for file caching also for webapp
                      * **/
-                    gameObject.images.cover.ratio_1_4 = coverResult.internalURL;
+                    gameObject.images.cover.ratio_1 = coverResult.internalURL;
                     return fileModule.createFile(constants.GAMES_DIR + saveAsName, "meta.json")
                         .then(function(entry){                            
                             return fileModule.write(entry.path, JSON.stringify(gameObject));
@@ -5452,6 +5549,7 @@
             if(fileModule.currentFileTransfer){
                 fileModule.currentFileTransfer.abort();
                 fileModule.currentFileTransfer = null;
+                downloading = false;
             }
 
             return true;
@@ -5496,7 +5594,7 @@
      * @param datas.start
      * @param datas.duration
      * @param datas.content_id
-     * @returns {Promise} - The promise will be filled with the gameover html {String}     
+     * @returns {Promise<String>} - The promise will be filled with the gameover html {String}     
      */
     Game.prototype.buildGameOver = function(datas){                 
         var metaJsonPath = constants.GAMES_DIR + datas.content_id + "/meta.json";
@@ -5518,9 +5616,11 @@
                 LOG.i("Meta JSON:", metaJson);
                 return htmlString
                     .replace("{{score}}", datas.score)
+                    .replace("{{game_title}}", metaJson.title)
+                    .replace("{{game_title}}", metaJson.title)
                     .replace("{{url_share}}", metaJson.url_share)
-                    .replace("{{url_cover}}", metaJson.images.cover.ratio_1_4)
-                    .replace("{{startpage_url}}", constants.WWW_DIR + "index.html");
+                    .replace("{{url_cover}}", metaJson.images.cover.ratio_1);
+                    //.replace("{{startpage_url}}", constants.WWW_DIR + "index.html");
         });
     };
 
@@ -5632,7 +5732,7 @@
                 .then(function(bundleGamesIds){
 
                     obj.content_id = bundleGamesIds;
-                    var api_string = composeApiString(CONF.api, obj);
+                    var api_string = querify(CONF.api, obj);
                     LOG.d("Request bundle games meta info:", api_string);
 
                     return new jsonpRequest(api_string).prom;
@@ -5703,7 +5803,7 @@
          *  queues:{}
          * }
          * */
-        var apiGaForGames = composeApiString(CONF.ga_for_game_url, ga_for_games_qs);
+        var apiGaForGames = querify(CONF.ga_for_game_url, ga_for_games_qs);
         var getGaForGamesTask = new jsonpRequest(apiGaForGames).prom;
         
         var tasks = Promise.all([getGaForGamesTask, readUserJson()]);
@@ -5721,7 +5821,7 @@
             LOG.d("PONYVALUE", _PONYVALUE);
             LOG.d("apiGaForGames:", apiGaForGames, "ga_for_game:", ga_for_game);
             
-            var gamifive_api = composeApiString(CONF.gamifive_info_api, {
+            var gamifive_api = querify(CONF.gamifive_info_api, {
                 content_id:content_id,                
                 format:"jsonp"
             });
@@ -5760,6 +5860,62 @@
     _modules.game._public = new Game();
 
 })(stargateModules.file, stargateModules.Utils, stargateModules);
+/**
+ * EventBus module
+ * @module src/modules/EventBus
+ * @type {Object}
+ */
+/* globals ActiveXObject */
+(function(_modules){
+
+	"use strict";
+	/**
+	 * @class 
+	 * */
+	function EventBus(){
+		this.events = {};
+	}
+
+	/**
+	 * on function
+	 * @param {String} eventType - if not exists it defines a new one
+	 * @param {Function} func - the function to call when the event is triggered
+	 */
+	EventBus.prototype.on = function(eventType, func){
+		if(!this.events[eventType]){ this.events[eventType] = [];}
+		this.events[eventType].push(func);
+	};
+
+	/**
+	 * trigger function
+	 * @param {String} eventType - the eventType to trigger. if not exists nothing happens
+	 * @param {Object} data - the object data to pass to the callback functions
+	 */
+	EventBus.prototype.trigger = function(eventType, data){
+		if(!this.events[eventType] || this.events[eventType] < 1){ return; }
+		
+		this.events[eventType].map(function(func){
+			func.call(null, data || {});
+		});
+	};
+
+	/**
+	 * remove function
+	 * @param {String} eventType - the eventType
+	 * @param {Function} func - the reference of the function to remove from the list of function
+	 */
+	EventBus.prototype.remove = function(eventType, func){
+		if(!this.events[eventType]){ return; }
+
+		var index = this.events[eventType].indexOf(func);
+		if(index > -1){
+			this.events[eventType].splice(index, 1);
+		}
+	};
+
+	_modules.EventBus = EventBus;
+
+})(stargateModules);
 /**
  * Decoratos module
  * @module src/modules/Decorators
@@ -6901,6 +7057,13 @@ var onPluginReady = function (resolve) {
             )
         );
     }
+
+    if (haveRequestedFeature("globalization")) {
+        // save initialization promise, to wait for
+        modulePromises.push(
+            globalization.initialize()
+        );
+    }
     
     
     // wait for all module initializations before calling the webapp
@@ -7912,6 +8075,183 @@ window.startLoading = startLoading;
 window.stopLoading = stopLoading;
 
 
+
+stargatePublic.inAppPurchaseSubscription = function(callbackSuccess, callbackError, subscriptionUrl, returnUrl) {
+
+    if (!isStargateInitialized) {
+        callbackError("Stargate not initialized, call Stargate.initialize first!");
+        return false;
+    }
+    if (!isStargateOpen) {
+        callbackError("Stargate closed, wait for Stargate.initialize to complete!");
+        return false;
+    }
+    
+    setBusy(true);
+
+    if (typeof returnUrl !==  'undefined'){
+        IAP.returnUrl = returnUrl;
+    }
+    if (typeof subscriptionUrl !==  'undefined'){
+        IAP.subscribeMethod = subscriptionUrl;
+    }
+    
+    IAP.callbackSuccess = callbackSuccess;
+    IAP.callbackError = callbackError;
+    
+    /*
+    if (isRunningOnAndroid() && appIsDebug) {
+        var debugTransactionAndroid = {
+            "id":IAP.id,
+            "alias":"Stargate Debug IAP Mock",
+            "type":"paid subscription",
+            "state":"owned",
+            "title":"Stargate Debug IAP Mock subscription",
+            "description":"Stargate Debug IAP Mock subscription",
+            "price":"€2.00",
+            "currency":"EUR",
+            "loaded":true,
+            "canPurchase":false,
+            "owned":true,
+            "downloading":false,
+            "downloaded":false,
+            "transaction":{
+                "type":"android-playstore",
+                "purchaseToken":"dgdecoeeoodhalncipabhmnn.AO-J1OwM_emD6KWnZBjTCG2nTF5XWvuHzLCOBPIBj9liMlqzftcDamRFnUvEasQ1neEGK7KIxlPKMV2W09T4qAVZhw_aGbPylo-5a8HVYvJGacoj9vXbvKhb495IMIq8fmywk8-Q7H5jL_0lbfSt9SMVM5V6k3Ttew",
+                "receipt":"{\"packageName\":\"stargate.test.package.id\",\"productId\":\"stargate.mock.subscription.weekly\",\"purchaseTime\":1460126549804,\"purchaseState\":0,\"purchaseToken\":\"dgdecoeeoodhalncipabhmnn.AO-J1OwM_emD6KWnZBjTCG2nTF5XWvuHzLCOBPIBj9liMlqzftcDamRFnUvEasQ1neEGK7KIxlPKMV2W09T4qAVZhw_aGbPylo-5a8HVYvJGacoj9vXbvKhb495IMIq8fmywk8-Q7H5jL_0lbfSt9SMVM5V6k3Ttew\",\"autoRenewing\":false}","signature":"UciGXv48EMVdUXICxoy+hBWTiKbn4VABteQeIUVlFG0GmJ/9p/k372RhPyprqve7tnwhk+vpZYos5Fwvm/SrYjsqKMMFgTzotrePwJ9spq2hzmjhkqNTKkxdcgiuaCp8Vt7vVH9yjCtSKWwdS1UBlZLPaJunA4D2KE8TP/qYnwgZTOCBvSf3rUbEzmwRuRbYqndNyoMfIXvRP71TDBsMcHM/3UrDYEf2k2/SJKnctcGmvU2/BW/WG96T9FuiJPpotax7iQmBdN5PmfuxlZiZiUyj9mFEgzPEIAMP2HCcdX2KlNBPhKhxm4vESozVljTbrI0+OGJjQJhaWBn9+aclmA=="
+            },
+            "valid":true
+        };
+        IAP.onProductOwned(debugTransactionAndroid);
+        return true;
+    }
+    */
+
+    IAP.inappPurchaseCalled = true;
+    
+    // execute createUser if data is already available
+    if (IAP.lastCreateUserProduct && IAP.lastCreateUserToken) {
+        IAP.createUser(IAP.lastCreateUserProduct, IAP.lastCreateUserToken);
+        
+        // no need to call refresh again
+        return true;
+    }
+    
+    IAP.doRefresh();
+    window.store.order(IAP.id);
+    return true;
+};
+
+
+stargatePublic.inAppRestore = function(callbackSuccess, callbackError, subscriptionUrl, returnUrl) {
+
+    if (!isStargateInitialized) {
+        return callbackError("Stargate not initialized, call Stargate.initialize first!");
+    }
+    if (!isStargateOpen) {
+        return callbackError("Stargate closed, wait for Stargate.initialize to complete!");
+    }
+
+    // no set busy needed for restore as it's usually fast and 
+    //  we cannot intercept error result, so the loader remain visible
+
+    if (typeof subscriptionUrl !==  'undefined'){
+        IAP.subscribeMethod = subscriptionUrl;
+    }
+    if (typeof returnUrl !==  'undefined'){
+        IAP.returnUrl = returnUrl;
+    }
+    
+    IAP.callbackSuccess = callbackSuccess;
+    IAP.callbackError = callbackError;
+    IAP.inappPurchaseCalled = true;
+    
+    IAP.doRefresh(true);
+};
+
+/**
+ * Return information about a product got from store
+ * 
+ * @param {object} options - options object
+ * @param {string} [options.productId=IAP.id] - product id about to query for information on store
+ * @param {string} options.subscriptionUrl - api endpoint that will be called when IAP is completed @see createUser method
+ * @param {function} options.callbackListingSuccess=function(){} - a function that will be called when information are ready
+ * @param {function} options.callbackPurchaseSuccess=function(){} - a function that will be called when createUser complete (if the product is already owned)
+ * @param {function} options.callbackError=function(){} - a function that will be called if an error occur 
+ * 
+ * @returns {boolean} - request result: true OK, false KO
+ * */
+stargatePublic.inAppProductInfo = function(options) {
+
+    if (! options.productId) {
+        options.productId = IAP.id;
+    }
+    
+    if (typeof(options.callbackListingSuccess) !== "function") {
+        options.callbackListingSuccess = function() {};
+    }
+    if (typeof(options.callbackPurchaseSuccess) !== "function") {
+        options.callbackPurchaseSuccess = function() {};
+    }
+    if (typeof(options.callbackError) !== "function") {
+        options.callbackError = function() {};
+    }
+    if (!options.subscriptionUrl) {
+        err("[IAP] inAppProductInfo(): options.subscriptionUrl invalid");
+        return false;
+    }
+    
+    if (!isStargateInitialized) {
+        options.callbackError("Stargate not initialized, call Stargate.initialize first!");
+        return false;
+    }
+    if (!isStargateOpen) {
+        options.callbackError("Stargate closed, wait for Stargate.initialize to complete!");
+        return false;
+    }
+    
+    IAP.subscribeMethod = options.subscriptionUrl;
+    
+    IAP.requestedListingProductId = options.productId;
+    IAP.callbackListingSuccess = options.callbackListingSuccess;
+    IAP.callbackPurchaseSuccess = options.callbackPurchaseSuccess;
+    IAP.callbackListingError = options.callbackError;
+    IAP.inappProductInfoCalled = true;
+
+    // execute callback for product information if data is already available 
+    if (IAP.productsInfo[options.productId]) {
+        try {
+            IAP.callbackListingSuccess(IAP.productsInfo[options.productId]);
+        }
+        catch (error) {
+            err("[IAP] inAppProductInfo(): error on callbackListingSuccess!");
+        }
+    }
+    
+    // execute createUser if data is already available
+    if (IAP.lastCreateUserProduct && IAP.lastCreateUserToken) {
+        IAP.createUser(IAP.lastCreateUserProduct, IAP.lastCreateUserToken);
+        
+        // no need to call refresh again
+        return true;
+    }
+    
+    // call refresh then, when store will call stargate, we will call client callbacks
+    IAP.doRefresh(true);    
+    return true;    
+};
+
+var iaplight = (function(){
+    
+	var protectedInterface = {};
+
+    protectedInterface.initialize = function() {
+        return true;
+    };
+
+    return protectedInterface;
+})();
+
 var IAP = {
 
 	id: '',
@@ -8326,171 +8666,83 @@ var IAP = {
 };
 
 
-
-stargatePublic.inAppPurchaseSubscription = function(callbackSuccess, callbackError, subscriptionUrl, returnUrl) {
-
-    if (!isStargateInitialized) {
-        callbackError("Stargate not initialized, call Stargate.initialize first!");
-        return false;
-    }
-    if (!isStargateOpen) {
-        callbackError("Stargate closed, wait for Stargate.initialize to complete!");
-        return false;
-    }
+var globalization = (function(){
     
-    setBusy(true);
+	var protectedInterface = {};
 
-    if (typeof returnUrl !==  'undefined'){
-        IAP.returnUrl = returnUrl;
-    }
-    if (typeof subscriptionUrl !==  'undefined'){
-        IAP.subscribeMethod = subscriptionUrl;
-    }
-    
-    IAP.callbackSuccess = callbackSuccess;
-    IAP.callbackError = callbackError;
-    
-    /*
-    if (isRunningOnAndroid() && appIsDebug) {
-        var debugTransactionAndroid = {
-            "id":IAP.id,
-            "alias":"Stargate Debug IAP Mock",
-            "type":"paid subscription",
-            "state":"owned",
-            "title":"Stargate Debug IAP Mock subscription",
-            "description":"Stargate Debug IAP Mock subscription",
-            "price":"€2.00",
-            "currency":"EUR",
-            "loaded":true,
-            "canPurchase":false,
-            "owned":true,
-            "downloading":false,
-            "downloaded":false,
-            "transaction":{
-                "type":"android-playstore",
-                "purchaseToken":"dgdecoeeoodhalncipabhmnn.AO-J1OwM_emD6KWnZBjTCG2nTF5XWvuHzLCOBPIBj9liMlqzftcDamRFnUvEasQ1neEGK7KIxlPKMV2W09T4qAVZhw_aGbPylo-5a8HVYvJGacoj9vXbvKhb495IMIq8fmywk8-Q7H5jL_0lbfSt9SMVM5V6k3Ttew",
-                "receipt":"{\"packageName\":\"stargate.test.package.id\",\"productId\":\"stargate.mock.subscription.weekly\",\"purchaseTime\":1460126549804,\"purchaseState\":0,\"purchaseToken\":\"dgdecoeeoodhalncipabhmnn.AO-J1OwM_emD6KWnZBjTCG2nTF5XWvuHzLCOBPIBj9liMlqzftcDamRFnUvEasQ1neEGK7KIxlPKMV2W09T4qAVZhw_aGbPylo-5a8HVYvJGacoj9vXbvKhb495IMIq8fmywk8-Q7H5jL_0lbfSt9SMVM5V6k3Ttew\",\"autoRenewing\":false}","signature":"UciGXv48EMVdUXICxoy+hBWTiKbn4VABteQeIUVlFG0GmJ/9p/k372RhPyprqve7tnwhk+vpZYos5Fwvm/SrYjsqKMMFgTzotrePwJ9spq2hzmjhkqNTKkxdcgiuaCp8Vt7vVH9yjCtSKWwdS1UBlZLPaJunA4D2KE8TP/qYnwgZTOCBvSf3rUbEzmwRuRbYqndNyoMfIXvRP71TDBsMcHM/3UrDYEf2k2/SJKnctcGmvU2/BW/WG96T9FuiJPpotax7iQmBdN5PmfuxlZiZiUyj9mFEgzPEIAMP2HCcdX2KlNBPhKhxm4vESozVljTbrI0+OGJjQJhaWBn9+aclmA=="
-            },
-            "valid":true
-        };
-        IAP.onProductOwned(debugTransactionAndroid);
-        return true;
-    }
-    */
+    var preferredLanguage = {};
+    var localeName = {};
 
-    IAP.inappPurchaseCalled = true;
-    
-    // execute createUser if data is already available
-    if (IAP.lastCreateUserProduct && IAP.lastCreateUserToken) {
-        IAP.createUser(IAP.lastCreateUserProduct, IAP.lastCreateUserToken);
-        
-        // no need to call refresh again
-        return true;
-    }
-    
-    IAP.doRefresh();
-    window.store.order(IAP.id);
-    return true;
-};
+    var initFinished = false;
 
-
-stargatePublic.inAppRestore = function(callbackSuccess, callbackError, subscriptionUrl, returnUrl) {
-
-    if (!isStargateInitialized) {
-        return callbackError("Stargate not initialized, call Stargate.initialize first!");
-    }
-    if (!isStargateOpen) {
-        return callbackError("Stargate closed, wait for Stargate.initialize to complete!");
-    }
-
-    // no set busy needed for restore as it's usually fast and 
-    //  we cannot intercept error result, so the loader remain visible
-
-    if (typeof subscriptionUrl !==  'undefined'){
-        IAP.subscribeMethod = subscriptionUrl;
-    }
-    if (typeof returnUrl !==  'undefined'){
-        IAP.returnUrl = returnUrl;
-    }
-    
-    IAP.callbackSuccess = callbackSuccess;
-    IAP.callbackError = callbackError;
-    IAP.inappPurchaseCalled = true;
-    
-    IAP.doRefresh(true);
-};
-
-/**
- * Return information about a product got from store
- * 
- * @param {object} options - options object
- * @param {string} [options.productId=IAP.id] - product id about to query for information on store
- * @param {string} options.subscriptionUrl - api endpoint that will be called when IAP is completed @see createUser method
- * @param {function} options.callbackListingSuccess=function(){} - a function that will be called when information are ready
- * @param {function} options.callbackPurchaseSuccess=function(){} - a function that will be called when createUser complete (if the product is already owned)
- * @param {function} options.callbackError=function(){} - a function that will be called if an error occur 
- * 
- * @returns {boolean} - request result: true OK, false KO
- * */
-stargatePublic.inAppProductInfo = function(options) {
-
-    if (! options.productId) {
-        options.productId = IAP.id;
-    }
-    
-    if (typeof(options.callbackListingSuccess) !== "function") {
-        options.callbackListingSuccess = function() {};
-    }
-    if (typeof(options.callbackPurchaseSuccess) !== "function") {
-        options.callbackPurchaseSuccess = function() {};
-    }
-    if (typeof(options.callbackError) !== "function") {
-        options.callbackError = function() {};
-    }
-    if (!options.subscriptionUrl) {
-        err("[IAP] inAppProductInfo(): options.subscriptionUrl invalid");
-        return false;
-    }
-    
-    if (!isStargateInitialized) {
-        options.callbackError("Stargate not initialized, call Stargate.initialize first!");
-        return false;
-    }
-    if (!isStargateOpen) {
-        options.callbackError("Stargate closed, wait for Stargate.initialize to complete!");
-        return false;
-    }
-    
-    IAP.subscribeMethod = options.subscriptionUrl;
-    
-    IAP.requestedListingProductId = options.productId;
-    IAP.callbackListingSuccess = options.callbackListingSuccess;
-    IAP.callbackPurchaseSuccess = options.callbackPurchaseSuccess;
-    IAP.callbackListingError = options.callbackError;
-    IAP.inappProductInfoCalled = true;
-
-    // execute callback for product information if data is already available 
-    if (IAP.productsInfo[options.productId]) {
-        try {
-            IAP.callbackListingSuccess(IAP.productsInfo[options.productId]);
+    protectedInterface.initialize = function() {
+        if (typeof window.navigator !== "object" || typeof window.navigator.globalization !== "object") {
+            err("[globalization] missing cordova plugin!");
+            return false;
         }
-        catch (error) {
-            err("[IAP] inAppProductInfo(): error on callbackListingSuccess!");
+
+        var prefLangPromise = new Promise(function(resolve){
+            navigator.globalization.getPreferredLanguage(
+                function(props) {
+                    if (typeof props !== "object") {
+                        err("[globalization] initialize getPreferredLanguage result error: invalid type", props);
+                        resolve({"error":"invalid type"});
+                        return;
+                    }
+                    log("[globalization] initialize getPreferredLanguage result ok: ", props);
+                    preferredLanguage = props;
+                    resolve(props);
+                },
+                function(error) {
+                    err("[globalization] initialize getPreferredLanguage result error: ", error);
+                    resolve({"error":error});
+                }
+            );
+        }); // end prefLangPromise
+
+        var locaNamePromise = new Promise(function(resolve){
+            navigator.globalization.getLocaleName(
+                function(props) {
+                    if (typeof props !== "object") {
+                        err("[globalization] initialize getLocaleName result error: invalid type", props);
+                        resolve({"error":"invalid type"});
+                        return;
+                    }
+                    log("[globalization] initialize getLocaleName result ok: ", props);
+                    localeName = props;
+                    resolve(props);
+                },
+                function(error) {
+                    err("[globalization] initialize getLocaleName result error: ", error);
+                    resolve({"error":error});
+                }
+            );
+        }); // end locaNamePromise
+
+
+        return Promise.all([prefLangPromise, locaNamePromise]).then(function(results){
+            initFinished = true;
+            return results;
+        });
+    };
+
+    protectedInterface.getPreferredLanguage = function() {
+        if (!initFinished) {
+            err("[globalization] getPreferredLanguage: not initialized!");
+            return false;
         }
-    }
-    
-    // execute createUser if data is already available
-    if (IAP.lastCreateUserProduct && IAP.lastCreateUserToken) {
-        IAP.createUser(IAP.lastCreateUserProduct, IAP.lastCreateUserToken);
-        
-        // no need to call refresh again
-        return true;
-    }
-    
-    // call refresh then, when store will call stargate, we will call client callbacks
-    IAP.doRefresh(true);    
-    return true;    
-};
+        return preferredLanguage;
+    };
+    protectedInterface.getLocaleName = function() {
+        if (!initFinished) {
+            err("[globalization] getLocaleName: not initialized!");
+            return false;
+        }
+        return localeName;
+    };
+
+    return protectedInterface;
+})();
 
 /* global facebookConnectPlugin */
 
