@@ -331,6 +331,13 @@ var onPluginReady = function (resolve) {
             )
         );
     }
+
+    if (haveRequestedFeature("globalization")) {
+        // save initialization promise, to wait for
+        modulePromises.push(
+            globalization.initialize()
+        );
+    }
     
     
     // wait for all module initializations before calling the webapp

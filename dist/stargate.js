@@ -1,13 +1,14 @@
 /*!
  * URI.js - Mutating URLs
  *
- * Version: 1.17.1
+ * Version: 1.17.0
  *
  * Author: Rodney Rehm
  * Web: http://medialize.github.io/URI.js/
  *
  * Licensed under
  *   MIT License http://www.opensource.org/licenses/mit-license
+ *   GPL v3 http://opensource.org/licenses/GPL-3.0
  *
  */
 (function (root, factory) {
@@ -71,7 +72,7 @@
     return this;
   }
 
-  URI.version = '1.17.1';
+  URI.version = '1.17.0';
 
   var p = URI.prototype;
   var hasOwn = Object.prototype.hasOwnProperty;
@@ -794,35 +795,18 @@
     }
   };
   URI.hasQuery = function(data, name, value, withinArray) {
-    switch (getType(name)) {
-      case 'String':
-        // Nothing to do here
-        break;
-
-      case 'RegExp':
-        for (var key in data) {
-          if (hasOwn.call(data, key)) {
-            if (name.test(key) && (value === undefined || URI.hasQuery(data, key, value))) {
-              return true;
-            }
+    if (typeof name === 'object') {
+      for (var key in name) {
+        if (hasOwn.call(name, key)) {
+          if (!URI.hasQuery(data, key, name[key])) {
+            return false;
           }
         }
+      }
 
-        return false;
-
-      case 'Object':
-        for (var _key in name) {
-          if (hasOwn.call(name, _key)) {
-            if (!URI.hasQuery(data, _key, name[_key])) {
-              return false;
-            }
-          }
-        }
-
-        return true;
-
-      default:
-        throw new TypeError('URI.hasQuery() accepts a string, regular expression or object as the name parameter');
+      return true;
+    } else if (typeof name !== 'string') {
+      throw new TypeError('URI.hasQuery() accepts an object, string as the name parameter');
     }
 
     switch (getType(value)) {
@@ -1240,6 +1224,8 @@
 
   // compound accessors
   p.origin = function(v, build) {
+    var parts;
+
     if (this._parts.urn) {
       return v === undefined ? '' : this;
     }
@@ -1247,10 +1233,7 @@
     if (v === undefined) {
       var protocol = this.protocol();
       var authority = this.authority();
-      if (!authority) {
-        return '';
-      }
-
+      if (!authority) return '';
       return (protocol ? protocol + '://' : '') + this.authority();
     } else {
       var origin = URI(v);
@@ -1834,8 +1817,6 @@
       return this;
     }
 
-    _path = URI.recodePath(_path);
-
     var _was_relative;
     var _leadingParents = '';
     var _parent, _pos;
@@ -1866,7 +1847,7 @@
 
     // resolve parents
     while (true) {
-      _parent = _path.search(/\/\.\.(\/|$)/);
+      _parent = _path.indexOf('/..');
       if (_parent === -1) {
         // no more ../ to resolve
         break;
@@ -1888,6 +1869,7 @@
       _path = _leadingParents + _path.substring(1);
     }
 
+    _path = URI.recodePath(_path);
     this._parts.path = _path;
     this.build(!build);
     return this;
@@ -2182,13 +2164,14 @@
  * URI.js - Mutating URLs
  * URI Template Support - http://tools.ietf.org/html/rfc6570
  *
- * Version: 1.17.1
+ * Version: 1.17.0
  *
  * Author: Rodney Rehm
  * Web: http://medialize.github.io/URI.js/
  *
  * Licensed under
  *   MIT License http://www.opensource.org/licenses/mit-license
+ *   GPL v3 http://opensource.org/licenses/GPL-3.0
  *
  */
 (function (root, factory) {
@@ -7074,6 +7057,13 @@ var onPluginReady = function (resolve) {
             )
         );
     }
+
+    if (haveRequestedFeature("globalization")) {
+        // save initialization promise, to wait for
+        modulePromises.push(
+            globalization.initialize()
+        );
+    }
     
     
     // wait for all module initializations before calling the webapp
@@ -7300,6 +7290,19 @@ var share = (function(){
         });
         return options;
     };
+
+    var getSocialPackage = function(social) {
+        if (isRunningOnIos()) {
+            if (social === "facebook") {
+                return "com.apple.social.facebook";
+            }
+            if (social === "twitter") {
+                return "com.apple.social.twitter";
+            }
+        }
+
+        return social;
+    };
     
 	var shareWithChooser = function(requestedOptions, resolve, reject) {
         // this is the complete list of currently supported params you can pass to the plugin (all optional)
@@ -7399,25 +7402,27 @@ var share = (function(){
     
     shareProtected.canShareVia = function(via, url) {
         
+        var viaNative = getSocialPackage(via);
+
         return new Promise(function(resolve){
             
             // canShareVia: 
             //   via, message, subject, fileOrFileArray, url, successCallback, errorCallback
             window.plugins.socialsharing.canShareVia(
-                via,
+                viaNative,
                 null,
                 null,
                 null,
                 url,
                 function(e){
-                    log("[share] canShareVia "+via+" result true: ", e);
+                    log("[share] canShareVia "+via+" ("+viaNative+") result true: ", e);
                     resolve({
                         "network": via,
                         "available": true
                     });
                 },
                 function(e){
-                    log("[share] canShareVia "+via+" result false: ", e);
+                    log("[share] canShareVia "+via+" ("+viaNative+") result false: ", e);
                     resolve({
                         "network": via,
                         "available": false
@@ -8070,6 +8075,183 @@ window.startLoading = startLoading;
 window.stopLoading = stopLoading;
 
 
+
+stargatePublic.inAppPurchaseSubscription = function(callbackSuccess, callbackError, subscriptionUrl, returnUrl) {
+
+    if (!isStargateInitialized) {
+        callbackError("Stargate not initialized, call Stargate.initialize first!");
+        return false;
+    }
+    if (!isStargateOpen) {
+        callbackError("Stargate closed, wait for Stargate.initialize to complete!");
+        return false;
+    }
+    
+    setBusy(true);
+
+    if (typeof returnUrl !==  'undefined'){
+        IAP.returnUrl = returnUrl;
+    }
+    if (typeof subscriptionUrl !==  'undefined'){
+        IAP.subscribeMethod = subscriptionUrl;
+    }
+    
+    IAP.callbackSuccess = callbackSuccess;
+    IAP.callbackError = callbackError;
+    
+    /*
+    if (isRunningOnAndroid() && appIsDebug) {
+        var debugTransactionAndroid = {
+            "id":IAP.id,
+            "alias":"Stargate Debug IAP Mock",
+            "type":"paid subscription",
+            "state":"owned",
+            "title":"Stargate Debug IAP Mock subscription",
+            "description":"Stargate Debug IAP Mock subscription",
+            "price":"€2.00",
+            "currency":"EUR",
+            "loaded":true,
+            "canPurchase":false,
+            "owned":true,
+            "downloading":false,
+            "downloaded":false,
+            "transaction":{
+                "type":"android-playstore",
+                "purchaseToken":"dgdecoeeoodhalncipabhmnn.AO-J1OwM_emD6KWnZBjTCG2nTF5XWvuHzLCOBPIBj9liMlqzftcDamRFnUvEasQ1neEGK7KIxlPKMV2W09T4qAVZhw_aGbPylo-5a8HVYvJGacoj9vXbvKhb495IMIq8fmywk8-Q7H5jL_0lbfSt9SMVM5V6k3Ttew",
+                "receipt":"{\"packageName\":\"stargate.test.package.id\",\"productId\":\"stargate.mock.subscription.weekly\",\"purchaseTime\":1460126549804,\"purchaseState\":0,\"purchaseToken\":\"dgdecoeeoodhalncipabhmnn.AO-J1OwM_emD6KWnZBjTCG2nTF5XWvuHzLCOBPIBj9liMlqzftcDamRFnUvEasQ1neEGK7KIxlPKMV2W09T4qAVZhw_aGbPylo-5a8HVYvJGacoj9vXbvKhb495IMIq8fmywk8-Q7H5jL_0lbfSt9SMVM5V6k3Ttew\",\"autoRenewing\":false}","signature":"UciGXv48EMVdUXICxoy+hBWTiKbn4VABteQeIUVlFG0GmJ/9p/k372RhPyprqve7tnwhk+vpZYos5Fwvm/SrYjsqKMMFgTzotrePwJ9spq2hzmjhkqNTKkxdcgiuaCp8Vt7vVH9yjCtSKWwdS1UBlZLPaJunA4D2KE8TP/qYnwgZTOCBvSf3rUbEzmwRuRbYqndNyoMfIXvRP71TDBsMcHM/3UrDYEf2k2/SJKnctcGmvU2/BW/WG96T9FuiJPpotax7iQmBdN5PmfuxlZiZiUyj9mFEgzPEIAMP2HCcdX2KlNBPhKhxm4vESozVljTbrI0+OGJjQJhaWBn9+aclmA=="
+            },
+            "valid":true
+        };
+        IAP.onProductOwned(debugTransactionAndroid);
+        return true;
+    }
+    */
+
+    IAP.inappPurchaseCalled = true;
+    
+    // execute createUser if data is already available
+    if (IAP.lastCreateUserProduct && IAP.lastCreateUserToken) {
+        IAP.createUser(IAP.lastCreateUserProduct, IAP.lastCreateUserToken);
+        
+        // no need to call refresh again
+        return true;
+    }
+    
+    IAP.doRefresh();
+    window.store.order(IAP.id);
+    return true;
+};
+
+
+stargatePublic.inAppRestore = function(callbackSuccess, callbackError, subscriptionUrl, returnUrl) {
+
+    if (!isStargateInitialized) {
+        return callbackError("Stargate not initialized, call Stargate.initialize first!");
+    }
+    if (!isStargateOpen) {
+        return callbackError("Stargate closed, wait for Stargate.initialize to complete!");
+    }
+
+    // no set busy needed for restore as it's usually fast and 
+    //  we cannot intercept error result, so the loader remain visible
+
+    if (typeof subscriptionUrl !==  'undefined'){
+        IAP.subscribeMethod = subscriptionUrl;
+    }
+    if (typeof returnUrl !==  'undefined'){
+        IAP.returnUrl = returnUrl;
+    }
+    
+    IAP.callbackSuccess = callbackSuccess;
+    IAP.callbackError = callbackError;
+    IAP.inappPurchaseCalled = true;
+    
+    IAP.doRefresh(true);
+};
+
+/**
+ * Return information about a product got from store
+ * 
+ * @param {object} options - options object
+ * @param {string} [options.productId=IAP.id] - product id about to query for information on store
+ * @param {string} options.subscriptionUrl - api endpoint that will be called when IAP is completed @see createUser method
+ * @param {function} options.callbackListingSuccess=function(){} - a function that will be called when information are ready
+ * @param {function} options.callbackPurchaseSuccess=function(){} - a function that will be called when createUser complete (if the product is already owned)
+ * @param {function} options.callbackError=function(){} - a function that will be called if an error occur 
+ * 
+ * @returns {boolean} - request result: true OK, false KO
+ * */
+stargatePublic.inAppProductInfo = function(options) {
+
+    if (! options.productId) {
+        options.productId = IAP.id;
+    }
+    
+    if (typeof(options.callbackListingSuccess) !== "function") {
+        options.callbackListingSuccess = function() {};
+    }
+    if (typeof(options.callbackPurchaseSuccess) !== "function") {
+        options.callbackPurchaseSuccess = function() {};
+    }
+    if (typeof(options.callbackError) !== "function") {
+        options.callbackError = function() {};
+    }
+    if (!options.subscriptionUrl) {
+        err("[IAP] inAppProductInfo(): options.subscriptionUrl invalid");
+        return false;
+    }
+    
+    if (!isStargateInitialized) {
+        options.callbackError("Stargate not initialized, call Stargate.initialize first!");
+        return false;
+    }
+    if (!isStargateOpen) {
+        options.callbackError("Stargate closed, wait for Stargate.initialize to complete!");
+        return false;
+    }
+    
+    IAP.subscribeMethod = options.subscriptionUrl;
+    
+    IAP.requestedListingProductId = options.productId;
+    IAP.callbackListingSuccess = options.callbackListingSuccess;
+    IAP.callbackPurchaseSuccess = options.callbackPurchaseSuccess;
+    IAP.callbackListingError = options.callbackError;
+    IAP.inappProductInfoCalled = true;
+
+    // execute callback for product information if data is already available 
+    if (IAP.productsInfo[options.productId]) {
+        try {
+            IAP.callbackListingSuccess(IAP.productsInfo[options.productId]);
+        }
+        catch (error) {
+            err("[IAP] inAppProductInfo(): error on callbackListingSuccess!");
+        }
+    }
+    
+    // execute createUser if data is already available
+    if (IAP.lastCreateUserProduct && IAP.lastCreateUserToken) {
+        IAP.createUser(IAP.lastCreateUserProduct, IAP.lastCreateUserToken);
+        
+        // no need to call refresh again
+        return true;
+    }
+    
+    // call refresh then, when store will call stargate, we will call client callbacks
+    IAP.doRefresh(true);    
+    return true;    
+};
+
+var iaplight = (function(){
+    
+	var protectedInterface = {};
+
+    protectedInterface.initialize = function() {
+        return true;
+    };
+
+    return protectedInterface;
+})();
+
 var IAP = {
 
 	id: '',
@@ -8484,171 +8666,83 @@ var IAP = {
 };
 
 
-
-stargatePublic.inAppPurchaseSubscription = function(callbackSuccess, callbackError, subscriptionUrl, returnUrl) {
-
-    if (!isStargateInitialized) {
-        callbackError("Stargate not initialized, call Stargate.initialize first!");
-        return false;
-    }
-    if (!isStargateOpen) {
-        callbackError("Stargate closed, wait for Stargate.initialize to complete!");
-        return false;
-    }
+var globalization = (function(){
     
-    setBusy(true);
+	var protectedInterface = {};
 
-    if (typeof returnUrl !==  'undefined'){
-        IAP.returnUrl = returnUrl;
-    }
-    if (typeof subscriptionUrl !==  'undefined'){
-        IAP.subscribeMethod = subscriptionUrl;
-    }
-    
-    IAP.callbackSuccess = callbackSuccess;
-    IAP.callbackError = callbackError;
-    
-    /*
-    if (isRunningOnAndroid() && appIsDebug) {
-        var debugTransactionAndroid = {
-            "id":IAP.id,
-            "alias":"Stargate Debug IAP Mock",
-            "type":"paid subscription",
-            "state":"owned",
-            "title":"Stargate Debug IAP Mock subscription",
-            "description":"Stargate Debug IAP Mock subscription",
-            "price":"€2.00",
-            "currency":"EUR",
-            "loaded":true,
-            "canPurchase":false,
-            "owned":true,
-            "downloading":false,
-            "downloaded":false,
-            "transaction":{
-                "type":"android-playstore",
-                "purchaseToken":"dgdecoeeoodhalncipabhmnn.AO-J1OwM_emD6KWnZBjTCG2nTF5XWvuHzLCOBPIBj9liMlqzftcDamRFnUvEasQ1neEGK7KIxlPKMV2W09T4qAVZhw_aGbPylo-5a8HVYvJGacoj9vXbvKhb495IMIq8fmywk8-Q7H5jL_0lbfSt9SMVM5V6k3Ttew",
-                "receipt":"{\"packageName\":\"stargate.test.package.id\",\"productId\":\"stargate.mock.subscription.weekly\",\"purchaseTime\":1460126549804,\"purchaseState\":0,\"purchaseToken\":\"dgdecoeeoodhalncipabhmnn.AO-J1OwM_emD6KWnZBjTCG2nTF5XWvuHzLCOBPIBj9liMlqzftcDamRFnUvEasQ1neEGK7KIxlPKMV2W09T4qAVZhw_aGbPylo-5a8HVYvJGacoj9vXbvKhb495IMIq8fmywk8-Q7H5jL_0lbfSt9SMVM5V6k3Ttew\",\"autoRenewing\":false}","signature":"UciGXv48EMVdUXICxoy+hBWTiKbn4VABteQeIUVlFG0GmJ/9p/k372RhPyprqve7tnwhk+vpZYos5Fwvm/SrYjsqKMMFgTzotrePwJ9spq2hzmjhkqNTKkxdcgiuaCp8Vt7vVH9yjCtSKWwdS1UBlZLPaJunA4D2KE8TP/qYnwgZTOCBvSf3rUbEzmwRuRbYqndNyoMfIXvRP71TDBsMcHM/3UrDYEf2k2/SJKnctcGmvU2/BW/WG96T9FuiJPpotax7iQmBdN5PmfuxlZiZiUyj9mFEgzPEIAMP2HCcdX2KlNBPhKhxm4vESozVljTbrI0+OGJjQJhaWBn9+aclmA=="
-            },
-            "valid":true
-        };
-        IAP.onProductOwned(debugTransactionAndroid);
-        return true;
-    }
-    */
+    var preferredLanguage = {};
+    var localeName = {};
 
-    IAP.inappPurchaseCalled = true;
-    
-    // execute createUser if data is already available
-    if (IAP.lastCreateUserProduct && IAP.lastCreateUserToken) {
-        IAP.createUser(IAP.lastCreateUserProduct, IAP.lastCreateUserToken);
-        
-        // no need to call refresh again
-        return true;
-    }
-    
-    IAP.doRefresh();
-    window.store.order(IAP.id);
-    return true;
-};
+    var initFinished = false;
 
-
-stargatePublic.inAppRestore = function(callbackSuccess, callbackError, subscriptionUrl, returnUrl) {
-
-    if (!isStargateInitialized) {
-        return callbackError("Stargate not initialized, call Stargate.initialize first!");
-    }
-    if (!isStargateOpen) {
-        return callbackError("Stargate closed, wait for Stargate.initialize to complete!");
-    }
-
-    // no set busy needed for restore as it's usually fast and 
-    //  we cannot intercept error result, so the loader remain visible
-
-    if (typeof subscriptionUrl !==  'undefined'){
-        IAP.subscribeMethod = subscriptionUrl;
-    }
-    if (typeof returnUrl !==  'undefined'){
-        IAP.returnUrl = returnUrl;
-    }
-    
-    IAP.callbackSuccess = callbackSuccess;
-    IAP.callbackError = callbackError;
-    IAP.inappPurchaseCalled = true;
-    
-    IAP.doRefresh(true);
-};
-
-/**
- * Return information about a product got from store
- * 
- * @param {object} options - options object
- * @param {string} [options.productId=IAP.id] - product id about to query for information on store
- * @param {string} options.subscriptionUrl - api endpoint that will be called when IAP is completed @see createUser method
- * @param {function} options.callbackListingSuccess=function(){} - a function that will be called when information are ready
- * @param {function} options.callbackPurchaseSuccess=function(){} - a function that will be called when createUser complete (if the product is already owned)
- * @param {function} options.callbackError=function(){} - a function that will be called if an error occur 
- * 
- * @returns {boolean} - request result: true OK, false KO
- * */
-stargatePublic.inAppProductInfo = function(options) {
-
-    if (! options.productId) {
-        options.productId = IAP.id;
-    }
-    
-    if (typeof(options.callbackListingSuccess) !== "function") {
-        options.callbackListingSuccess = function() {};
-    }
-    if (typeof(options.callbackPurchaseSuccess) !== "function") {
-        options.callbackPurchaseSuccess = function() {};
-    }
-    if (typeof(options.callbackError) !== "function") {
-        options.callbackError = function() {};
-    }
-    if (!options.subscriptionUrl) {
-        err("[IAP] inAppProductInfo(): options.subscriptionUrl invalid");
-        return false;
-    }
-    
-    if (!isStargateInitialized) {
-        options.callbackError("Stargate not initialized, call Stargate.initialize first!");
-        return false;
-    }
-    if (!isStargateOpen) {
-        options.callbackError("Stargate closed, wait for Stargate.initialize to complete!");
-        return false;
-    }
-    
-    IAP.subscribeMethod = options.subscriptionUrl;
-    
-    IAP.requestedListingProductId = options.productId;
-    IAP.callbackListingSuccess = options.callbackListingSuccess;
-    IAP.callbackPurchaseSuccess = options.callbackPurchaseSuccess;
-    IAP.callbackListingError = options.callbackError;
-    IAP.inappProductInfoCalled = true;
-
-    // execute callback for product information if data is already available 
-    if (IAP.productsInfo[options.productId]) {
-        try {
-            IAP.callbackListingSuccess(IAP.productsInfo[options.productId]);
+    protectedInterface.initialize = function() {
+        if (typeof window.navigator !== "object" || typeof window.navigator.globalization !== "object") {
+            err("[globalization] missing cordova plugin!");
+            return false;
         }
-        catch (error) {
-            err("[IAP] inAppProductInfo(): error on callbackListingSuccess!");
+
+        var prefLangPromise = new Promise(function(resolve){
+            navigator.globalization.getPreferredLanguage(
+                function(props) {
+                    if (typeof props !== "object") {
+                        err("[globalization] initialize getPreferredLanguage result error: invalid type", props);
+                        resolve({"error":"invalid type"});
+                        return;
+                    }
+                    log("[globalization] initialize getPreferredLanguage result ok: ", props);
+                    preferredLanguage = props;
+                    resolve(props);
+                },
+                function(error) {
+                    err("[globalization] initialize getPreferredLanguage result error: ", error);
+                    resolve({"error":error});
+                }
+            );
+        }); // end prefLangPromise
+
+        var locaNamePromise = new Promise(function(resolve){
+            navigator.globalization.getLocaleName(
+                function(props) {
+                    if (typeof props !== "object") {
+                        err("[globalization] initialize getLocaleName result error: invalid type", props);
+                        resolve({"error":"invalid type"});
+                        return;
+                    }
+                    log("[globalization] initialize getLocaleName result ok: ", props);
+                    localeName = props;
+                    resolve(props);
+                },
+                function(error) {
+                    err("[globalization] initialize getLocaleName result error: ", error);
+                    resolve({"error":error});
+                }
+            );
+        }); // end locaNamePromise
+
+
+        return Promise.all([prefLangPromise, locaNamePromise]).then(function(results){
+            initFinished = true;
+            return results;
+        });
+    };
+
+    protectedInterface.getPreferredLanguage = function() {
+        if (!initFinished) {
+            err("[globalization] getPreferredLanguage: not initialized!");
+            return false;
         }
-    }
-    
-    // execute createUser if data is already available
-    if (IAP.lastCreateUserProduct && IAP.lastCreateUserToken) {
-        IAP.createUser(IAP.lastCreateUserProduct, IAP.lastCreateUserToken);
-        
-        // no need to call refresh again
-        return true;
-    }
-    
-    // call refresh then, when store will call stargate, we will call client callbacks
-    IAP.doRefresh(true);    
-    return true;    
-};
+        return preferredLanguage;
+    };
+    protectedInterface.getLocaleName = function() {
+        if (!initFinished) {
+            err("[globalization] getLocaleName: not initialized!");
+            return false;
+        }
+        return localeName;
+    };
+
+    return protectedInterface;
+})();
 
 /* global facebookConnectPlugin */
 
