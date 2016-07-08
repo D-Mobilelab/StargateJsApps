@@ -73,7 +73,11 @@ var iaplight = (function(){
         if (!window.inAppPurchase) {
             return Promise.reject("inAppPurchase not available, missing cordova plugin.");
         }
-		
+
+        if (initPromise !== null) {
+            return initPromise;
+        }
+
         if (initializeConf.productsIdAndroid || initializeConf.productsIdIos) {
             if (isRunningOnAndroid()) {
                 productsId = initializeConf.productsIdAndroid;
@@ -175,7 +179,7 @@ var iaplight = (function(){
                             var lastExp = new Date(lastPurchase.subscriptionExpirationDate);
                             var currExp = new Date(inAppPurchase.subscriptionExpirationDate);
 
-                            if (lastExp > currExp) {
+                            if (lastExp < currExp) {
                                 lastPurchase = inAppPurchase;
                                 return;
                             }
@@ -243,9 +247,14 @@ var iaplight = (function(){
     };
 
     protectedInterface.public = {
+        "initialize": checkDecorator(protectedInterface.initialize),
         "getProductInfo": checkDecorator(protectedInterface.getProductInfo),
         "subscribe": checkDecorator(protectedInterface.subscribe),
         "getExpireDate": checkDecorator(protectedInterface.getExpireDate)
+    };
+
+    protectedInterface.__clean__ = function() {
+        initPromise = null;
     };
 
     return protectedInterface;
