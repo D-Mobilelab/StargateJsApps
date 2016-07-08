@@ -409,6 +409,8 @@ var IAP = {
         // start first attempt
         createUserAjaxCall();
         
-	}
+	},
+
+    
 };
 

@@ -149,6 +149,27 @@ var appPackageName = '';
  */
 var appIsDebug = false;
 
+/**
+ * InApp Purchase module type:
+ *  1 => use cordova plugin https://github.com/j3k0/cordova-plugin-purchase
+ *  2 => use cordova plugin https://github.com/AlexDisler/cordova-plugin-inapppurchase
+ */
+var stargateIapType = 0;
+
+var STARGATEIAPTYPES = {
+    /**
+     * use cordova plugin https://github.com/j3k0/cordova-plugin-purchase
+     */
+    "full": 1,
+
+    /**
+     * use cordova plugin https://github.com/AlexDisler/cordova-plugin-inapppurchase
+     */
+    "light": 2,
+    
+    1: "full",
+    2: "light"
+};
 
 /**
  * 
@@ -285,7 +306,8 @@ var onPluginReady = function (resolve) {
         IAP.initialize(
             getModuleConf("iapbase")
         );
-        
+        stargateIapType = STARGATEIAPTYPES.full;
+
     } else if (haveRequestedFeature("iap")) {
         // if initialize ok...
         if ( IAP.initialize( getModuleConf("iap") ) ) {
@@ -294,6 +316,15 @@ var onPluginReady = function (resolve) {
             //IAP.doRefresh();
             log("Init IAP done.");
         }
+        stargateIapType = STARGATEIAPTYPES.full;
+        
+    } else if (haveRequestedFeature("iaplight")) {
+        // iap new implementation
+        // (we don't need to wait for promis to fullfill)
+        iaplight.initialize(
+            getModuleConf("iaplight")
+        );
+        stargateIapType = STARGATEIAPTYPES.light;
     }
 
     // receive appsflyer conversion data event
@@ -322,7 +353,7 @@ var onPluginReady = function (resolve) {
             )
         );
     }
-        
+
     if (haveRequestedFeature("adv") && stargateModules.AdManager) {
         // save initialization promise, to wait for
         modulePromises.push(
