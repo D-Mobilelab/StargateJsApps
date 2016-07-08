@@ -192,9 +192,23 @@ var iaplight = (function(){
             .then(function(lastPurchase) {
                 // return expiration date
 
+                if (!lastPurchase.subscriptionExpirationDate) {
+                    return null;
+                }
                 log("[IAPlight] getExpireDate lastPurchase ok", lastPurchase);
 
-                return new Date(lastPurchase.subscriptionExpirationDate);
+                var dt = new Date(lastPurchase.subscriptionExpirationDate);
+                if ( Object.prototype.toString.call(dt) === "[object Date]" ) {
+                    // it is a date
+                    if ( isNaN( dt.getTime() ) ) {
+                        return null;
+                    }
+                }
+                else {
+                    err("[IAPlight] getReceiptBundle invalid date: "+lastPurchase.subscriptionExpirationDate+" Date.toString:"+dt);
+                    return null;
+                }
+                return dt;
             })
             .catch(function(error){
                 err("[IAPlight] getReceiptBundle KO: "+error, error);
