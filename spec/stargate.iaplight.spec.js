@@ -41,6 +41,22 @@ var iaplightSubscribeResult = {
 "transactionId":"1000000221696692",
 "receipt":"MXXXX"
 };
+var iaplightRestoreResult = [
+    {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-05T10:27:21Z","transactionId":"1000000222595453","state":3},
+    {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-05T10:21:21Z","transactionId":"1000000222595454","state":3},
+    {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-08T11:04:50Z","transactionId":"1000000222595455","state":3},
+    {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-08T10:58:50Z","transactionId":"1000000222595456","state":3},
+    {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-08T11:01:50Z","transactionId":"1000000222595457","state":3},
+    {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-08T12:59:06Z","transactionId":"1000000222595458","state":3},
+    {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-05T10:30:21Z","transactionId":"1000000222595459","state":3},
+    {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-08T12:49:07Z","transactionId":"1000000222595460","state":3},
+    {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-08T11:07:50Z","transactionId":"1000000222595461","state":3},
+    {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-05T10:15:21Z","transactionId":"1000000222595462","state":3},
+    {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-05T10:18:21Z","transactionId":"1000000222595463","state":3},
+    {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-08T10:55:50Z","transactionId":"1000000222595464","state":3},
+    {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-05T10:24:21Z","transactionId":"1000000222595465","state":3},
+    {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-08T11:10:50Z","transactionId":"1000000222595466","state":3}
+];
 
 describe("Stargate IAP Light", function() {
     
@@ -93,6 +109,11 @@ describe("Stargate IAP Light", function() {
                     resolve(res);
                 });
             },
+            restorePurchases: function(productId) {
+                return new Promise(function(resolve,reject){
+                    resolve(iaplightRestoreResult);
+                });
+            },
             subscribe: function(productId) {
                 return new Promise(function(resolve,reject){
                     resolve(iaplightSubscribeResult);
@@ -143,6 +164,15 @@ describe("Stargate IAP Light", function() {
 		});
 	});
 
+    it("restore require initialization", function(done) {
+        var res = stargatePublic.iaplight.restore("com.myproduct");
+        expect(res.then).toBeDefined();
+		res.catch(function(message) {
+            expect(message).toMatch(/not initialized/);
+		    done();
+		});
+	});
+
     it("getProductInfo require opened stargate", function(done) {
         isStargateInitialized = true;
         var res = stargatePublic.iaplight.getProductInfo("com.myproduct");
@@ -166,6 +196,16 @@ describe("Stargate IAP Light", function() {
 	it("getExpireDate require opened stargate", function(done) {
         isStargateInitialized = true;
         var res = stargatePublic.iaplight.getExpireDate("com.myproduct");
+        expect(res.then).toBeDefined();
+		res.catch(function(message) {
+            expect(message).toMatch(/Stargate closed/);
+		    done();
+		});
+	});
+
+    it("restore require opened stargate", function(done) {
+        isStargateInitialized = true;
+        var res = stargatePublic.iaplight.restore();
         expect(res.then).toBeDefined();
 		res.catch(function(message) {
             expect(message).toMatch(/Stargate closed/);
@@ -199,6 +239,17 @@ describe("Stargate IAP Light", function() {
         isStargateInitialized = true;
         isStargateOpen = true;
         var res = stargatePublic.iaplight.getExpireDate("com.myproduct");
+        expect(res.then).toBeDefined();
+		res.catch(function(message) {
+            expect(message).toMatch(/Not initialized/);
+		    done();
+		});
+	});
+
+    it("restore require module init", function(done) {
+        isStargateInitialized = true;
+        isStargateOpen = true;
+        var res = stargatePublic.iaplight.restore();
         expect(res.then).toBeDefined();
 		res.catch(function(message) {
             expect(message).toMatch(/Not initialized/);
@@ -444,6 +495,41 @@ describe("Stargate IAP Light", function() {
 		res.then(function(result) {
 			//console.log("stargatePublic.socialShare catch: "+result);
             expect(result).toEqual(iaplightSubscribeResult);
+            done();
+		});
+	});
+
+    it("iaplight restore", function(done) {
+		
+        isStargateInitialized = true;
+        isStargateOpen = true;
+        runningDevice.platform = "Android";
+
+        var init = iaplight.initialize({
+            productsIdAndroid: [iaplightProduct1.productId, iaplightProduct2.productId],
+            productsIdIos: [iaplightProduct1.productId, iaplightProduct2.productId],
+        });
+        init.catch(function(message) {
+			console.log("iaplight.init catch: "+message);
+            expect(message).not.toBeDefined();
+		    done();
+		});
+
+        expect(init.then).toBeDefined();
+
+		var res = stargatePublic.iaplight.restore();
+        
+        expect(res.then).toBeDefined();
+        
+		res.catch(function(message) {
+			console.log("stargatePublic.iaplight.getProductInfo catch: "+message);
+            expect(message).not.toBeDefined();
+		    done();
+		});
+		
+		res.then(function(result) {
+			//console.log("stargatePublic.socialShare catch: "+result);
+            expect(result).toEqual(iaplightRestoreResult);
             done();
 		});
 	});

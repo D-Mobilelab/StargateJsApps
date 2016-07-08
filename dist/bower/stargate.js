@@ -4518,6 +4518,57 @@ var iaplight = (function(){
         return initPromise.then(receiptFunc);
     };
 
+    protectedInterface.restore = function() {
+        
+        if (initPromise === null) {
+            return Promise.reject("Not initialized");
+        }
+
+        var restoreFunc = function() {
+            return window.inAppPurchase.restorePurchases()
+            .then(function(resultRestore){
+                // resolves to an array of objects with the following attributes:
+                //   productId
+                //   state - the state of the product. On Android the statuses are: 0 - ACTIVE, 1 - CANCELLED, 2 - REFUNDED
+                //   transactionId
+                //   date - timestamp of the purchase
+                //   productType - On Android it can be used to consume a purchase. On iOS it will be an empty string.
+                //   receipt - On Android it can be used to consume a purchase. On iOS it will be an empty string.
+                //   signature - On Android it can be used to consume a purchase. On iOS it will be an empty string.
+
+
+                log("[IAPlight] restore restorePurchases ok", resultRestore);
+
+                /* resultRestore: [
+                        {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-05T10:27:21Z","transactionId":"1000000222595453","state":3},
+                        {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-05T10:21:21Z","transactionId":"1000000222595454","state":3},
+                        {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-08T11:04:50Z","transactionId":"1000000222595455","state":3},
+                        {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-08T10:58:50Z","transactionId":"1000000222595456","state":3},
+                        {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-08T11:01:50Z","transactionId":"1000000222595457","state":3},
+                        {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-08T12:59:06Z","transactionId":"1000000222595458","state":3},
+                        {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-05T10:30:21Z","transactionId":"1000000222595459","state":3},
+                        {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-08T12:49:07Z","transactionId":"1000000222595460","state":3},
+                        {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-08T11:07:50Z","transactionId":"1000000222595461","state":3},
+                        {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-05T10:15:21Z","transactionId":"1000000222595462","state":3},
+                        {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-05T10:18:21Z","transactionId":"1000000222595463","state":3},
+                        {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-08T10:55:50Z","transactionId":"1000000222595464","state":3},
+                        {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-05T10:24:21Z","transactionId":"1000000222595465","state":3},
+                        {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-08T11:10:50Z","transactionId":"1000000222595466","state":3}
+                    ]
+                */
+
+                return resultRestore;
+            })
+            .catch(function(error){
+                err("[IAPlight] restore restorePurchases KO: "+error, error);
+                //throw err;
+            });
+        };
+
+        // wait for initPromise if it didn't complete
+        return initPromise.then(restoreFunc);
+    };
+
     protectedInterface.getProductInfo = function(productId) {
         
         if (initPromise === null) {
@@ -4560,6 +4611,7 @@ var iaplight = (function(){
 
     protectedInterface.public = {
         "initialize": checkDecorator(protectedInterface.initialize),
+        "restore": checkDecorator(protectedInterface.restore),
         "getProductInfo": checkDecorator(protectedInterface.getProductInfo),
         "subscribe": checkDecorator(protectedInterface.subscribe),
         "getExpireDate": checkDecorator(protectedInterface.getExpireDate)
