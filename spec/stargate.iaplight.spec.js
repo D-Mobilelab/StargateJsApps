@@ -23,6 +23,17 @@ var iaplightReceiptBundle = {
         "originalTransactionIdentifier":"123412341234",
         "webOrderLineItemID":-1497665198,
         "cancellationDate":null
+    },
+    {
+        "transactionIdentifier":"123412341256",
+        "quantity":1,
+        "purchaseDate":"2016-07-03T10:15:21Z",
+        "productId":"com.mycompany.myapp.weekly.v1",
+        "originalPurchaseDate":"2016-07-03T10:15:22Z",
+        "subscriptionExpirationDate":"2016-07-03T10:18:21Z",
+        "originalTransactionIdentifier":"123412341256",
+        "webOrderLineItemID":-1497665195,
+        "cancellationDate":null
     } ],
     "bundleIdentifier": "com.mycompany.myapp"
 };
@@ -31,7 +42,7 @@ var iaplightSubscribeResult = {
 "receipt":"MXXXX"
 };
 
-fdescribe("Stargate IAP Light", function() {
+describe("Stargate IAP Light", function() {
     
     beforeEach(function() {
 		hybrid_conf = null;
@@ -71,7 +82,15 @@ fdescribe("Stargate IAP Light", function() {
         window.inAppPurchase = {
             getProducts: function(productsId) {
                 return new Promise(function(resolve,reject){
-                    resolve([iaplightProduct1, iaplightProduct2]);
+                    var res = [];
+                    productsId.forEach(function(pidParam){
+                        if (pidParam === iaplightProduct1.productId) {
+                            res.push(iaplightProduct1);
+                        } else if (pidParam === iaplightProduct2.productId) {
+                            res.push(iaplightProduct2);
+                        }
+                    });
+                    resolve(res);
                 });
             },
             subscribe: function(productId) {
@@ -85,6 +104,8 @@ fdescribe("Stargate IAP Light", function() {
                 });
             }
         };
+
+        iaplight.__clean__();
     });
     
 	it("isInitialized is false", function() {
@@ -185,6 +206,127 @@ fdescribe("Stargate IAP Light", function() {
 		});
 	});
     
+    it("initialize require cordova plugin", function(done) {
+		
+        isStargateInitialized = true;
+        isStargateOpen = true;
+        runningDevice.platform = "Android";
+
+        window.inAppPurchase = null;
+
+        var init = iaplight.initialize({
+            productsIdAndroid: [iaplightProduct1.productId, iaplightProduct2.productId],
+            productsIdIos: [iaplightProduct1.productId, iaplightProduct2.productId],
+        });
+        expect(init.then).toBeDefined();
+        init.catch(function(message) {
+			//console.log("iaplight.init catch: "+message);
+            expect(message).toMatch(/missing cordova plugin/);
+		    done();
+		});
+	});
+
+    it("initialize check parameters", function(done) {
+		
+        isStargateInitialized = true;
+        isStargateOpen = true;
+        runningDevice.platform = "Android";
+
+        var init = iaplight.initialize({
+            //productsIdAndroid: [iaplightProduct1.productId, iaplightProduct2.productId],
+            productsIdIos: [iaplightProduct1.productId, iaplightProduct2.productId],
+        });
+        expect(init.then).toBeDefined();
+        init.catch(function(message) {
+			//console.log("iaplight.init catch: "+message);
+            expect(message).toMatch(/missing parameter productsId/);
+		    done();
+		});
+	});
+    it("initialize check parameters is array", function(done) {
+		
+        isStargateInitialized = true;
+        isStargateOpen = true;
+        runningDevice.platform = "Android";
+
+        var init = iaplight.initialize({
+            productsIdAndroid: "aaaaa",
+            productsIdIos: [iaplightProduct1.productId, iaplightProduct2.productId],
+        });
+        expect(init.then).toBeDefined();
+        init.catch(function(message) {
+			//console.log("iaplight.init catch: "+message);
+            expect(message).toMatch(/must be an array/);
+		    done();
+		});
+	});
+    it("initialize check parameters is array lenght", function(done) {
+		
+        isStargateInitialized = true;
+        isStargateOpen = true;
+        runningDevice.platform = "Android";
+
+        var init = iaplight.initialize({
+            productsIdAndroid: []
+        });
+        expect(init.then).toBeDefined();
+        init.catch(function(message) {
+			//console.log("iaplight.init catch: "+message);
+            expect(message).toMatch(/must contains at least a productid/);
+		    done();
+		});
+	});
+
+    it("initialize return same promise as before", function(done) {
+		
+        isStargateInitialized = true;
+        isStargateOpen = true;
+        runningDevice.platform = "Android";
+
+        var init = iaplight.initialize({
+            productsIdAndroid: [iaplightProduct1.productId, iaplightProduct2.productId],
+            productsIdIos: [iaplightProduct1.productId, iaplightProduct2.productId],
+        });
+        expect(init.then).toBeDefined();
+        init.catch(function(message) {
+			//console.log("iaplight.init catch: "+message);
+            expect(message).not.toBeDefined();
+		    done();
+		});
+        init.then(function(result) {
+            var init2 = iaplight.initialize({
+                productsIdAndroid: [iaplightProduct1.productId, iaplightProduct2.productId],
+                productsIdIos: [iaplightProduct1.productId, iaplightProduct2.productId],
+            });
+            expect(init2).toBe(init);
+            done();
+		});
+	});
+
+    it("initialize ios", function(done) {
+		
+        isStargateInitialized = true;
+        isStargateOpen = true;
+        runningDevice.platform = "iOS";
+        
+        var init = iaplight.initialize({
+            productsIdAndroid: [iaplightProduct1.productId],
+            productsIdIos: [iaplightProduct2.productId],
+        });
+        expect(init.then).toBeDefined();
+        init.catch(function(message) {
+			//console.log("iaplight.init catch: "+message);
+            expect(message).not.toBeDefined();
+		    done();
+		});
+        init.then(function(result) {
+			//console.log("iaplightReceiptBundle.inAppPurchases[0].subscriptionExpirationDate: "+iaplightReceiptBundle.inAppPurchases[0].subscriptionExpirationDate);
+            //console.log("result: "+result);
+            expect(result).toEqual([iaplightProduct2]);
+            done();
+		});
+	});
+
     it("iaplight getExpireDate", function(done) {
 		
         isStargateInitialized = true;
