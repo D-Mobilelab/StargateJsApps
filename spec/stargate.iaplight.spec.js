@@ -10,9 +10,28 @@ var iaplightProduct2 = {
     "description": "Premium montly subscription to my beatiful product",
     "price": "€3,99"
 };
+var iaplightReceiptBundle = {
+    "originalAppVersion": "1.0",
+    "appVersion": "0.1.0",
+    "inAppPurchases": [ {
+        "transactionIdentifier":"123412341234",
+        "quantity":1,
+        "purchaseDate":"2016-07-05T10:15:21Z",
+        "productId":"com.mycompany.myapp.weekly.v1",
+        "originalPurchaseDate":"2016-07-05T10:15:22Z",
+        "subscriptionExpirationDate":"2016-07-05T10:18:21Z",
+        "originalTransactionIdentifier":"123412341234",
+        "webOrderLineItemID":-1497665198,
+        "cancellationDate":null
+    } ],
+    "bundleIdentifier": "com.mycompany.myapp"
+};
+var iaplightSubscribeResult = {
+"transactionId":"1000000221696692",
+"receipt":"MXXXX"
+};
 
-
-describe("Stargate IAP Light", function() {
+fdescribe("Stargate IAP Light", function() {
     
     beforeEach(function() {
 		hybrid_conf = null;
@@ -57,12 +76,12 @@ describe("Stargate IAP Light", function() {
             },
             subscribe: function(productId) {
                 return new Promise(function(resolve,reject){
-                    resolve();
+                    resolve(iaplightSubscribeResult);
                 });
             },
             getReceiptBundle: function() {
                 return new Promise(function(resolve,reject){
-                    resolve();
+                    resolve(iaplightReceiptBundle);
                 });
             }
         };
@@ -132,7 +151,76 @@ describe("Stargate IAP Light", function() {
 		    done();
 		});
 	});
+
+    it("getProductInfo require module init", function(done) {
+        isStargateInitialized = true;
+        isStargateOpen = true;
+        var res = stargatePublic.iaplight.getProductInfo("com.myproduct");
+        expect(res.then).toBeDefined();
+		res.catch(function(message) {
+            expect(message).toMatch(/Not initialized/);
+		    done();
+		});
+	});
+
+	it("subscribe require module init", function(done) {
+        isStargateInitialized = true;
+        isStargateOpen = true;
+        var res = stargatePublic.iaplight.subscribe("com.myproduct");
+        expect(res.then).toBeDefined();
+		res.catch(function(message) {
+            expect(message).toMatch(/Not initialized/);
+		    done();
+		});
+	});
+
+	it("getExpireDate require module init", function(done) {
+        isStargateInitialized = true;
+        isStargateOpen = true;
+        var res = stargatePublic.iaplight.getExpireDate("com.myproduct");
+        expect(res.then).toBeDefined();
+		res.catch(function(message) {
+            expect(message).toMatch(/Not initialized/);
+		    done();
+		});
+	});
     
+    it("iaplight getExpireDate", function(done) {
+		
+        isStargateInitialized = true;
+        isStargateOpen = true;
+        runningDevice.platform = "Android";
+
+        var init = iaplight.initialize({
+            productsIdAndroid: [iaplightProduct1.productId, iaplightProduct2.productId],
+            productsIdIos: [iaplightProduct1.productId, iaplightProduct2.productId],
+        });
+        init.catch(function(message) {
+			console.log("iaplight.init catch: "+message);
+            expect(message).not.toBeDefined();
+		    done();
+		});
+
+        expect(init.then).toBeDefined();
+
+		var res = stargatePublic.iaplight.getExpireDate(iaplightReceiptBundle.inAppPurchases[0].productId);
+        
+        expect(res.then).toBeDefined();
+        
+		res.catch(function(message) {
+			console.log("stargatePublic.iaplight.getProductInfo catch: "+message);
+            expect(message).not.toBeDefined();
+		    done();
+		});
+		
+		res.then(function(result) {
+			//console.log("iaplightReceiptBundle.inAppPurchases[0].subscriptionExpirationDate: "+iaplightReceiptBundle.inAppPurchases[0].subscriptionExpirationDate);
+            //console.log("result: "+result);
+            expect(result).toEqual(new Date(iaplightReceiptBundle.inAppPurchases[0].subscriptionExpirationDate))
+            done();
+		});
+	});
+
     it("iaplight getProductInfo", function(done) {
 		
         isStargateInitialized = true;
@@ -180,6 +268,41 @@ describe("Stargate IAP Light", function() {
 			//console.log("stargatePublic.socialShare catch: "+result);
             expect(result).toEqual(iaplightProduct2)
 		    done();
+		});
+	});
+
+    it("iaplight subscribe", function(done) {
+		
+        isStargateInitialized = true;
+        isStargateOpen = true;
+        runningDevice.platform = "Android";
+
+        var init = iaplight.initialize({
+            productsIdAndroid: [iaplightProduct1.productId, iaplightProduct2.productId],
+            productsIdIos: [iaplightProduct1.productId, iaplightProduct2.productId],
+        });
+        init.catch(function(message) {
+			console.log("iaplight.init catch: "+message);
+            expect(message).not.toBeDefined();
+		    done();
+		});
+
+        expect(init.then).toBeDefined();
+
+		var res = stargatePublic.iaplight.subscribe(iaplightProduct1.productId);
+        
+        expect(res.then).toBeDefined();
+        
+		res.catch(function(message) {
+			console.log("stargatePublic.iaplight.getProductInfo catch: "+message);
+            expect(message).not.toBeDefined();
+		    done();
+		});
+		
+		res.then(function(result) {
+			//console.log("stargatePublic.socialShare catch: "+result);
+            expect(result).toEqual(iaplightSubscribeResult);
+            done();
 		});
 	});
 
