@@ -1,6 +1,6 @@
 {
   "name": "stargatejs-apps",
-  "version": "0.5.4",
+  "version": "0.5.5",
   "description": "StargateJS for HTML5 apps",
   "main": "dist/stargate.js",
   "scripts": {
