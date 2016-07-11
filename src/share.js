@@ -15,6 +15,19 @@ var share = (function(){
         });
         return options;
     };
+
+    var getSocialPackage = function(social) {
+        if (isRunningOnIos()) {
+            if (social === "facebook") {
+                return "com.apple.social.facebook";
+            }
+            if (social === "twitter") {
+                return "com.apple.social.twitter";
+            }
+        }
+
+        return social;
+    };
     
 	var shareWithChooser = function(requestedOptions, resolve, reject) {
         // this is the complete list of currently supported params you can pass to the plugin (all optional)
@@ -114,25 +127,27 @@ var share = (function(){
     
     shareProtected.canShareVia = function(via, url) {
         
+        var viaNative = getSocialPackage(via);
+
         return new Promise(function(resolve){
             
             // canShareVia: 
             //   via, message, subject, fileOrFileArray, url, successCallback, errorCallback
             window.plugins.socialsharing.canShareVia(
-                via,
+                viaNative,
                 null,
                 null,
                 null,
                 url,
                 function(e){
-                    log("[share] canShareVia "+via+" result true: ", e);
+                    log("[share] canShareVia "+via+" ("+viaNative+") result true: ", e);
                     resolve({
                         "network": via,
                         "available": true
                     });
                 },
                 function(e){
-                    log("[share] canShareVia "+via+" result false: ", e);
+                    log("[share] canShareVia "+via+" ("+viaNative+") result false: ", e);
                     resolve({
                         "network": via,
                         "available": false

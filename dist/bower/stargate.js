@@ -399,6 +399,44 @@
         return newObject;
     }
 
+    /**
+     * get the object type. date for date, array for array ecc
+     * 
+     * @param {*} obj - any type of object
+     * @returns {String} - the type of the obj. date for example or array etc
+     */
+    function getType(obj){
+        return ({}).toString.call(obj).match(/\s([a-z|A-Z]+)/)[1].toLowerCase();
+    }
+
+    /**
+     * A function to dequerify query string
+     *
+     * @alias module:src/modules/Utils.dequerify
+     * @example
+     * var url = "http://jsonplaceholder.typicode.com/comments?postId=1
+     * var obj = dequerify(url); //obj is {"postId":"1"} 
+     * @param {Strinq} param 
+     * @returns {Object} the object with key-value pairs
+     * */
+    function dequerify(param){
+        param = param.slice(0);
+        param = decodeURIComponent(param);
+        
+        var query = param.split("?")[1];
+        if(!query){return {};}
+        
+        var keyvalue = query.split("&");
+        
+        return keyvalue.reduce(function(newObj, keyvalue){
+            var splitted = keyvalue.split("=");
+            var key = splitted[0];
+            var value = splitted[1];
+            newObj[key] = value;
+            return newObj;        
+        }, {});
+    }
+
     var exp = {
         Iterator:Iterator,
         Logger:Logger,
@@ -406,7 +444,9 @@
         getJSON:getJSON,
         jsonpRequest:jsonpRequest,
         getImageRaw:getImageRaw,
-        extend:extend
+        extend:extend,
+        getType:getType,
+        dequerify:dequerify
     };
 
     if(stargateModules){
@@ -824,6 +864,19 @@
             });
     };
 
+    /**
+     * getMetadata from FileEntry or DirectoryEntry
+     * @param path {String} - the path string
+     * @returns {Promise<Object|FileError>}
+     */
+    File.getMetadata = function(path){
+        return File.resolveFS(path)
+                   .then(function(entry){
+                       return new Promise(function(resolve,reject){
+                            entry.getMetadata(resolve,reject);
+                       });                        
+                   });
+    };
 
     /**
      * __transform utils function
@@ -862,7 +915,7 @@
     "use strict";
 
     var Logger = Utils.Logger,
-        composeApiString = Utils.composeApiString,
+        querify = Utils.composeApiString,
         //Iterator = Utils.Iterator,
         //getJSON = Utils.getJSON,
         jsonpRequest = Utils.jsonpRequest,
@@ -1073,7 +1126,22 @@
         });
     }
 
+    /*function getRemoteMetadata(url){
+        return new Promise(function(resolve, reject){            
+            var xhr = new XMLHttpRequest();
+            xhr.open("HEAD", url, true);
+
+            xhr.addEventListener("loadend", function(endEvent){
+                resolve(xhr.getResponseHeader("Last-Modified"));
+            });
+            xhr.send(null);
+        });
+    }*/
+
     function getSDK(){
+        var now = new Date();
+        var sdkURLFresh = querify(CONF.sdk_url, {"v":now.getTime()});
+        var dixieURLFresh = querify(CONF.dixie_url, {"v":now.getTime(), "country":"xx-gameasy"});
 
         return Promise.all([
             fileModule.fileExists(constants.SDK_DIR + "dixie.js"),
@@ -1083,18 +1151,39 @@
                 isSdkDownloaded = results[1],
                 tasks = [];
             
-            var timestamp = String(Date.now());
-            var sdkURLFresh = composeApiString(CONF.sdk_url, {"v":timestamp});
-            var dixieURLFresh = composeApiString(CONF.dixie_url, {"v":timestamp,"country":"xx-gameasy"});
-            
-            // CHECKING VERSION? PLEASE DO IT :(
-            if(CONF.sdk_url !== ""){
-                LOG.d("isDixieDownloaded", isSdkDownloaded, "get SDK anyway", sdkURLFresh);
+            if(CONF.sdk_url !== "" && !isSdkDownloaded){
+                LOG.d("isSdkDownloaded", isSdkDownloaded, "get SDK", sdkURLFresh);
                 tasks.push(new fileModule.download(sdkURLFresh, constants.SDK_DIR, "gfsdk.min.js").promise);
             }
 
-            if(CONF.dixie_url !== ""){
-                LOG.d("isDixieDownloaded", isDixieDownloaded, "get dixie anyway", dixieURLFresh);
+            if(CONF.dixie_url !== "" && !isDixieDownloaded){
+                LOG.d("isDixieDownloaded", isDixieDownloaded, "get dixie", dixieURLFresh);
+                tasks.push(new fileModule.download(dixieURLFresh, constants.SDK_DIR, "dixie.js").promise);
+            }
+            
+            return Promise.all(tasks);
+        }).then(function getSdkMetaData(){
+            // Getting file meta data            
+            return Promise.all([
+                fileModule.getMetadata(constants.SDK_DIR + "dixie.js"),        
+                fileModule.getMetadata(constants.SDK_DIR + "gfsdk.min.js")
+            ]);
+        }).then(function checkSdkDate(results){
+            var sdkMetadata = results[0],
+                dixieMetadata = results[1], 
+                tasks = [];
+            
+            var lastSdkModification = new Date(sdkMetadata.modificationTime);
+            var lastDixieModification = new Date(dixieMetadata.modificationTime);
+            
+            // lastModification day < today then download it
+            if(lastSdkModification.getDate() < now.getDate()){
+                LOG.d("updating sdk", sdkURLFresh, lastSdkModification);
+                tasks.push(new fileModule.download(sdkURLFresh, constants.SDK_DIR, "gfsdk.min.js").promise);
+            }
+
+            if(lastDixieModification.getDate() < now.getDate()){
+                LOG.d("updating dixie", dixieURLFresh, lastDixieModification);
                 tasks.push(new fileModule.download(dixieURLFresh, constants.SDK_DIR, "dixie.js").promise);
             }
             return Promise.all(tasks);
@@ -1211,10 +1300,18 @@
                 .then(function(){
                     //GET COVER IMAGE FOR THE GAME!
                     LOG.d("Save meta.json for:", gameObject.id);
-                    var info = {
+                    /*var info = {
                         gameId:gameObject.id,
                         size:{width:"240",height:"170",ratio:"1_4"},
                         url:gameObject.images.cover.ratio_1_4,
+                        type:"cover",
+                        method:"xhr" //!important!
+                    };*/
+
+                    var info = {
+                        gameId:gameObject.id,
+                        size:{width:"500",height:"500",ratio:"1"},
+                        url:gameObject.images.cover.ratio_1,
                         type:"cover",
                         method:"xhr" //!important!
                     };
@@ -1222,7 +1319,7 @@
                     return downloadImage(info);
 
                 })
-                .then(function(coverResult){
+                .then(function(coverResult){                    
                     LOG.d("Save meta.json for:", gameObject.id);
                     LOG.d("Download image result", coverResult);
 
@@ -1231,7 +1328,7 @@
                      * it point to the cover image with cdvfile:// protocol
                      * TODO: Build a system for file caching also for webapp
                      * **/
-                    gameObject.images.cover.ratio_1_4 = coverResult.internalURL;
+                    gameObject.images.cover.ratio_1 = coverResult.internalURL;
                     return fileModule.createFile(constants.GAMES_DIR + saveAsName, "meta.json")
                         .then(function(entry){                            
                             return fileModule.write(entry.path, JSON.stringify(gameObject));
@@ -1552,6 +1649,7 @@
             if(fileModule.currentFileTransfer){
                 fileModule.currentFileTransfer.abort();
                 fileModule.currentFileTransfer = null;
+                downloading = false;
             }
 
             return true;
@@ -1596,7 +1694,7 @@
      * @param datas.start
      * @param datas.duration
      * @param datas.content_id
-     * @returns {Promise} - The promise will be filled with the gameover html {String}     
+     * @returns {Promise<String>} - The promise will be filled with the gameover html {String}     
      */
     Game.prototype.buildGameOver = function(datas){                 
         var metaJsonPath = constants.GAMES_DIR + datas.content_id + "/meta.json";
@@ -1618,9 +1716,11 @@
                 LOG.i("Meta JSON:", metaJson);
                 return htmlString
                     .replace("{{score}}", datas.score)
+                    .replace("{{game_title}}", metaJson.title)
+                    .replace("{{game_title}}", metaJson.title)
                     .replace("{{url_share}}", metaJson.url_share)
-                    .replace("{{url_cover}}", metaJson.images.cover.ratio_1_4)
-                    .replace("{{startpage_url}}", constants.WWW_DIR + "index.html");
+                    .replace("{{url_cover}}", metaJson.images.cover.ratio_1);
+                    //.replace("{{startpage_url}}", constants.WWW_DIR + "index.html");
         });
     };
 
@@ -1732,7 +1832,7 @@
                 .then(function(bundleGamesIds){
 
                     obj.content_id = bundleGamesIds;
-                    var api_string = composeApiString(CONF.api, obj);
+                    var api_string = querify(CONF.api, obj);
                     LOG.d("Request bundle games meta info:", api_string);
 
                     return new jsonpRequest(api_string).prom;
@@ -1803,7 +1903,7 @@
          *  queues:{}
          * }
          * */
-        var apiGaForGames = composeApiString(CONF.ga_for_game_url, ga_for_games_qs);
+        var apiGaForGames = querify(CONF.ga_for_game_url, ga_for_games_qs);
         var getGaForGamesTask = new jsonpRequest(apiGaForGames).prom;
         
         var tasks = Promise.all([getGaForGamesTask, readUserJson()]);
@@ -1821,7 +1921,7 @@
             LOG.d("PONYVALUE", _PONYVALUE);
             LOG.d("apiGaForGames:", apiGaForGames, "ga_for_game:", ga_for_game);
             
-            var gamifive_api = composeApiString(CONF.gamifive_info_api, {
+            var gamifive_api = querify(CONF.gamifive_info_api, {
                 content_id:content_id,                
                 format:"jsonp"
             });
@@ -1860,6 +1960,62 @@
     _modules.game._public = new Game();
 
 })(stargateModules.file, stargateModules.Utils, stargateModules);
+/**
+ * EventBus module
+ * @module src/modules/EventBus
+ * @type {Object}
+ */
+/* globals ActiveXObject */
+(function(_modules){
+
+	"use strict";
+	/**
+	 * @class 
+	 * */
+	function EventBus(){
+		this.events = {};
+	}
+
+	/**
+	 * on function
+	 * @param {String} eventType - if not exists it defines a new one
+	 * @param {Function} func - the function to call when the event is triggered
+	 */
+	EventBus.prototype.on = function(eventType, func){
+		if(!this.events[eventType]){ this.events[eventType] = [];}
+		this.events[eventType].push(func);
+	};
+
+	/**
+	 * trigger function
+	 * @param {String} eventType - the eventType to trigger. if not exists nothing happens
+	 * @param {Object} data - the object data to pass to the callback functions
+	 */
+	EventBus.prototype.trigger = function(eventType, data){
+		if(!this.events[eventType] || this.events[eventType] < 1){ return; }
+		
+		this.events[eventType].map(function(func){
+			func.call(null, data || {});
+		});
+	};
+
+	/**
+	 * remove function
+	 * @param {String} eventType - the eventType
+	 * @param {Function} func - the reference of the function to remove from the list of function
+	 */
+	EventBus.prototype.remove = function(eventType, func){
+		if(!this.events[eventType]){ return; }
+
+		var index = this.events[eventType].indexOf(func);
+		if(index > -1){
+			this.events[eventType].splice(index, 1);
+		}
+	};
+
+	_modules.EventBus = EventBus;
+
+})(stargateModules);
 /**
  * Decoratos module
  * @module src/modules/Decorators
@@ -2209,82 +2365,6 @@ window.pubKey = '';
 // @deprecated since v0.1.2
 window.forge = '';
 
-
-var initOfflinePromise;
-
-/**
- * Initialize offline will be resolved at the deviceready event or rejected after a timeout
- * @param {object} [options={}] - an object with offline initialization options
- * @param [options.hideSplashScreen=true] - a boolean indicating to hide or not the splash screen
- * @returns {Promise<boolean>}
- * 
- * @deprecated since v0.2.8
- * */
-stargatePublic.initializeOffline = function(options){
-
-    if(initOfflinePromise) {
-        return initOfflinePromise;
-    }
-    
-    // - start set default options -
-    if (typeof options !== "object") {
-        options = {};
-    }
-    if (! options.hasOwnProperty("hideSplashScreen")) {
-        options.hideSplashScreen = true;
-    }
-    // -- end set default options --
-    
-    isStargateInitialized = true;
-    initOfflinePromise = new Promise(function (initOfflineResolve) {
-        document.addEventListener("deviceready", function deviceReadyOffline() {
-
-            // device ready received so i'm sure to be hybrid
-            setIsHybrid();
-            
-            // get device information
-            initDevice();
-            
-            // get connection information
-            initializeConnectionStatus();
-
-            // request all asyncronous initialization to complete
-            Promise.all([
-                // include here all needed asyncronous initializazion
-                cordova.getAppVersion.getVersionNumber(),
-                getManifest()
-            ])
-            .then(function(results) {
-                // save async initialization result
-
-                appVersion = results[0];
-                
-                if (typeof results[1] !== 'object') {
-                    results[1] = JSON.parse(results[1]);
-                }
-
-                stargateConf = results[1].stargateConf;
-                
-                if (options.hideSplashScreen) {
-                    navigator.splashscreen.hide();
-                    setBusy(false);                    
-                }
-
-                // initialize finished
-                isStargateOpen = true;
-
-                log("Stargate.initializeOffline() done");
-
-                initOfflineResolve(true);
-
-            })
-            .catch(function (error) {
-                err("initializeOffline() error: "+error);
-            });
-        });
-    });
-    return initOfflinePromise;
-};
 
 
 /**
@@ -2819,6 +2899,27 @@ var appPackageName = '';
  */
 var appIsDebug = false;
 
+/**
+ * InApp Purchase module type:
+ *  1 => use cordova plugin https://github.com/j3k0/cordova-plugin-purchase
+ *  2 => use cordova plugin https://github.com/AlexDisler/cordova-plugin-inapppurchase
+ */
+var stargateIapType = 0;
+
+var STARGATEIAPTYPES = {
+    /**
+     * use cordova plugin https://github.com/j3k0/cordova-plugin-purchase
+     */
+    "full": 1,
+
+    /**
+     * use cordova plugin https://github.com/AlexDisler/cordova-plugin-inapppurchase
+     */
+    "light": 2,
+    
+    1: "full",
+    2: "light"
+};
 
 /**
  * 
@@ -2955,7 +3056,8 @@ var onPluginReady = function (resolve) {
         IAP.initialize(
             getModuleConf("iapbase")
         );
-        
+        stargateIapType = STARGATEIAPTYPES.full;
+
     } else if (haveRequestedFeature("iap")) {
         // if initialize ok...
         if ( IAP.initialize( getModuleConf("iap") ) ) {
@@ -2964,6 +3066,15 @@ var onPluginReady = function (resolve) {
             //IAP.doRefresh();
             log("Init IAP done.");
         }
+        stargateIapType = STARGATEIAPTYPES.full;
+        
+    } else if (haveRequestedFeature("iaplight")) {
+        // iap new implementation
+        // (we don't need to wait for promis to fullfill)
+        iaplight.initialize(
+            getModuleConf("iaplight")
+        );
+        stargateIapType = STARGATEIAPTYPES.light;
     }
 
     // receive appsflyer conversion data event
@@ -2992,13 +3103,20 @@ var onPluginReady = function (resolve) {
             )
         );
     }
-        
+
     if (haveRequestedFeature("adv") && stargateModules.AdManager) {
         // save initialization promise, to wait for
         modulePromises.push(
             stargateModules.AdManager.initialize(
                 getModuleConf("adv")
             )
+        );
+    }
+
+    if (haveRequestedFeature("globalization")) {
+        // save initialization promise, to wait for
+        modulePromises.push(
+            globalization.initialize()
         );
     }
     
@@ -3227,6 +3345,19 @@ var share = (function(){
         });
         return options;
     };
+
+    var getSocialPackage = function(social) {
+        if (isRunningOnIos()) {
+            if (social === "facebook") {
+                return "com.apple.social.facebook";
+            }
+            if (social === "twitter") {
+                return "com.apple.social.twitter";
+            }
+        }
+
+        return social;
+    };
     
 	var shareWithChooser = function(requestedOptions, resolve, reject) {
         // this is the complete list of currently supported params you can pass to the plugin (all optional)
@@ -3326,25 +3457,27 @@ var share = (function(){
     
     shareProtected.canShareVia = function(via, url) {
         
+        var viaNative = getSocialPackage(via);
+
         return new Promise(function(resolve){
             
             // canShareVia: 
             //   via, message, subject, fileOrFileArray, url, successCallback, errorCallback
             window.plugins.socialsharing.canShareVia(
-                via,
+                viaNative,
                 null,
                 null,
                 null,
                 url,
                 function(e){
-                    log("[share] canShareVia "+via+" result true: ", e);
+                    log("[share] canShareVia "+via+" ("+viaNative+") result true: ", e);
                     resolve({
                         "network": via,
                         "available": true
                     });
                 },
                 function(e){
-                    log("[share] canShareVia "+via+" result false: ", e);
+                    log("[share] canShareVia "+via+" ("+viaNative+") result false: ", e);
                     resolve({
                         "network": via,
                         "available": false
@@ -3997,6 +4130,503 @@ window.startLoading = startLoading;
 window.stopLoading = stopLoading;
 
 
+
+stargatePublic.inAppPurchaseSubscription = function(callbackSuccess, callbackError, subscriptionUrl, returnUrl) {
+
+    if (!isStargateInitialized) {
+        callbackError("Stargate not initialized, call Stargate.initialize first!");
+        return false;
+    }
+    if (!isStargateOpen) {
+        callbackError("Stargate closed, wait for Stargate.initialize to complete!");
+        return false;
+    }
+    
+    setBusy(true);
+
+    if (typeof returnUrl !==  'undefined'){
+        IAP.returnUrl = returnUrl;
+    }
+    if (typeof subscriptionUrl !==  'undefined'){
+        IAP.subscribeMethod = subscriptionUrl;
+    }
+    
+    IAP.callbackSuccess = callbackSuccess;
+    IAP.callbackError = callbackError;
+    
+    /*
+    if (isRunningOnAndroid() && appIsDebug) {
+        var debugTransactionAndroid = {
+            "id":IAP.id,
+            "alias":"Stargate Debug IAP Mock",
+            "type":"paid subscription",
+            "state":"owned",
+            "title":"Stargate Debug IAP Mock subscription",
+            "description":"Stargate Debug IAP Mock subscription",
+            "price":"€2.00",
+            "currency":"EUR",
+            "loaded":true,
+            "canPurchase":false,
+            "owned":true,
+            "downloading":false,
+            "downloaded":false,
+            "transaction":{
+                "type":"android-playstore",
+                "purchaseToken":"dgdecoeeoodhalncipabhmnn.AO-J1OwM_emD6KWnZBjTCG2nTF5XWvuHzLCOBPIBj9liMlqzftcDamRFnUvEasQ1neEGK7KIxlPKMV2W09T4qAVZhw_aGbPylo-5a8HVYvJGacoj9vXbvKhb495IMIq8fmywk8-Q7H5jL_0lbfSt9SMVM5V6k3Ttew",
+                "receipt":"{\"packageName\":\"stargate.test.package.id\",\"productId\":\"stargate.mock.subscription.weekly\",\"purchaseTime\":1460126549804,\"purchaseState\":0,\"purchaseToken\":\"dgdecoeeoodhalncipabhmnn.AO-J1OwM_emD6KWnZBjTCG2nTF5XWvuHzLCOBPIBj9liMlqzftcDamRFnUvEasQ1neEGK7KIxlPKMV2W09T4qAVZhw_aGbPylo-5a8HVYvJGacoj9vXbvKhb495IMIq8fmywk8-Q7H5jL_0lbfSt9SMVM5V6k3Ttew\",\"autoRenewing\":false}","signature":"UciGXv48EMVdUXICxoy+hBWTiKbn4VABteQeIUVlFG0GmJ/9p/k372RhPyprqve7tnwhk+vpZYos5Fwvm/SrYjsqKMMFgTzotrePwJ9spq2hzmjhkqNTKkxdcgiuaCp8Vt7vVH9yjCtSKWwdS1UBlZLPaJunA4D2KE8TP/qYnwgZTOCBvSf3rUbEzmwRuRbYqndNyoMfIXvRP71TDBsMcHM/3UrDYEf2k2/SJKnctcGmvU2/BW/WG96T9FuiJPpotax7iQmBdN5PmfuxlZiZiUyj9mFEgzPEIAMP2HCcdX2KlNBPhKhxm4vESozVljTbrI0+OGJjQJhaWBn9+aclmA=="
+            },
+            "valid":true
+        };
+        IAP.onProductOwned(debugTransactionAndroid);
+        return true;
+    }
+    */
+
+    IAP.inappPurchaseCalled = true;
+    
+    // execute createUser if data is already available
+    if (IAP.lastCreateUserProduct && IAP.lastCreateUserToken) {
+        IAP.createUser(IAP.lastCreateUserProduct, IAP.lastCreateUserToken);
+        
+        // no need to call refresh again
+        return true;
+    }
+    
+    IAP.doRefresh();
+    window.store.order(IAP.id);
+    return true;
+};
+
+
+stargatePublic.inAppRestore = function(callbackSuccess, callbackError, subscriptionUrl, returnUrl) {
+
+    if (!isStargateInitialized) {
+        return callbackError("Stargate not initialized, call Stargate.initialize first!");
+    }
+    if (!isStargateOpen) {
+        return callbackError("Stargate closed, wait for Stargate.initialize to complete!");
+    }
+
+    // no set busy needed for restore as it's usually fast and 
+    //  we cannot intercept error result, so the loader remain visible
+
+    if (typeof subscriptionUrl !==  'undefined'){
+        IAP.subscribeMethod = subscriptionUrl;
+    }
+    if (typeof returnUrl !==  'undefined'){
+        IAP.returnUrl = returnUrl;
+    }
+    
+    IAP.callbackSuccess = callbackSuccess;
+    IAP.callbackError = callbackError;
+    IAP.inappPurchaseCalled = true;
+    
+    IAP.doRefresh(true);
+};
+
+/**
+ * Return information about a product got from store
+ * 
+ * @param {object} options - options object
+ * @param {string} [options.productId=IAP.id] - product id about to query for information on store
+ * @param {string} options.subscriptionUrl - api endpoint that will be called when IAP is completed @see createUser method
+ * @param {function} options.callbackListingSuccess=function(){} - a function that will be called when information are ready
+ * @param {function} options.callbackPurchaseSuccess=function(){} - a function that will be called when createUser complete (if the product is already owned)
+ * @param {function} options.callbackError=function(){} - a function that will be called if an error occur 
+ * 
+ * @returns {boolean} - request result: true OK, false KO
+ * */
+stargatePublic.inAppProductInfo = function(options) {
+
+    if (! options.productId) {
+        options.productId = IAP.id;
+    }
+    
+    if (typeof(options.callbackListingSuccess) !== "function") {
+        options.callbackListingSuccess = function() {};
+    }
+    if (typeof(options.callbackPurchaseSuccess) !== "function") {
+        options.callbackPurchaseSuccess = function() {};
+    }
+    if (typeof(options.callbackError) !== "function") {
+        options.callbackError = function() {};
+    }
+    if (!options.subscriptionUrl) {
+        err("[IAP] inAppProductInfo(): options.subscriptionUrl invalid");
+        return false;
+    }
+    
+    if (!isStargateInitialized) {
+        options.callbackError("Stargate not initialized, call Stargate.initialize first!");
+        return false;
+    }
+    if (!isStargateOpen) {
+        options.callbackError("Stargate closed, wait for Stargate.initialize to complete!");
+        return false;
+    }
+    
+    IAP.subscribeMethod = options.subscriptionUrl;
+    
+    IAP.requestedListingProductId = options.productId;
+    IAP.callbackListingSuccess = options.callbackListingSuccess;
+    IAP.callbackPurchaseSuccess = options.callbackPurchaseSuccess;
+    IAP.callbackListingError = options.callbackError;
+    IAP.inappProductInfoCalled = true;
+
+    // execute callback for product information if data is already available 
+    if (IAP.productsInfo[options.productId]) {
+        try {
+            IAP.callbackListingSuccess(IAP.productsInfo[options.productId]);
+        }
+        catch (error) {
+            err("[IAP] inAppProductInfo(): error on callbackListingSuccess!");
+        }
+    }
+    
+    // execute createUser if data is already available
+    if (IAP.lastCreateUserProduct && IAP.lastCreateUserToken) {
+        IAP.createUser(IAP.lastCreateUserProduct, IAP.lastCreateUserToken);
+        
+        // no need to call refresh again
+        return true;
+    }
+    
+    // call refresh then, when store will call stargate, we will call client callbacks
+    IAP.doRefresh(true);    
+    return true;    
+};
+
+var iaplight = (function(){
+    
+	var protectedInterface = {};
+
+    /*
+     * inAppPurchase.getProducts(["com.mycompany.myproduct.weekly.v1"]).then(function(res){console.log("res:"+JSON.stringify(res))})
+     * res:[
+     *     {
+     *         "productId": "com.mycompany.myproduct.weekly.v1",
+     *         "title": "Abbonamento Premium CalcioStar Italia",
+     *         "description": "Abonamento premium al catalogo CalcioStar Italia",
+     *         "price": "€0,99"
+     *     }
+     * ]
+     * 
+     * inAppPurchase.subscribe("com.mycompany.myproduct.weekly.v1").then(function(res){console.log("res:"+JSON.stringify(res))}).catch(function(err){console.error(err)})
+     * res:{
+     *     "transactionId":"1000000221696692",
+     *     "receipt":"MXXXX"
+     * }
+     * 
+     * inAppPurchase.getReceiptBundle().then(function(res){console.log("res:"+JSON.stringify(res))})
+     * res:{
+     *     "originalAppVersion": "1.0",
+     *     "appVersion": "0.1.0",
+     *     "inAppPurchases": [
+     *         {
+     *             "transactionIdentifier":"1000000221696692",
+     *             "quantity":1,
+     *             "purchaseDate":"2016-07-05T10:15:21Z",
+     *             "productId":"com.mycompany.myproduct.weekly.v1",
+     *             "originalPurchaseDate":"2016-07-05T10:15:22Z",
+     *             "subscriptionExpirationDate":"2016-07-05T10:18:21Z",
+     *             "originalTransactionIdentifier":"1000000221696692",
+     *             "webOrderLineItemID":-1497665198,
+     *             "cancellationDate":null}
+     *     ],
+     *     "bundleIdentifier": "com.mycompany.myproduct"
+     * }
+    */
+
+    /**
+     * 
+     * Initialization promise generated from window.inAppPurchase.getProducts
+     * all public interface wait for this promise to resolve
+     * 
+     */
+    var initPromise = null;
+    
+
+    /**
+     * Array of in app products id requested by webapp
+     */
+    var productsId = [];
+
+    /**
+     * Array of in app product information, like this: 
+     * [{
+     *   "productId": "com.mycompany.myproduct.weekly.v1",
+     *   "title": "Premium subscription to myproduct",
+     *   "description": "Premium subscription to my beatiful product",
+     *   "price": "€0,99"
+     * }]
+     */
+    var productsInfo = [];
+
+    /**
+     * @param {object} initializeConf - configuration sent by
+     * @return {boolean} - true if init ok
+     */
+	protectedInterface.initialize = function(initializeConf) {
+
+        if (!window.inAppPurchase) {
+            return Promise.reject("inAppPurchase not available, missing cordova plugin.");
+        }
+
+        if (initPromise !== null) {
+            return initPromise;
+        }
+
+        if (initializeConf.productsIdAndroid || initializeConf.productsIdIos) {
+            if (isRunningOnAndroid()) {
+                productsId = initializeConf.productsIdAndroid;
+            }
+            else if (isRunningOnIos()) {
+                productsId = initializeConf.productsIdIos;
+            }
+        }
+
+        if (!productsId) {
+            return Promise.reject("missing parameter productsId(Android|Ios)");
+        }
+        if (productsId && productsId.constructor !== Array) {
+            return Promise.reject("parameter error, productsId(Android|Ios) must be an array");
+        }
+        if (productsId.length === 0) {
+            return Promise.reject("parameter error, productsId(Android|Ios) must contains at least a productid");
+        }
+        
+
+        initPromise = window.inAppPurchase.getProducts(productsId)
+            .then(function(res){
+                productsInfo = res;
+                log("[IAPlight] getProducts ok", res);
+                return res;
+            })
+            .catch(function(error) {
+                err("[IAPlight] getProducts KO", error);
+            });
+
+        return initPromise;
+    };
+
+    protectedInterface.subscribe = function(productId) {
+        
+        if (initPromise === null) {
+            return Promise.reject("Not initialized");
+        }
+
+        var subFunc = function() {
+            return window.inAppPurchase.subscribe(
+                productId
+            )
+            .then(function(res){
+                log("[IAPlight] subscribe ok", res);
+                return res;
+            })
+            .catch(function(error){
+                err("[IAPlight] subscribe KO: "+error, error);
+                //throw err;
+            });
+        };
+
+        // wait for initPromise if it didn't complete
+        return initPromise.then(subFunc);
+    };
+
+    protectedInterface.getExpireDate = function(productId) {
+        
+        if (initPromise === null) {
+            return Promise.reject("Not initialized");
+        }
+
+        var receiptFunc = function() {
+            return window.inAppPurchase.getReceiptBundle()
+            .then(function(res){
+                // return last purchase receipt (ordered by last subscriptionExpirationDate)
+
+                log("[IAPlight] getExpireDate getReceiptBundle ok", res);
+
+                /* res:{ "originalAppVersion": "1.0",
+                *        "appVersion": "0.1.0",
+                *        "inAppPurchases": [ {
+                *                "transactionIdentifier":"123412341234",
+                *                "quantity":1,
+                *                "purchaseDate":"2016-07-05T10:15:21Z",
+                *                "productId":"com.mycompany.myapp.weekly.v1",
+                *                "originalPurchaseDate":"2016-07-05T10:15:22Z",
+                *                "subscriptionExpirationDate":"2016-07-05T10:18:21Z",
+                *                "originalTransactionIdentifier":"123412341234",
+                *                "webOrderLineItemID":-1497665198,
+                *                "cancellationDate":null}
+                *        ],
+                *        "bundleIdentifier": "com.mycompany.myapp" }
+                */
+                var lastPurchase = {};
+                if (res.inAppPurchases && res.inAppPurchases.constructor === Array) {
+                    res.inAppPurchases.forEach(function(inAppPurchase) {
+                        
+                        // filter out other productIds
+                        if (inAppPurchase.productId == productId) {
+
+                            // if 
+                            if (!lastPurchase.subscriptionExpirationDate) {
+                                lastPurchase = inAppPurchase;
+                                return;
+                            }
+
+                            var lastExp = new Date(lastPurchase.subscriptionExpirationDate);
+                            var currExp = new Date(inAppPurchase.subscriptionExpirationDate);
+
+                            if (lastExp < currExp) {
+                                lastPurchase = inAppPurchase;
+                                return;
+                            }
+                        }
+                    });
+                }
+
+                return lastPurchase;
+            })
+            .then(function(lastPurchase) {
+                // return expiration date
+
+                if (!lastPurchase.subscriptionExpirationDate) {
+                    return null;
+                }
+                log("[IAPlight] getExpireDate lastPurchase ok", lastPurchase);
+
+                var dt = new Date(lastPurchase.subscriptionExpirationDate);
+                if ( Object.prototype.toString.call(dt) === "[object Date]" ) {
+                    // it is a date
+                    if ( isNaN( dt.getTime() ) ) {
+                        return null;
+                    }
+                }
+                else {
+                    err("[IAPlight] getReceiptBundle invalid date: "+lastPurchase.subscriptionExpirationDate+" Date.toString:"+dt);
+                    return null;
+                }
+                return dt;
+            })
+            .catch(function(error){
+                err("[IAPlight] getReceiptBundle KO: "+error, error);
+                //throw err;
+            });
+        };
+
+        // wait for initPromise if it didn't complete
+        return initPromise.then(receiptFunc);
+    };
+
+    protectedInterface.restore = function() {
+        
+        if (initPromise === null) {
+            return Promise.reject("Not initialized");
+        }
+
+        var restoreFunc = function() {
+            return window.inAppPurchase.restorePurchases()
+            .then(function(resultRestore){
+                // resolves to an array of objects with the following attributes:
+                //   productId
+                //   state - the state of the product. On Android the statuses are: 0 - ACTIVE, 1 - CANCELLED, 2 - REFUNDED
+                //   transactionId
+                //   date - timestamp of the purchase
+                //   productType - On Android it can be used to consume a purchase. On iOS it will be an empty string.
+                //   receipt - On Android it can be used to consume a purchase. On iOS it will be an empty string.
+                //   signature - On Android it can be used to consume a purchase. On iOS it will be an empty string.
+
+
+                log("[IAPlight] restore restorePurchases ok", resultRestore);
+
+                /* resultRestore: [
+                        {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-05T10:27:21Z","transactionId":"1000000222595453","state":3},
+                        {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-05T10:21:21Z","transactionId":"1000000222595454","state":3},
+                        {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-08T11:04:50Z","transactionId":"1000000222595455","state":3},
+                        {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-08T10:58:50Z","transactionId":"1000000222595456","state":3},
+                        {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-08T11:01:50Z","transactionId":"1000000222595457","state":3},
+                        {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-08T12:59:06Z","transactionId":"1000000222595458","state":3},
+                        {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-05T10:30:21Z","transactionId":"1000000222595459","state":3},
+                        {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-08T12:49:07Z","transactionId":"1000000222595460","state":3},
+                        {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-08T11:07:50Z","transactionId":"1000000222595461","state":3},
+                        {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-05T10:15:21Z","transactionId":"1000000222595462","state":3},
+                        {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-05T10:18:21Z","transactionId":"1000000222595463","state":3},
+                        {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-08T10:55:50Z","transactionId":"1000000222595464","state":3},
+                        {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-05T10:24:21Z","transactionId":"1000000222595465","state":3},
+                        {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-08T11:10:50Z","transactionId":"1000000222595466","state":3}
+                    ]
+                */
+
+                return resultRestore;
+            })
+            .catch(function(error){
+                err("[IAPlight] restore restorePurchases KO: "+error, error);
+                //throw err;
+            });
+        };
+
+        // wait for initPromise if it didn't complete
+        return initPromise.then(restoreFunc);
+    };
+
+    protectedInterface.getProductInfo = function(productId) {
+        
+        if (initPromise === null) {
+            return Promise.reject("Not initialized");
+        }
+
+        // wait for initPromise if it didn't complete
+        return initPromise.then(function(){
+
+            var rightProductInfo = {};
+
+            productsInfo.forEach(function(productInfo) {
+                if (productInfo.productId == productId) {
+                    rightProductInfo = productInfo;
+                }
+            });
+            log("[IAPlight] getProductInfo(): product found:", rightProductInfo);
+
+            return rightProductInfo;
+        });
+    };
+
+    /**
+     * 
+     * Check that stargate is properly initialized befor calling the function innerMethod
+     */
+    var checkDecorator = function(innerMethod) {
+        return function () {
+
+            if (!isStargateInitialized) {
+                return Promise.reject("Stargate not initialized, call Stargate.initialize first!");
+            }
+            if (!isStargateOpen) {
+                return Promise.reject("Stargate closed, wait for Stargate.initialize to complete!");
+            }
+
+            return innerMethod.apply(null, arguments);
+        };
+    };
+
+    protectedInterface.public = {
+        "initialize": checkDecorator(protectedInterface.initialize),
+        "restore": checkDecorator(protectedInterface.restore),
+        "getProductInfo": checkDecorator(protectedInterface.getProductInfo),
+        "subscribe": checkDecorator(protectedInterface.subscribe),
+        "getExpireDate": checkDecorator(protectedInterface.getExpireDate)
+    };
+
+    protectedInterface.__clean__ = function() {
+        initPromise = null;
+    };
+
+    return protectedInterface;
+})();
+
+stargatePublic.iaplight = iaplight.public;
+
+
 var IAP = {
 
 	id: '',
@@ -4407,175 +5037,89 @@ var IAP = {
         // start first attempt
         createUserAjaxCall();
         
-	}
+	},
+
+    
 };
 
 
-
-stargatePublic.inAppPurchaseSubscription = function(callbackSuccess, callbackError, subscriptionUrl, returnUrl) {
-
-    if (!isStargateInitialized) {
-        callbackError("Stargate not initialized, call Stargate.initialize first!");
-        return false;
-    }
-    if (!isStargateOpen) {
-        callbackError("Stargate closed, wait for Stargate.initialize to complete!");
-        return false;
-    }
+var globalization = (function(){
     
-    setBusy(true);
+	var protectedInterface = {};
 
-    if (typeof returnUrl !==  'undefined'){
-        IAP.returnUrl = returnUrl;
-    }
-    if (typeof subscriptionUrl !==  'undefined'){
-        IAP.subscribeMethod = subscriptionUrl;
-    }
-    
-    IAP.callbackSuccess = callbackSuccess;
-    IAP.callbackError = callbackError;
-    
-    /*
-    if (isRunningOnAndroid() && appIsDebug) {
-        var debugTransactionAndroid = {
-            "id":IAP.id,
-            "alias":"Stargate Debug IAP Mock",
-            "type":"paid subscription",
-            "state":"owned",
-            "title":"Stargate Debug IAP Mock subscription",
-            "description":"Stargate Debug IAP Mock subscription",
-            "price":"€2.00",
-            "currency":"EUR",
-            "loaded":true,
-            "canPurchase":false,
-            "owned":true,
-            "downloading":false,
-            "downloaded":false,
-            "transaction":{
-                "type":"android-playstore",
-                "purchaseToken":"dgdecoeeoodhalncipabhmnn.AO-J1OwM_emD6KWnZBjTCG2nTF5XWvuHzLCOBPIBj9liMlqzftcDamRFnUvEasQ1neEGK7KIxlPKMV2W09T4qAVZhw_aGbPylo-5a8HVYvJGacoj9vXbvKhb495IMIq8fmywk8-Q7H5jL_0lbfSt9SMVM5V6k3Ttew",
-                "receipt":"{\"packageName\":\"stargate.test.package.id\",\"productId\":\"stargate.mock.subscription.weekly\",\"purchaseTime\":1460126549804,\"purchaseState\":0,\"purchaseToken\":\"dgdecoeeoodhalncipabhmnn.AO-J1OwM_emD6KWnZBjTCG2nTF5XWvuHzLCOBPIBj9liMlqzftcDamRFnUvEasQ1neEGK7KIxlPKMV2W09T4qAVZhw_aGbPylo-5a8HVYvJGacoj9vXbvKhb495IMIq8fmywk8-Q7H5jL_0lbfSt9SMVM5V6k3Ttew\",\"autoRenewing\":false}","signature":"UciGXv48EMVdUXICxoy+hBWTiKbn4VABteQeIUVlFG0GmJ/9p/k372RhPyprqve7tnwhk+vpZYos5Fwvm/SrYjsqKMMFgTzotrePwJ9spq2hzmjhkqNTKkxdcgiuaCp8Vt7vVH9yjCtSKWwdS1UBlZLPaJunA4D2KE8TP/qYnwgZTOCBvSf3rUbEzmwRuRbYqndNyoMfIXvRP71TDBsMcHM/3UrDYEf2k2/SJKnctcGmvU2/BW/WG96T9FuiJPpotax7iQmBdN5PmfuxlZiZiUyj9mFEgzPEIAMP2HCcdX2KlNBPhKhxm4vESozVljTbrI0+OGJjQJhaWBn9+aclmA=="
-            },
-            "valid":true
-        };
-        IAP.onProductOwned(debugTransactionAndroid);
-        return true;
-    }
-    */
+    var preferredLanguage = {};
+    var localeName = {};
 
-    IAP.inappPurchaseCalled = true;
-    
-    // execute createUser if data is already available
-    if (IAP.lastCreateUserProduct && IAP.lastCreateUserToken) {
-        IAP.createUser(IAP.lastCreateUserProduct, IAP.lastCreateUserToken);
-        
-        // no need to call refresh again
-        return true;
-    }
-    
-    IAP.doRefresh();
-    window.store.order(IAP.id);
-    return true;
-};
+    var initFinished = false;
 
-
-stargatePublic.inAppRestore = function(callbackSuccess, callbackError, subscriptionUrl, returnUrl) {
-
-    if (!isStargateInitialized) {
-        return callbackError("Stargate not initialized, call Stargate.initialize first!");
-    }
-    if (!isStargateOpen) {
-        return callbackError("Stargate closed, wait for Stargate.initialize to complete!");
-    }
-
-    // no set busy needed for restore as it's usually fast and 
-    //  we cannot intercept error result, so the loader remain visible
-
-    if (typeof subscriptionUrl !==  'undefined'){
-        IAP.subscribeMethod = subscriptionUrl;
-    }
-    if (typeof returnUrl !==  'undefined'){
-        IAP.returnUrl = returnUrl;
-    }
-    
-    IAP.callbackSuccess = callbackSuccess;
-    IAP.callbackError = callbackError;
-    IAP.inappPurchaseCalled = true;
-    
-    IAP.doRefresh(true);
-};
-
-/**
- * Return information about a product got from store
- * 
- * @param {object} options - options object
- * @param {string} [options.productId=IAP.id] - product id about to query for information on store
- * @param {string} options.subscriptionUrl - api endpoint that will be called when IAP is completed @see createUser method
- * @param {function} options.callbackListingSuccess=function(){} - a function that will be called when information are ready
- * @param {function} options.callbackPurchaseSuccess=function(){} - a function that will be called when createUser complete (if the product is already owned)
- * @param {function} options.callbackError=function(){} - a function that will be called if an error occur 
- * 
- * @returns {boolean} - request result: true OK, false KO
- * */
-stargatePublic.inAppProductInfo = function(options) {
-
-    if (! options.productId) {
-        options.productId = IAP.id;
-    }
-    
-    if (typeof(options.callbackListingSuccess) !== "function") {
-        options.callbackListingSuccess = function() {};
-    }
-    if (typeof(options.callbackPurchaseSuccess) !== "function") {
-        options.callbackPurchaseSuccess = function() {};
-    }
-    if (typeof(options.callbackError) !== "function") {
-        options.callbackError = function() {};
-    }
-    if (!options.subscriptionUrl) {
-        err("[IAP] inAppProductInfo(): options.subscriptionUrl invalid");
-        return false;
-    }
-    
-    if (!isStargateInitialized) {
-        options.callbackError("Stargate not initialized, call Stargate.initialize first!");
-        return false;
-    }
-    if (!isStargateOpen) {
-        options.callbackError("Stargate closed, wait for Stargate.initialize to complete!");
-        return false;
-    }
-    
-    IAP.subscribeMethod = options.subscriptionUrl;
-    
-    IAP.requestedListingProductId = options.productId;
-    IAP.callbackListingSuccess = options.callbackListingSuccess;
-    IAP.callbackPurchaseSuccess = options.callbackPurchaseSuccess;
-    IAP.callbackListingError = options.callbackError;
-    IAP.inappProductInfoCalled = true;
-
-    // execute callback for product information if data is already available 
-    if (IAP.productsInfo[options.productId]) {
-        try {
-            IAP.callbackListingSuccess(IAP.productsInfo[options.productId]);
+    protectedInterface.initialize = function() {
+        if (typeof window.navigator !== "object" || typeof window.navigator.globalization !== "object") {
+            err("[globalization] missing cordova plugin!");
+            return false;
         }
-        catch (error) {
-            err("[IAP] inAppProductInfo(): error on callbackListingSuccess!");
+
+        var prefLangPromise = new Promise(function(resolve){
+            navigator.globalization.getPreferredLanguage(
+                function(props) {
+                    if (typeof props !== "object") {
+                        err("[globalization] initialize getPreferredLanguage result error: invalid type", props);
+                        resolve({"error":"invalid type"});
+                        return;
+                    }
+                    log("[globalization] initialize getPreferredLanguage result ok: ", props);
+                    preferredLanguage = props;
+                    resolve(props);
+                },
+                function(error) {
+                    err("[globalization] initialize getPreferredLanguage result error: ", error);
+                    resolve({"error":error});
+                }
+            );
+        }); // end prefLangPromise
+
+        var locaNamePromise = new Promise(function(resolve){
+            navigator.globalization.getLocaleName(
+                function(props) {
+                    if (typeof props !== "object") {
+                        err("[globalization] initialize getLocaleName result error: invalid type", props);
+                        resolve({"error":"invalid type"});
+                        return;
+                    }
+                    log("[globalization] initialize getLocaleName result ok: ", props);
+                    localeName = props;
+                    resolve(props);
+                },
+                function(error) {
+                    err("[globalization] initialize getLocaleName result error: ", error);
+                    resolve({"error":error});
+                }
+            );
+        }); // end locaNamePromise
+
+
+        return Promise.all([prefLangPromise, locaNamePromise]).then(function(results){
+            initFinished = true;
+            return results;
+        });
+    };
+
+    protectedInterface.getPreferredLanguage = function() {
+        if (!initFinished) {
+            err("[globalization] getPreferredLanguage: not initialized!");
+            return false;
         }
-    }
-    
-    // execute createUser if data is already available
-    if (IAP.lastCreateUserProduct && IAP.lastCreateUserToken) {
-        IAP.createUser(IAP.lastCreateUserProduct, IAP.lastCreateUserToken);
-        
-        // no need to call refresh again
-        return true;
-    }
-    
-    // call refresh then, when store will call stargate, we will call client callbacks
-    IAP.doRefresh(true);    
-    return true;    
-};
+        return preferredLanguage;
+    };
+    protectedInterface.getLocaleName = function() {
+        if (!initFinished) {
+            err("[globalization] getLocaleName: not initialized!");
+            return false;
+        }
+        return localeName;
+    };
+
+    return protectedInterface;
+})();
 
 /* global facebookConnectPlugin */
 

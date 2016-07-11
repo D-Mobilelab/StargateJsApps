@@ -9,7 +9,7 @@
     "use strict";
 
     var Logger = Utils.Logger,
-        composeApiString = Utils.composeApiString,
+        querify = Utils.composeApiString,
         //Iterator = Utils.Iterator,
         //getJSON = Utils.getJSON,
         jsonpRequest = Utils.jsonpRequest,
@@ -220,7 +220,22 @@
         });
     }
 
+    /*function getRemoteMetadata(url){
+        return new Promise(function(resolve, reject){            
+            var xhr = new XMLHttpRequest();
+            xhr.open("HEAD", url, true);
+
+            xhr.addEventListener("loadend", function(endEvent){
+                resolve(xhr.getResponseHeader("Last-Modified"));
+            });
+            xhr.send(null);
+        });
+    }*/
+
     function getSDK(){
+        var now = new Date();
+        var sdkURLFresh = querify(CONF.sdk_url, {"v":now.getTime()});
+        var dixieURLFresh = querify(CONF.dixie_url, {"v":now.getTime(), "country":"xx-gameasy"});
 
         return Promise.all([
             fileModule.fileExists(constants.SDK_DIR + "dixie.js"),
@@ -230,18 +245,39 @@
                 isSdkDownloaded = results[1],
                 tasks = [];
             
-            var timestamp = String(Date.now());
-            var sdkURLFresh = composeApiString(CONF.sdk_url, {"v":timestamp});
-            var dixieURLFresh = composeApiString(CONF.dixie_url, {"v":timestamp,"country":"xx-gameasy"});
-            
-            // CHECKING VERSION? PLEASE DO IT :(
-            if(CONF.sdk_url !== ""){
-                LOG.d("isDixieDownloaded", isSdkDownloaded, "get SDK anyway", sdkURLFresh);
+            if(CONF.sdk_url !== "" && !isSdkDownloaded){
+                LOG.d("isSdkDownloaded", isSdkDownloaded, "get SDK", sdkURLFresh);
                 tasks.push(new fileModule.download(sdkURLFresh, constants.SDK_DIR, "gfsdk.min.js").promise);
             }
 
-            if(CONF.dixie_url !== ""){
-                LOG.d("isDixieDownloaded", isDixieDownloaded, "get dixie anyway", dixieURLFresh);
+            if(CONF.dixie_url !== "" && !isDixieDownloaded){
+                LOG.d("isDixieDownloaded", isDixieDownloaded, "get dixie", dixieURLFresh);
+                tasks.push(new fileModule.download(dixieURLFresh, constants.SDK_DIR, "dixie.js").promise);
+            }
+            
+            return Promise.all(tasks);
+        }).then(function getSdkMetaData(){
+            // Getting file meta data            
+            return Promise.all([
+                fileModule.getMetadata(constants.SDK_DIR + "dixie.js"),        
+                fileModule.getMetadata(constants.SDK_DIR + "gfsdk.min.js")
+            ]);
+        }).then(function checkSdkDate(results){
+            var sdkMetadata = results[0],
+                dixieMetadata = results[1], 
+                tasks = [];
+            
+            var lastSdkModification = new Date(sdkMetadata.modificationTime);
+            var lastDixieModification = new Date(dixieMetadata.modificationTime);
+            
+            // lastModification day < today then download it
+            if(lastSdkModification.getDate() < now.getDate()){
+                LOG.d("updating sdk", sdkURLFresh, lastSdkModification);
+                tasks.push(new fileModule.download(sdkURLFresh, constants.SDK_DIR, "gfsdk.min.js").promise);
+            }
+
+            if(lastDixieModification.getDate() < now.getDate()){
+                LOG.d("updating dixie", dixieURLFresh, lastDixieModification);
                 tasks.push(new fileModule.download(dixieURLFresh, constants.SDK_DIR, "dixie.js").promise);
             }
             return Promise.all(tasks);
@@ -358,10 +394,18 @@
                 .then(function(){
                     //GET COVER IMAGE FOR THE GAME!
                     LOG.d("Save meta.json for:", gameObject.id);
-                    var info = {
+                    /*var info = {
                         gameId:gameObject.id,
                         size:{width:"240",height:"170",ratio:"1_4"},
                         url:gameObject.images.cover.ratio_1_4,
+                        type:"cover",
+                        method:"xhr" //!important!
+                    };*/
+
+                    var info = {
+                        gameId:gameObject.id,
+                        size:{width:"500",height:"500",ratio:"1"},
+                        url:gameObject.images.cover.ratio_1,
                         type:"cover",
                         method:"xhr" //!important!
                     };
@@ -369,7 +413,7 @@
                     return downloadImage(info);
 
                 })
-                .then(function(coverResult){
+                .then(function(coverResult){                    
                     LOG.d("Save meta.json for:", gameObject.id);
                     LOG.d("Download image result", coverResult);
 
@@ -378,7 +422,7 @@
                      * it point to the cover image with cdvfile:// protocol
                      * TODO: Build a system for file caching also for webapp
                      * **/
-                    gameObject.images.cover.ratio_1_4 = coverResult.internalURL;
+                    gameObject.images.cover.ratio_1 = coverResult.internalURL;
                     return fileModule.createFile(constants.GAMES_DIR + saveAsName, "meta.json")
                         .then(function(entry){                            
                             return fileModule.write(entry.path, JSON.stringify(gameObject));
@@ -699,6 +743,7 @@
             if(fileModule.currentFileTransfer){
                 fileModule.currentFileTransfer.abort();
                 fileModule.currentFileTransfer = null;
+                downloading = false;
             }
 
             return true;
@@ -743,7 +788,7 @@
      * @param datas.start
      * @param datas.duration
      * @param datas.content_id
-     * @returns {Promise} - The promise will be filled with the gameover html {String}     
+     * @returns {Promise<String>} - The promise will be filled with the gameover html {String}     
      */
     Game.prototype.buildGameOver = function(datas){                 
         var metaJsonPath = constants.GAMES_DIR + datas.content_id + "/meta.json";
@@ -765,9 +810,11 @@
                 LOG.i("Meta JSON:", metaJson);
                 return htmlString
                     .replace("{{score}}", datas.score)
+                    .replace("{{game_title}}", metaJson.title)
+                    .replace("{{game_title}}", metaJson.title)
                     .replace("{{url_share}}", metaJson.url_share)
-                    .replace("{{url_cover}}", metaJson.images.cover.ratio_1_4)
-                    .replace("{{startpage_url}}", constants.WWW_DIR + "index.html");
+                    .replace("{{url_cover}}", metaJson.images.cover.ratio_1);
+                    //.replace("{{startpage_url}}", constants.WWW_DIR + "index.html");
         });
     };
 
@@ -879,7 +926,7 @@
                 .then(function(bundleGamesIds){
 
                     obj.content_id = bundleGamesIds;
-                    var api_string = composeApiString(CONF.api, obj);
+                    var api_string = querify(CONF.api, obj);
                     LOG.d("Request bundle games meta info:", api_string);
 
                     return new jsonpRequest(api_string).prom;
@@ -950,7 +997,7 @@
          *  queues:{}
          * }
          * */
-        var apiGaForGames = composeApiString(CONF.ga_for_game_url, ga_for_games_qs);
+        var apiGaForGames = querify(CONF.ga_for_game_url, ga_for_games_qs);
         var getGaForGamesTask = new jsonpRequest(apiGaForGames).prom;
         
         var tasks = Promise.all([getGaForGamesTask, readUserJson()]);
@@ -968,7 +1015,7 @@
             LOG.d("PONYVALUE", _PONYVALUE);
             LOG.d("apiGaForGames:", apiGaForGames, "ga_for_game:", ga_for_game);
             
-            var gamifive_api = composeApiString(CONF.gamifive_info_api, {
+            var gamifive_api = querify(CONF.gamifive_info_api, {
                 content_id:content_id,                
                 format:"jsonp"
             });
