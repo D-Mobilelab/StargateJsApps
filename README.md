@@ -62,13 +62,13 @@ This type of methods use also or only callbacks for returning success or failure
 
 ## Stargate.initialize(configurations, callback)
     
-Initialization of Stargate, you have to pass a configuration object and a callback that will be called when initialization has been finished.
+[[**Use callbacks**](#c),[**Return promise**](#p)] Initialization of Stargate, you have to pass a configuration object and a callback that will be called when initialization has been finished.
 
 Return a promise fulfilled when initialization has been finished.
 
-If initialize has already been called then it will log a warning and will just execute the callback and return a promise that will be immediately fullfilled.
+If initialize has already been called then it will log a warning and will just execute the callback and return a promise that will be immediately fulfilled.
 
-If initialize is called when we are outside hybrid environment (see [Stargate.isHybrid](#stargateishybrid)) then it will just execute the callback and return a promise that will be immediately fullfilled.
+If initialize is called when we are outside hybrid environment (see [Stargate.isHybrid](#stargateishybrid)) then it will just execute the callback and return a promise that will be immediately fulfilled.
 
 The callback is called with a boolean result indicating if we are inside hybrid environment or not (see [Stargate.isHybrid](#stargateishybrid)). Also the promise is fullfilled with the same boolean result.
 
@@ -113,7 +113,7 @@ Value|Description
 *label* | label
 
 
-#### modules_conf iap or iapbase configuration configuration object
+#### modules_conf iap configuration configuration object
 
 Option|Description|Example
 --- | --- | ---
@@ -125,8 +125,8 @@ Option|Description|Example
 
 Option|Description|Example
 --- | --- | ---
-*productsIdAndroid* | Array of Product id as registred on Google Store | `["stargate.test.spec.subscription1","stargate.test.spec.subscription2"]`
-*productsIdIos* | Array of Product id as registred on Apple Store | `["stargate.test.spec.ios.subscription1","stargate.test.specios..subscription2"]`
+*productsIdAndroid* | Array of Product id as registered on Google Store | `["stargate.test.spec.subscription1","stargate.test.spec.subscription2"]`
+*productsIdIos* | Array of Product id as registered on Apple Store | `["stargate.test.spec.ios.subscription1","stargate.test.specios..subscription2"]`
 
 
 
@@ -169,19 +169,19 @@ Stargate.initialize(configurations, function(){})
 
 
 ## Stargate.isInitialized() 
-[[**S**](#S)] get initialization status: true when initialization is already called
+[[**Static**](#s)] get initialization status: true when initialization is already called
 
 Return boolean
 
 ## Stargate.isOpen()
     
-[[**S**](#S)] get initialization status: true when initialization is done
+[[**Static**](#s)] get initialization status: true when initialization is done
 
 Return boolean
 
 ## Stargate.isHybrid()
     
-[[**S**](#S)] get hybrid container status: true when we're running inside the hybrid app
+[[**Static**](#s)] get hybrid container status: true when we're running inside the hybrid app
 
 > Internally it check if there is an url query parameter called "hybrid" with value 1, or if there is a cookie or a localStorage with the same name and value. 
 
@@ -190,17 +190,17 @@ Return boolean
 
 ## Stargate.openUrl(url)
 
-Open external url with InApp Browser
+[[**Require opened stargate**](#o)] Open external url with InApp Browser
 
 ## Stargate.setAnalyticsCallback(callBackFunction)
 
-[[**B**](#B)] Set the callback to call when an analytic event need to be sent.
+[[**Before initialize**](#b)] Set the callback to call when an analytic event need to be sent.
 
 Please call this before [Stargate.initialize](#stargateinitializeconfigurations-callback), so it can track events logged on initialize too, like MFP.
 
 ## Stargate.setConversionDataCallback(callBackFunction)
 
-[[**B**](#B)] Set the callback to call when converion data from AppsFlyer are received.
+[[**Before initialize**](#b)] Set the callback to call when converion data from AppsFlyer are received.
 You may need to save the data you receive, becouse you'll only got that data the first time the app is run after installation.
 
 Please call this before [Stargate.initialize](#stargateinitializeconfigurations-callback), so it can call you during initialize too.
@@ -212,12 +212,12 @@ var info = Stargate.checkConnection();
 Stargate.checkConnection(function(info){ console.log(info.networkState, info.type); });
 // info is equal to: {'networkState': "wifi|3g|4g|none", type:"online|offline"}
 ```
-The connection info object is updated to the last connection status change 
+[[**Require opened stargate**](#o),[**Use callbacks**](#c)] The connection info object is updated to the last connection status change 
 the networkState is retrieved from navigator.connection.type of cordova-plugin-network-information plugin
 
 ## Stargate.getDeviceID(callbackSuccess, callbackError)
     
-[[**O**](#O),[**C**](#C)] Call callbackSuccess with an object with the device id like this:
+[[**Require opened stargate**](#o),[**Use callbacks**](#c)] Call callbackSuccess with an object with the device id like this:
 {'deviceID': deviceID}
 deviceID got from uuid of device plugin
 
@@ -229,13 +229,13 @@ Parameter boolean visibility
 
 ## Stargate.facebookLogin(scope, callbackSuccess, callbackError)
 
-Facebook connect
+[[**Require opened stargate**](#o),[**Use callbacks**](#c)] Facebook connect
 
 Parameter string scope: scope list separeted with comma
 
 ## Stargate.socialShare(options)
 
-Share an url on a social network
+[[**Require opened stargate**](#o),[**Return promise**](#p)] Share an url on a social network
 
 ### Parameters
 
@@ -252,7 +252,7 @@ Promise fullfilled when sharing is done
 
 ## Stargate.socialShareAvailable(options)
 
-Return a list of social networks application installed on user device
+[[**Require opened stargate**](#o),[**Return promise**](#p)] Return a list of social networks application installed on user device
 
 ### Parameters
 
@@ -278,23 +278,23 @@ For example:
 
 @deprecated since 0.5.0
 
-Facebook sharing
+[[**Require opened stargate**](#o),[**Use callbacks**](#c)] Facebook sharing
 
 Parameter string url: shared url
 
 ## Stargate.inAppPurchaseSubscription(callbackSuccess, callbackError, subscriptionUrl, returnUrl)
 
-IAP subscription
+[[**Require opened stargate**](#o),[**Use callbacks**](#c)] IAP subscription
     
     
 
 ## Stargate.inAppRestore(callbackSuccess, callbackError, subscriptionUrl, returnUrl)
 
-IAP restore
+[[**Require opened stargate**](#o),[**Use callbacks**](#c)] IAP restore
 
 ## Stargate.inAppProductInfo(productId, callbackSuccess, callbackError)
 
-IAP product information
+[[**Require opened stargate**](#o),[**Use callbacks**](#c)] IAP product information
 
 Call callbacks with information about a product got from store
 
@@ -328,11 +328,11 @@ callbackError - a function that will be called in case of error
 
 ## Stargate.getVersion()
 
-return current Stargate version
+[[**Static**](#s)] return current Stargate version
 
 ## Stargate.getAppInformation()
 
-return {object} with this information:
+[[**Require opened stargate**](#o)] return {object} with this information:
 
 Value|Description
 --- | --- 
