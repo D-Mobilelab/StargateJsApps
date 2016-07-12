@@ -16,7 +16,7 @@ StargateJsApps is an hybridization library for hosted apps built around Manifold
 
 Hosted apps are hybrid application that have their files served remotely by a web server and that are described by a manifest (W3C specification)
 
-[![ManifoldJS](https://github.com/D-Mobilelab/OfflineHostedWebApp)] is Cordova plugin developed by Microsoft that inject all Cordova dependency after the page is loaded, decoupling the native platform implementation with the web app.
+[ManifoldJS](https://github.com/D-Mobilelab/OfflineHostedWebApp) is Cordova plugin developed by Microsoft that inject all Cordova dependency after the page is loaded, decoupling the native platform implementation with the web app.
 
 StargateJsApps take advantage of the manifest to store it's configuration, like features to enable or remote api information.
 
@@ -38,19 +38,24 @@ Install stargate bower package and save to dependencies (not dev dependencies):
 # API Reference
 
 ### Method types
-#### Static
+#### S
+**Static**
 You can call static methods independently from initialization of Stargate
 
-#### Require opened stargate
+#### O
+**Require opened stargate**
 You can call this type of methods only after Stargate is initialized and open: when Stargate is inside hybrid app and it had already fulfilled the initialization promise.
 
-#### Before initialize
+#### B
+**Before initialize**
 You should call this type of methods before initialization of Stargate: they usually set some callback or status needed inside initialization.
 
-#### Return promise
+#### P
+**Return promise**
 This type of methods return a promise that is fulfilled when operation is succeeded.
 
-#### Use callbacks
+#### C
+**Use callbacks**
 This type of methods use also or only callbacks for returning success or failure.
 
 
@@ -81,7 +86,7 @@ Option|Type|Description|Default
 Value|Description
 --- | --- 
 *iap* | InApp purchase module
-*iaplight* | InApp purchase module based on [![AlexDisler/cordova-plugin-inapppurchase](https://github.com/AlexDisler/cordova-plugin-inapppurchase)]
+*iaplight* | InApp purchase module based on [AlexDisler/cordova-plugin-inapppurchase](https://github.com/AlexDisler/cordova-plugin-inapppurchase)
 *mfp* | Mobile Fingerprint purchase module
 *appsflyer* | AppsFlyer module
 *game* | Offline game module
@@ -164,20 +169,19 @@ Stargate.initialize(configurations, function(){})
 
 
 ## Stargate.isInitialized() 
-
-get initialization status: true when initialization is already called
+[[**S**](#S)] get initialization status: true when initialization is already called
 
 Return boolean
 
 ## Stargate.isOpen()
     
-get initialization status: true when initialization is done
+[[**S**](#S)] get initialization status: true when initialization is done
 
 Return boolean
 
 ## Stargate.isHybrid()
     
-get hybrid container status: true when we're running inside the hybrid app
+[[**S**](#S)] get hybrid container status: true when we're running inside the hybrid app
 
 > Internally it check if there is an url query parameter called "hybrid" with value 1, or if there is a cookie or a localStorage with the same name and value. 
 
@@ -190,13 +194,13 @@ Open external url with InApp Browser
 
 ## Stargate.setAnalyticsCallback(callBackFunction)
 
-Set the callback to call when an analytic event need to be sent.
+[[**B**](#B)] Set the callback to call when an analytic event need to be sent.
 
 Please call this before [Stargate.initialize](#stargateinitializeconfigurations-callback), so it can track events logged on initialize too, like MFP.
 
 ## Stargate.setConversionDataCallback(callBackFunction)
 
-Set the callback to call when converion data from AppsFlyer are received.
+[[**B**](#B)] Set the callback to call when converion data from AppsFlyer are received.
 You may need to save the data you receive, becouse you'll only got that data the first time the app is run after installation.
 
 Please call this before [Stargate.initialize](#stargateinitializeconfigurations-callback), so it can call you during initialize too.
@@ -213,7 +217,7 @@ the networkState is retrieved from navigator.connection.type of cordova-plugin-n
 
 ## Stargate.getDeviceID(callbackSuccess, callbackError)
     
-Call callbackSuccess with an object with the device id like this:
+[[**O**](#O),[**C**](#C)] Call callbackSuccess with an object with the device id like this:
 {'deviceID': deviceID}
 deviceID got from uuid of device plugin
 
