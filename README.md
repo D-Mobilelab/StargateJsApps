@@ -20,7 +20,7 @@ Hosted apps are hybrid application that have their files served remotely by a we
 
 StargateJsApps take advantage of the manifest to store it's configuration, like features to enable or remote api information.
 
-[Technical Documentation: http://d-mobilelab.github.io/StargateJsApps/dist/0.3.7/](http://d-mobilelab.github.io/StargateJsApps/0.3.4/docs/)
+[Technical Documentation Game Module](http://d-mobilelab.github.io/StargateJsApps/gh-pages/0.4.5/module-src_modules_Game.html)
 
 # Installation
 
@@ -59,6 +59,44 @@ This type of methods return a promise that is fulfilled when operation is succee
 This type of methods use also or only callbacks for returning success or failure.
 
 
+
+
+## Stargate.isHybrid()
+    
+[[**Static**](#s)] get hybrid container status: true when we're running inside the hybrid app
+
+> Internally it check if there is an url query parameter called "hybrid" with value 1, or if there is a cookie or a localStorage with the same name and value. 
+
+
+Return boolean
+
+## Stargate.getVersion()
+
+[[**Static**](#s)] return current Stargate version
+
+## Stargate.isInitialized() 
+[[**Static**](#s)] get initialization status: true when initialization is already called
+
+Return boolean
+
+## Stargate.isOpen()
+    
+[[**Static**](#s)] get initialization status: true when initialization is done
+
+Return boolean
+
+## Stargate.setAnalyticsCallback(callBackFunction)
+
+[[**Before initialize**](#b)] Set the callback to call when an analytic event need to be sent.
+
+Please call this before [Stargate.initialize](#stargateinitializeconfigurations-callback), so it can track events logged on initialize too, like MFP.
+
+## Stargate.setConversionDataCallback(callBackFunction)
+
+[[**Before initialize**](#b)] Set the callback to call when converion data from AppsFlyer are received.
+You may need to save the data you receive, becouse you'll only got that data the first time the app is run after installation.
+
+Please call this before [Stargate.initialize](#stargateinitializeconfigurations-callback), so it can call you during initialize too.
 
 ## Stargate.initialize(configurations, callback)
     
@@ -166,44 +204,10 @@ Stargate.initialize(configurations, function(){})
 ```
 
 
-
-
-## Stargate.isInitialized() 
-[[**Static**](#s)] get initialization status: true when initialization is already called
-
-Return boolean
-
-## Stargate.isOpen()
-    
-[[**Static**](#s)] get initialization status: true when initialization is done
-
-Return boolean
-
-## Stargate.isHybrid()
-    
-[[**Static**](#s)] get hybrid container status: true when we're running inside the hybrid app
-
-> Internally it check if there is an url query parameter called "hybrid" with value 1, or if there is a cookie or a localStorage with the same name and value. 
-
-
-Return boolean
-
 ## Stargate.openUrl(url)
 
 [[**Require opened stargate**](#o)] Open external url with InApp Browser
 
-## Stargate.setAnalyticsCallback(callBackFunction)
-
-[[**Before initialize**](#b)] Set the callback to call when an analytic event need to be sent.
-
-Please call this before [Stargate.initialize](#stargateinitializeconfigurations-callback), so it can track events logged on initialize too, like MFP.
-
-## Stargate.setConversionDataCallback(callBackFunction)
-
-[[**Before initialize**](#b)] Set the callback to call when converion data from AppsFlyer are received.
-You may need to save the data you receive, becouse you'll only got that data the first time the app is run after installation.
-
-Please call this before [Stargate.initialize](#stargateinitializeconfigurations-callback), so it can call you during initialize too.
 
 ## Stargate.checkConnection([callbackSuccess=function(){}], [callbackError=function(){}])
 ### Example Usage
@@ -223,7 +227,7 @@ deviceID got from uuid of device plugin
 
 ## Stargate.setStatusbarVisibility(visibility, callbackSuccess, callbackError)
 
-Show/hide device status bar
+[[**Require opened stargate**](#o),[**Use callbacks**](#c)] Show/hide device status bar
 
 Parameter boolean visibility
 
@@ -272,6 +276,30 @@ For example:
         "twitter": true,
         "instagram": false
     }
+
+
+## Stargate.iaplight.getProductInfo(productId)
+
+[[**Require opened stargate**](#o),[**Return promise**](#p)] Return an object with In App Product information got from store on module initialization
+
+### Parameters
+
+#### productId
+
+iap product id by which information will be returned
+
+### Returns
+
+Promise fullfilled with an object with iap product information, like price and description
+
+For example:
+    {
+        "productId": "com.mycompany.myproduct.weekly.v1",
+        "title": "Abbonamento Premium CalcioStar Italia",
+        "description": "Abonamento premium al catalogo CalcioStar Italia",
+        "price": "€0,99"
+    }
+
 
 
 ## Stargate.facebookShare(url, callbackSuccess, callbackError)
@@ -326,9 +354,6 @@ callbackError - a function that will be called in case of error
 }
 ```
 
-## Stargate.getVersion()
-
-[[**Static**](#s)] return current Stargate version
 
 ## Stargate.getAppInformation()
 
