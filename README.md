@@ -362,6 +362,35 @@ For example:
 ```
 
 
+## Stargate.iaplight.getExpireDate(productId)
+
+[[**Require opened stargate**](#o),[**Return promise**](#p)] Return the last subscription expire date or null. This execute the local decode of iOs receipt.
+
+### Parameters
+
+#### productId
+
+iap product id to subscribe to
+
+### Returns
+
+Promise fullfilled with a Date object of the expire of the last subscription or null if no subscription of the requested productId found
+
+Usage example:
+```javascript
+    Stargate.iaplight.getExpireDate("com.mycompany.myproduct")
+    .then(function(res){
+        console.log("Stargate.iaplight.getExpireDateOK",res);
+        if ( (res!==null) && (newDate()<res) ) {
+            console.log("SuscriptionOK")
+        } else {
+            console.warn("SubscriptionEXPIRED")
+        }
+    }).catch(function(err){
+                console.error( "Stargate.iaplight.getExpireDateERROR", err);
+    })
+```
+
 
 ## Stargate.facebookShare(url, callbackSuccess, callbackError)
 
