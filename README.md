@@ -271,12 +271,13 @@ Options key|Description|Example
 
 Promise fullfilled with an object with social networks availablility from the ones requested with parameter "option.socials"
 For example:
+```javascript
     {
         "facebook": true,
         "twitter": true,
         "instagram": false
     }
-
+```
 
 ## Stargate.iaplight.getProductInfo(productId)
 
@@ -290,15 +291,75 @@ iap product id by which information will be returned
 
 ### Returns
 
-Promise fullfilled with an object with iap product information, like price and description
+Promise fullfilled with an object with iap product information:
+
+- productId - SKU / product bundle id (such as 'com.yourapp.prod1')
+- title - short localized title
+- description - long localized description
+- price - localized price
 
 For example:
+```javascript
     {
         "productId": "com.mycompany.myproduct.weekly.v1",
-        "title": "Abbonamento Premium CalcioStar Italia",
-        "description": "Abonamento premium al catalogo CalcioStar Italia",
+        "title": "Abbonamento Premium MioProdotto",
+        "description": "Abonamento premium al catalogo di MioProdotto",
         "price": "€0,99"
     }
+```
+
+
+## Stargate.iaplight.subscribe(productId)
+
+[[**Require opened stargate**](#o),[**Return promise**](#p)] Request subscription of In App Product on store
+
+### Parameters
+
+#### productId
+
+iap product id to subscribe to
+
+### Returns
+
+Promise fullfilled with an object with the following keys:
+
+- transactionId - The transaction/order id
+- receipt - On iOS it will be the base64 string of the receipt, on Android it will be a string of a json with all the transaction details required for validation such as { "orderId": "...", "packageName:"...", "productId":"...", "purchaseTime": "...", "purchaseState": "...", "purchaseToken":"..." }
+- signature - On Android it can be used to consume a purchase. On iOS it will be an empty string.
+- productType - On Android it can be used to consume a purchase. On iOS it will be an empty string.
+
+For example:
+```javascript
+    {
+        "transactionId":"1000000221696692",
+        "receipt":"MXXXX"
+    }
+```
+
+
+## Stargate.iaplight.restore()
+
+[[**Require opened stargate**](#o),[**Return promise**](#p)] Request restore of In App Product already purchased on store
+
+### Returns
+
+If successful, the promise resolves to an array of objects with the following attributes:
+
+- productId
+- state - the state of the product. On Android the statuses are: 0 - ACTIVE, 1 - CANCELLED, 2 - REFUNDED
+- transactionId
+- date - timestamp of the purchase
+- productType - On Android it can be used to consume a purchase. On iOS it will be an empty string.
+- receipt - On Android it can be used to consume a purchase. On iOS it will be an empty string.
+- signature - On Android it can be used to consume a purchase. On iOS it will be an empty string.
+
+For example:
+```javascript
+    [
+        {"productId": "com.mycompany.myproduct.weekly.v1", "date": "2016-07-05T10:27:21Z", "transactionId": "1000000222595453", "state": 3},
+        {"productId": "com.mycompany.myproduct.weekly.v1", "date": "2016-07-05T10:21:21Z", "transactionId": "1000000222595454", "state": 3}
+]
+```
 
 
 
