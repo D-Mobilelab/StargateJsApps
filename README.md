@@ -16,7 +16,7 @@ StargateJsApps is an hybridization library for hosted apps built around Manifold
 
 Hosted apps are hybrid application that have their files served remotely by a web server and that are described by a manifest (W3C specification)
 
-ManifoldJS is Cordova plugin developed by Microsoft that inject all Cordova dependency after the page is loaded, decoupling the native platform implementation with the web app.
+[![ManifoldJS](https://github.com/D-Mobilelab/OfflineHostedWebApp)] is Cordova plugin developed by Microsoft that inject all Cordova dependency after the page is loaded, decoupling the native platform implementation with the web app.
 
 StargateJsApps take advantage of the manifest to store it's configuration, like features to enable or remote api information.
 
@@ -32,10 +32,28 @@ use stargate.js or stargate.min.js in dist/ folder
 Install stargate bower package and save to dependencies (not dev dependencies):
 
 
-    $ bower install -S stargatejs-apps#~v0.2.2
+    $ bower install -S stargatejs-apps
 
 
 # API Reference
+
+### Method types
+#### Static
+You can call static methods independently from initialization of Stargate
+
+#### Require opened stargate
+You can call this type of methods only after Stargate is initialized and open: when Stargate is inside hybrid app and it had already fulfilled the initialization promise.
+
+#### Before initialize
+You should call this type of methods before initialization of Stargate: they usually set some callback or status needed inside initialization.
+
+#### Return promise
+This type of methods return a promise that is fulfilled when operation is succeeded.
+
+#### Use callbacks
+This type of methods use also or only callbacks for returning success or failure.
+
+
 
 ## Stargate.initialize(configurations, callback)
     
@@ -63,7 +81,7 @@ Option|Type|Description|Default
 Value|Description
 --- | --- 
 *iap* | InApp purchase module
-*iapbase* | InApp purchase module without refresh on initialize
+*iaplight* | InApp purchase module based on [![AlexDisler/cordova-plugin-inapppurchase](https://github.com/AlexDisler/cordova-plugin-inapppurchase)]
 *mfp* | Mobile Fingerprint purchase module
 *appsflyer* | AppsFlyer module
 *game* | Offline game module
@@ -73,6 +91,7 @@ Value|Description
 Option|Description|Default
 --- | --- | ---
 *iap* | InApp purchase configuration object | `undefined`
+*iaplight* | InApp purchase iaplight configuration object | `undefined`
 *mfp* | Mobile Fingerprint configuration object | `undefined`
 
 #### modules_conf mfp configuration configuration object
@@ -97,18 +116,24 @@ Option|Description|Example
 *alias* | Product alias | `"Stargate Test Subscription"`
 *type* | Type of product; it can be: FREE_SUBSCRIPTION, PAID_SUBSCRIPTION, CONSUMABLE, NON_CONSUMABLE | `"PAID_SUBSCRIPTION"`
 
+#### modules_conf iap light configuration configuration object
+
+Option|Description|Example
+--- | --- | ---
+*productsIdAndroid* | Array of Product id as registred on Google Store | `["stargate.test.spec.subscription1","stargate.test.spec.subscription2"]`
+*productsIdIos* | Array of Product id as registred on Apple Store | `["stargate.test.spec.ios.subscription1","stargate.test.specios..subscription2"]`
+
 
 
 ### Example Usage
 ```javascript
 
 var configurations = {
-    modules: ["mfp", "appsflyer", "iapbase", "game"],
+    modules: ["mfp", "appsflyer", "iaplight", "game"],
     modules_conf: {
-        "iap": {
-            "id": "stargate.test.spec.subscription",
-            "alias": "Stargate Test Subscription",
-            "type": "PAID_SUBSCRIPTION"
+        "iaplight": {
+            "productsIdAndroid": ["com.mycompany.myapp.weekly.v1","com.mycompany.myapp.montly.v1"],
+            "productsIdIos": ["com.mycompany.myapp.weekly.v1","com.mycompany.myapp.montly.v1"]
         },
         "mfp": {
             "country": "us"
@@ -138,8 +163,8 @@ Stargate.initialize(configurations, function(){})
 
 
 
-## Stargate.isInitialized()
-    
+## Stargate.isInitialized() 
+
 get initialization status: true when initialization is already called
 
 Return boolean
@@ -320,49 +345,6 @@ Value|Description
 *stargateModules* | modules initialized
 *stargateError* | initialization error
 
-## ~~Stargate.googleLogin(callbackSuccess, callbackError)~~
-
-not implemented
-    
-## ~~Stargate.ad.initialize(data,callbackSuccess, callbackError)~~
-
-not implemented
-    
-## ~~Stargate.ad.createBanner(data,callbackSuccess, callbackError)~~
-
-not implemented
-    
-## ~~Stargate.ad.hideBanner(data,callbackSuccess, callbackError)~~
-
-not implemented
-    
-## ~~Stargate.ad.removeBanner(data,callbackSuccess, callbackError)~~
-
-not implemented
-    
-## ~~Stargate.ad.showBannerAtSelectedPosition(data,callbackSuccess, callbackError)~~
-
-not implemented
-    
-## ~~Stargate.ad.showBannerAtGivenXY(data,callbackSuccess, callbackError)~~
-
-not implemented
-    
-## ~~Stargate.ad.registerAdEvents(data,callbackSuccess, callbackError)~~
-
-not implemented
-    
-## ~~Stargate.ad.prepareInterstitial(data,callbackSuccess, callbackError)~~
-
-not implemented
-    
-## ~~Stargate.ad.showInterstitial(data,callbackSuccess, callbackError)~~
-
-not implemented
-    
-
-
-
 
 # Internal design
 
@@ -384,12 +366,13 @@ Inside manifest there is an object that holds all configuration options of Starg
 
 ## release process
 
-1. npm test
-2. change version in package.json
-3. gulp build
-4. git commit -m "New revision x.x.x" dist/ package.json
-5. git tag -a vx.x.x -m "Added xxxx. Changed xxxx. Fixed: xxxx"
-6. git push --tags
+1. github PR your feature branch to develop
+2. github PR develop to master
+3. git checkout master
+4. git pull
+5. npm version
+6. git push
+7. git push --tags
 
 ==to automate==
 
