@@ -409,6 +409,25 @@ Inside manifest there is an object that holds all configuration options of Starg
 
 Travis build the project on every push and check for lint and test errors. It also send the test coverage to coveralls.io
 
+## cordova plugin
+All public api of Stargate requires some cordova plugins to be available in the app.
+This is a list of the plugin used by the various function of Stargate:
+
+Functionality|Cordova plugin required
+--- | --- 
+*initialize* | [ManifoldJS D-Mobilelab fork](https://github.com/D-Mobilelab/OfflineHostedWebApp)
+*initialize* | [cordova-plugin-app-version](https://www.npmjs.com/package/cordova-plugin-appversion)
+*initialize* | [cordova-plugin-device](https://www.npmjs.com/package/cordova-plugin-device)
+*initialize* | [cordova-plugin-splashscreen](https://www.npmjs.com/package/cordova-plugin-splashscreen)
+*update offline files* | [cordova-plugin-code-push](https://www.npmjs.com/package/cordova-plugin-code-push)
+*iaplight* | [AlexDisler/cordova-plugin-inapppurchase](https://github.com/AlexDisler/cordova-plugin-inapppurchase)
+*iap* | [j3k0/cordova-plugin-purchase](https://github.com/j3k0/cordova-plugin-purchase)
+*socialShare* | [EddyVerbruggen/SocialSharing-PhoneGap-Plugin](https://github.com/EddyVerbruggen/SocialSharing-PhoneGap-Plugin.git)
+*appsflyer* | [cordova-plugin-appsflyer D-Mobilelab fork](https://github.com/D-Mobilelab/cordova-plugin-appsflyer)
+
+## offline and app launch
+We have an html page on www folder of cordova project that check if there is network connectivity and if so go to the webapp, where HostedWebApp will inject the cordova.js.
+If there isn't connectivity it goes to an offline version of the site, that can be only a message or can be a full app.
 
 # Contribute
 
