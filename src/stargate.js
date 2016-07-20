@@ -339,6 +339,8 @@ var onPluginReady = function (resolve) {
 
     codepush.initialize();
     
+    push.initialize();
+    
     var modulePromises = [];
     
     //Game Module Init
