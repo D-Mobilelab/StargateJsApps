@@ -17,7 +17,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/BuongiornoMIP/StargateJsApps.git"
+    "url": "git+https://github.com/D-Mobilelab/StargateJsApps.git"
   },
   "keywords": [
     "cordova",
@@ -28,9 +28,9 @@
   "author": "Buongiorno",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/BuongiornoMIP/StargateJsApps/issues"
+    "url": "https://github.com/D-Mobilelab/StargateJsApps/issues"
   },
-  "homepage": "https://github.com/BuongiornoMIP/StargateJsApps#readme",
+  "homepage": "https://github.com/D-Mobilelab/StargateJsApps#readme",
   "devDependencies": {
     "bower": "^1.6.5",
     "colors": "^1.1.2",
