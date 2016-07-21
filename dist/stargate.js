@@ -7555,7 +7555,7 @@ var push = (function(){
     
 	var protectedInterface = {};
 
-    var initPromise;
+    var initPromise = null;
 
     var clickEventFunc = function() {
         // * read url saved
