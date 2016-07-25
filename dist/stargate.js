@@ -7600,7 +7600,7 @@ var push = (function(){
     //    return window.localStorage.setItem(localStorageDeeplinkName, url);
     //};
     var getSavedUrlDevice = function() {
-        return stargateModules.file.fileExists(getStorageBaseDir())
+        return stargateModules.file.fileExists(getStorageBaseDir() + getStorageFileName())
             .then(function(exists) {
                 if(exists){
                     return stargateModules.file.readFileAsJSON(getStorageBaseDir() + getStorageFileName())
