@@ -59,8 +59,10 @@ var push = (function(){
             });
     };
     var setSavedUrlDevice = function(url) {
+        
         var objToSave = {
-            'url': url
+                   // getHybridStartUrl => add hybrid parameter to url
+            'url': getHybridStartUrl(url)
         };
         return stargateModules.file.createFile(getStorageBaseDir(), getStorageFileName())
             .then(function(result){
@@ -120,7 +122,9 @@ var push = (function(){
                         id: fixedLocalPushId,
                         title: params.title,
                         text: params.text,
-                        at: params.date
+                        at: params.date,
+                        icon: "res://icon",
+                        smallIcon: "res://ic_notification"
                     });
                     return true;
                 });

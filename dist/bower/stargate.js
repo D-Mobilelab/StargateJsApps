@@ -2383,8 +2383,12 @@ stargatePublic.conf.getWebappStartUrl = function() {
     if (!isStargateOpen) {
         return err("Stargate closed, wait for Stargate.initialize to complete!");
     }
-    
-    var webappStartUrl = URI(stargateConf.webapp_start_url)
+
+    return getHybridStartUrl(stargateConf.webapp_start_url);
+};
+
+var getHybridStartUrl = function(starturl) {
+    var webappStartUrl = URI(starturl)
         .addSearch("hybrid", "1")
         .addSearch("stargateVersion", getStargateVersionToLoad());
     
@@ -3712,8 +3716,10 @@ var push = (function(){
             });
     };
     var setSavedUrlDevice = function(url) {
+        
         var objToSave = {
-            'url': url
+                   // getHybridStartUrl => add hybrid parameter to url
+            'url': getHybridStartUrl(url)
         };
         return stargateModules.file.createFile(getStorageBaseDir(), getStorageFileName())
             .then(function(result){
@@ -3773,7 +3779,9 @@ var push = (function(){
                         id: fixedLocalPushId,
                         title: params.title,
                         text: params.text,
-                        at: params.date
+                        at: params.date,
+                        icon: "res://icon",
+                        smallIcon: "res://ic_notification"
                     });
                     return true;
                 });

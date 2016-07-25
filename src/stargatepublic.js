@@ -22,8 +22,12 @@ stargatePublic.conf.getWebappStartUrl = function() {
     if (!isStargateOpen) {
         return err("Stargate closed, wait for Stargate.initialize to complete!");
     }
-    
-    var webappStartUrl = URI(stargateConf.webapp_start_url)
+
+    return getHybridStartUrl(stargateConf.webapp_start_url);
+};
+
+var getHybridStartUrl = function(starturl) {
+    var webappStartUrl = URI(starturl)
         .addSearch("hybrid", "1")
         .addSearch("stargateVersion", getStargateVersionToLoad());
     
