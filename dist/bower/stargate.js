@@ -3659,17 +3659,21 @@ var push = (function(){
 
     var clickEventFunc = function() {
         // * read url saved
-        var savedUrl = getSavedUrl();
+        getSavedUrlDevice()
+            .then(function(savedUrl){
+                // * log push clicked event
+                analytics.track({
+                    page: savedUrl,
+                    action: 'PushOpen'
+                });
 
-        // * log push clicked event
-        analytics.track({
-            page: savedUrl,
-            action: 'PushOpen'
-        });
-
-        // * load url in webview
-        log("[push] going to url: ", savedUrl);
-		launchUrl(savedUrl);
+                // * load url in webview
+                log("[push] going to url: ", savedUrl);
+                launchUrl(savedUrl);
+            })
+            .catch(function(error){
+                err("[push] error reading url: "+error);
+            });
     };
 
     var pluginExistsFunc = function() {
@@ -3678,13 +3682,47 @@ var push = (function(){
 
     var fixedLocalPushId = 1;
 
-    var localStorageDeeplinkName = "stargatePushUrl";
+    //var localStorageDeeplinkName = "stargatePushUrl";
 
-    var getSavedUrl = function() {
-        return window.localStorage.getItem(localStorageDeeplinkName);
+    var getStorageBaseDir = function() {
+        var baseDir = window.cordova.file.applicationStorageDirectory;
+        if (isRunningOnIos()) {baseDir += "Documents/";}
+        return baseDir;
     };
-    var setSavedUrl = function(url) {
-        return window.localStorage.setItem(localStorageDeeplinkName, url);
+    var getStorageFileName = function() {
+        return "SGpushUrl";
+    };
+
+    //var getSavedUrl = function() {
+    //    return window.localStorage.getItem(localStorageDeeplinkName);
+    //};
+    //var setSavedUrl = function(url) {
+    //    return window.localStorage.setItem(localStorageDeeplinkName, url);
+    //};
+    var getSavedUrlDevice = function() {
+        return stargateModules.file.fileExists(getStorageBaseDir())
+            .then(function(exists) {
+                if(exists){
+                    return stargateModules.file.readFileAsJSON(getStorageBaseDir() + getStorageFileName())
+                        .then(function(obj) {
+                            return obj.url;
+                        });
+                }
+                return Promise.reject("file not found");
+            });
+    };
+    var setSavedUrlDevice = function(url) {
+        var objToSave = {
+            'url': url
+        };
+        return stargateModules.file.createFile(getStorageBaseDir(), getStorageFileName())
+            .then(function(result){
+                log("[push] writing offline data", objToSave, 'in: ',result.path);
+                return stargateModules.file.write(result.path, JSON.stringify(objToSave));
+            })
+            .catch(function(error){
+                err("[push] error sg create " + getStorageFileName() + " file", error);
+            });
     };
 
     /**
@@ -3729,18 +3767,16 @@ var push = (function(){
         // FIXME: check that date is a js Date object
 
         var scheduleFunc = function() {
-            return new Promise(function(resolve){
-                
-                setSavedUrl(params.deeplink);
-
-                window.cordova.plugins.notification.local.schedule({
-                    id: fixedLocalPushId,
-                    title: params.title,
-                    text: params.text,
-                    at: params.date
+            return setSavedUrlDevice(params.deeplink)
+                .then(function() {
+                    window.cordova.plugins.notification.local.schedule({
+                        id: fixedLocalPushId,
+                        title: params.title,
+                        text: params.text,
+                        at: params.date
+                    });
+                    return true;
                 });
-                resolve(true);
-            }); 
         };
 
         // wait for initPromise if it didn't complete

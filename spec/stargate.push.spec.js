@@ -1,6 +1,8 @@
 
 describe("Stargate push", function() {
     
+    var _filesCreated = {};
+
     beforeEach(function() {
 		hybrid_conf = null;
 		country = null;
@@ -42,11 +44,27 @@ describe("Stargate push", function() {
         if (!window.cordova.plugins) {
             window.cordova.plugins = {};
         }
+        if (!window.cordova.file) {
+            window.cordova.file = {};
+        }
+        window.cordova.file.applicationStorageDirectory = "";
+        
         window.cordova.plugins.notification = {
             local: {
                 schedule: function(params) {},
                 on: function(params) {}
             }
+        };
+
+        stargateModules.file = {
+            createFile: function(directory, filename) {
+                _filesCreated[directory+filename] = "";
+                return Promise.resolve();
+            },
+            write: function(filepath, content) {
+                _filesCreated[filepath] = content;
+                return Promise.resolve();
+            },
         };
 
         push.__clean__();
