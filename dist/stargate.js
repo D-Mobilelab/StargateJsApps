@@ -7583,6 +7583,72 @@ var push = (function(){
     var pluginExistsFunc = function() {
         return window.cordova && window.cordova.plugins && window.cordova.plugins.notification && window.cordova.plugins.notification.local;
     };
+    
+    
+    /*
+    local-notification fireEvent event: trigger Arguments[3] 
+        0: "trigger"
+        1: Object
+            at: 1469527436
+            autoClear: true
+            badge: 0
+            icon: "res://icon"
+            id: 1
+            ongoing: false
+            smallIcon: "res://ic_notification"
+            sound: "res://platform_default"
+            text: "Discover new and popular games on Gameasy!"
+            title: "Try out today's game: Day D Tower Rush"
+        2: "background"
+
+    local-notification fireEvent event: click Arguments[3]
+        0: "click"
+        1: Object
+            at: 1469527436
+            autoClear: true
+            badge: 0
+            icon: "res://icon"
+            id: 1
+            ongoing: false
+            smallIcon: "res://ic_notification"
+            sound: "res://platform_default"
+            text: "Discover new and popular games on Gameasy!"
+            title: "Try out today's game: Day D Tower Rush"
+        2: "background"
+    local-notification fireEvent event: cancel Arguments[3]
+        0: "cancel"
+        1: Object
+            at: 1469527436
+            autoClear: true
+            badge: 0
+            icon: "res://icon"
+            id: 1
+            ongoing: false
+            smallIcon: "res://ic_notification"
+            sound: "res://platform_default"
+            text: "Discover new and popular games on Gameasy!"
+            title: "Try out today's game: Day D Tower Rush"
+        2: "background"
+    */
+
+    var eventsBuffer = [];
+    var moduleIsReady = false;
+    var attachToPluginEventsBeforeDeviceReady = function() {
+        if (!pluginExistsFunc()) {
+            return;
+        }
+        window.cordova.plugins.notification.local.on("click", function(event){
+            // if already initialized process now...
+            if (moduleIsReady) {
+                clickEventFunc(event);
+            }
+            // ...else enqueue the event and process after init
+            else {
+                eventsBuffer.push(event);
+            }
+        });
+    };
+    attachToPluginEventsBeforeDeviceReady();
 
     var fixedLocalPushId = 1;
 
@@ -7616,9 +7682,9 @@ var push = (function(){
             });
     };
     var setSavedUrlDevice = function(url) {
-        
+        // object with url to load after push click
+        // getHybridStartUrl => add hybrid parameter to url
         var objToSave = {
-                   // getHybridStartUrl => add hybrid parameter to url
             'url': getHybridStartUrl(url)
         };
         return stargateModules.file.createFile(getStorageBaseDir(), getStorageFileName())
@@ -7647,7 +7713,13 @@ var push = (function(){
 
         initPromise = new Promise(function(resolve){
             
-            window.cordova.plugins.notification.local.on("click", clickEventFunc);
+            while (eventsBuffer.length > 0) {
+                var event = eventsBuffer.pop();
+                log("[push] processing queued event: ", event);
+                clickEventFunc(event);
+            }
+
+            moduleIsReady = true;
             resolve();
         });
 
