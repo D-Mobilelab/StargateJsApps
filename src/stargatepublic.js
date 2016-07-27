@@ -22,11 +22,22 @@ stargatePublic.conf.getWebappStartUrl = function() {
     if (!isStargateOpen) {
         return err("Stargate closed, wait for Stargate.initialize to complete!");
     }
-    
-    var webappStartUrl = URI(stargateConf.webapp_start_url)
+
+    return getHybridStartUrl(stargateConf.webapp_start_url);
+};
+
+var getHybridStartUrl = function(starturl, optionalSearchVals) {
+    var webappStartUrl = URI(starturl)
         .addSearch("hybrid", "1")
         .addSearch("stargateVersion", getStargateVersionToLoad());
     
+    if (optionalSearchVals && (typeof optionalSearchVals === 'object')) {
+        for (var optionalSearchKey in optionalSearchVals) {
+            if (optionalSearchVals.hasOwnProperty(optionalSearchKey)) {
+                webappStartUrl.addSearch(optionalSearchKey,  optionalSearchVals[optionalSearchKey]);
+            }
+        }
+    }
     return String(webappStartUrl);
 };
 
