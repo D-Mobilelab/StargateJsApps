@@ -26,11 +26,18 @@ stargatePublic.conf.getWebappStartUrl = function() {
     return getHybridStartUrl(stargateConf.webapp_start_url);
 };
 
-var getHybridStartUrl = function(starturl) {
+var getHybridStartUrl = function(starturl, optionalSearchVals) {
     var webappStartUrl = URI(starturl)
         .addSearch("hybrid", "1")
         .addSearch("stargateVersion", getStargateVersionToLoad());
     
+    if (optionalSearchVals && (typeof optionalSearchVals === 'object')) {
+        for (var optionalSearchKey in optionalSearchVals) {
+            if (optionalSearchVals.hasOwnProperty(optionalSearchKey)) {
+                webappStartUrl.addSearch(optionalSearchKey,  optionalSearchVals[optionalSearchKey]);
+            }
+        }
+    }
     return String(webappStartUrl);
 };
 

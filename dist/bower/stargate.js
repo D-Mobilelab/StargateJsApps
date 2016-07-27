@@ -2387,11 +2387,18 @@ stargatePublic.conf.getWebappStartUrl = function() {
     return getHybridStartUrl(stargateConf.webapp_start_url);
 };
 
-var getHybridStartUrl = function(starturl) {
+var getHybridStartUrl = function(starturl, optionalSearchVals) {
     var webappStartUrl = URI(starturl)
         .addSearch("hybrid", "1")
         .addSearch("stargateVersion", getStargateVersionToLoad());
     
+    if (optionalSearchVals && (typeof optionalSearchVals === 'object')) {
+        for (var optionalSearchKey in optionalSearchVals) {
+            if (optionalSearchVals.hasOwnProperty(optionalSearchKey)) {
+                webappStartUrl.addSearch(optionalSearchKey,  optionalSearchVals[optionalSearchKey]);
+            }
+        }
+    }
     return String(webappStartUrl);
 };
 
@@ -3665,15 +3672,24 @@ var push = (function(){
         // * read url saved
         getSavedUrlDevice()
             .then(function(savedUrl){
-                // * log push clicked event
-                analytics.track({
-                    page: savedUrl,
-                    action: 'PushOpen'
-                });
 
-                // * load url in webview
-                log("[push] going to url: ", savedUrl);
-                launchUrl(savedUrl);
+                if (connectionStatus && connectionStatus.type && connectionStatus.type === "online") {
+                    // * log push clicked event
+                    // -> log must be done on webapp when url is loaded
+                    // -> this parameter is added to the landing url on webapp: {'source': 'push'}
+                    //analytics.track({
+                    //    page: savedUrl,
+                    //    action: 'PushOpen'
+                    //});
+
+                    // * load url in webview
+                    log("[push] going to url: ", savedUrl);
+                    launchUrl(savedUrl);
+                }
+                else {
+                    //
+                    err("[push] i'm offline not going to url");
+                }
             })
             .catch(function(error){
                 err("[push] error reading url: "+error);
@@ -3683,70 +3699,31 @@ var push = (function(){
     var pluginExistsFunc = function() {
         return window.cordova && window.cordova.plugins && window.cordova.plugins.notification && window.cordova.plugins.notification.local;
     };
-    
-    
-    /*
-    local-notification fireEvent event: trigger Arguments[3] 
-        0: "trigger"
-        1: Object
-            at: 1469527436
-            autoClear: true
-            badge: 0
-            icon: "res://icon"
-            id: 1
-            ongoing: false
-            smallIcon: "res://ic_notification"
-            sound: "res://platform_default"
-            text: "Discover new and popular games on Gameasy!"
-            title: "Try out today's game: Day D Tower Rush"
-        2: "background"
-
-    local-notification fireEvent event: click Arguments[3]
-        0: "click"
-        1: Object
-            at: 1469527436
-            autoClear: true
-            badge: 0
-            icon: "res://icon"
-            id: 1
-            ongoing: false
-            smallIcon: "res://ic_notification"
-            sound: "res://platform_default"
-            text: "Discover new and popular games on Gameasy!"
-            title: "Try out today's game: Day D Tower Rush"
-        2: "background"
-    local-notification fireEvent event: cancel Arguments[3]
-        0: "cancel"
-        1: Object
-            at: 1469527436
-            autoClear: true
-            badge: 0
-            icon: "res://icon"
-            id: 1
-            ongoing: false
-            smallIcon: "res://ic_notification"
-            sound: "res://platform_default"
-            text: "Discover new and popular games on Gameasy!"
-            title: "Try out today's game: Day D Tower Rush"
-        2: "background"
-    */
 
     var eventsBuffer = [];
     var moduleIsReady = false;
     var attachToPluginEventsBeforeDeviceReady = function() {
-        if (!pluginExistsFunc()) {
+        if (!window.cordova) {
             return;
         }
-        window.cordova.plugins.notification.local.on("click", function(event){
-            // if already initialized process now...
-            if (moduleIsReady) {
-                clickEventFunc(event);
+        var channel = window.cordova.require('cordova/channel');
+        channel.onPluginsReady.subscribe(function () {
+            console.log("onPluginsReady subscription called");
+
+            if (!pluginExistsFunc()) {
+                return;
             }
-            // ...else enqueue the event and process after init
-            else {
-                eventsBuffer.push(event);
-            }
-        });
+            window.cordova.plugins.notification.local.on("click", function(event){
+                // if already initialized process now...
+                if (moduleIsReady) {
+                    clickEventFunc(event);
+                }
+                // ...else enqueue the event and process after init
+                else {
+                    eventsBuffer.push(event);
+                }
+            });
+        });        
     };
     attachToPluginEventsBeforeDeviceReady();
 
@@ -3785,7 +3762,7 @@ var push = (function(){
         // object with url to load after push click
         // getHybridStartUrl => add hybrid parameter to url
         var objToSave = {
-            'url': getHybridStartUrl(url)
+            'url': getHybridStartUrl(url, {'source': 'push'})
         };
         return stargateModules.file.createFile(getStorageBaseDir(), getStorageFileName())
             .then(function(result){
