@@ -18,7 +18,7 @@
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.6.0";
+    var stargatePackageVersion = "0.7.0";
     var stargatePublic = {};
     
     var stargateModules = {};       
