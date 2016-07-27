@@ -509,7 +509,7 @@ Inside manifest there is an object that holds all configuration options of Starg
 2. github PR develop to master
 3. git checkout master
 4. git pull
-5. npm version
+5. npm version (minor|patch)
 6. git push
 7. git push --tags
 
