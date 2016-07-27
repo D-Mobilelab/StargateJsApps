@@ -392,6 +392,26 @@ Usage example:
 ```
 
 
+## Stargate.push.setScheduledNotify(parameters)
+
+[[**Require opened stargate**](#o),[**Return promise**](#p)] Request an auto push (local notification) on a specific date
+
+### Parameters
+
+#### options object
+
+Options key|Description|Example
+--- | --- | ---
+*title* | [required] String title of notification | Stargate
+*text* | [required] String text of notification | Check out this cool library for hybrid apps!
+*date* | [required] Date when the notification will show up | new Date(new Date() + 5*1000)
+*deeplink* | [required] String url of a specific webapp page | "http://www.stargate.com/#!/route/to/mypushedcontent"
+
+### Returns
+
+Promise fullfilled with boolean result status
+
+
 ## Stargate.facebookShare(url, callbackSuccess, callbackError)
 
 @deprecated since 0.5.0
@@ -477,10 +497,10 @@ Inside manifest there is an object that holds all configuration options of Starg
 
 ## gulp tasks
 
-* build
+* build (default task)
 * lint
 * test
-* karma
+* karma (--browsers=[PhantomJS]|Chrome)
 * watch
 
 ## release process
@@ -489,7 +509,7 @@ Inside manifest there is an object that holds all configuration options of Starg
 2. github PR develop to master
 3. git checkout master
 4. git pull
-5. npm version
+5. npm version (minor|patch)
 6. git push
 7. git push --tags
 
@@ -514,6 +534,7 @@ Functionality|Cordova plugin required
 *iap* | [j3k0/cordova-plugin-purchase](https://github.com/j3k0/cordova-plugin-purchase)
 *socialShare* | [EddyVerbruggen/SocialSharing-PhoneGap-Plugin](https://github.com/EddyVerbruggen/SocialSharing-PhoneGap-Plugin.git)
 *appsflyer* | [cordova-plugin-appsflyer D-Mobilelab fork](https://github.com/D-Mobilelab/cordova-plugin-appsflyer)
+*push* | [katzer/cordova-plugin-local-notifications](https://github.com/katzer/cordova-plugin-local-notifications)
 
 ## offline and app launch
 We have an html page on www folder of cordova project that check if there is network connectivity and if so go to the webapp, where HostedWebApp will inject the cordova.js.
