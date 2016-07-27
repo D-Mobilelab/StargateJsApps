@@ -98,7 +98,7 @@ var push = (function(){
         // object with url to load after push click
         // getHybridStartUrl => add hybrid parameter to url
         var objToSave = {
-            'url': getHybridStartUrl(url, {'source': 'push'})
+            'url': getHybridStartUrl(url, {'source': 'localpush'})
         };
         return stargateModules.file.createFile(getStorageBaseDir(), getStorageFileName())
             .then(function(result){
