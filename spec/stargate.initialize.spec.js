@@ -116,6 +116,25 @@ var cordova_mock = {
                 cbOk(app_is_debug_mock);
             }
         }
+    },
+    require: function(module){
+        if (module === 'cordova/channel'){
+            return {
+                onPluginsReady: {
+                    subscribe: function(func){
+                        func();
+                    }
+                }
+            };
+        }
+        else if (module === 'cordova/exec') {
+            return {
+                setJsToNativeBridgeMode: function(){},
+                jsToNativeModes: {
+                    IFRAME_NAV: '1'
+                }
+            };
+        }
     }
 };
 

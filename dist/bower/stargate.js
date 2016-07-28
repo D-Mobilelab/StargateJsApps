@@ -18,7 +18,7 @@
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.7.0";
+    var stargatePackageVersion = "0.7.1";
     var stargatePublic = {};
     
     var stargateModules = {};       
@@ -3009,8 +3009,8 @@ var onPluginReady = function (resolve) {
     document.title = stargateConf.title;
     
     // set back cordova bridge mode to IFRAME_NAV overriding manifold settings
-    if (isRunningOnIos() && (typeof window.cordova !== 'undefined') && cordova.require) {
-        var exec = cordova.require('cordova/exec');
+    if (isRunningOnIos() && (typeof window.cordova !== 'undefined') && window.cordova.require) {
+        var exec = window.cordova.require('cordova/exec');
         exec.setJsToNativeBridgeMode(exec.jsToNativeModes.IFRAME_NAV);
     }
     bindConnectionEvents();
@@ -3702,28 +3702,42 @@ var push = (function(){
 
     var eventsBuffer = [];
     var moduleIsReady = false;
+    var eventHandlerConnected = false;
+    var attachToPluginEvents = function() {
+        if (eventHandlerConnected) {
+            return;
+        }
+        if (!pluginExistsFunc()) {
+            return;
+        }
+        eventHandlerConnected = true;
+        window.cordova.plugins.notification.local.on("click", function(event){
+            // if already initialized process now...
+            if (moduleIsReady) {
+                clickEventFunc(event);
+            }
+            // ...else enqueue the event and process after init
+            else {
+                eventsBuffer.push(event);
+            }
+        });
+    };
     var attachToPluginEventsBeforeDeviceReady = function() {
         if (!window.cordova) {
             return;
         }
         var channel = window.cordova.require('cordova/channel');
-        channel.onPluginsReady.subscribe(function () {
-            console.log("onPluginsReady subscription called");
-
-            if (!pluginExistsFunc()) {
-                return;
-            }
-            window.cordova.plugins.notification.local.on("click", function(event){
-                // if already initialized process now...
-                if (moduleIsReady) {
-                    clickEventFunc(event);
-                }
-                // ...else enqueue the event and process after init
-                else {
-                    eventsBuffer.push(event);
-                }
+        if (channel.onPluginsReady.state === 2) {
+            // event already fired
+            attachToPluginEvents();
+        }
+        else {
+            // wait for onPluginsReady event
+            channel.onPluginsReady.subscribe(function () {
+                attachToPluginEvents();
             });
-        });        
+        }
+        
     };
     attachToPluginEventsBeforeDeviceReady();
 
@@ -3790,6 +3804,11 @@ var push = (function(){
 
         initPromise = new Promise(function(resolve){
             
+            if (!eventHandlerConnected) {
+                // if cordova is injected by manifoldjs handler wont be already attached
+                attachToPluginEventsBeforeDeviceReady();
+            }
+
             while (eventsBuffer.length > 0) {
                 var event = eventsBuffer.pop();
                 log("[push] processing queued event: ", event);
