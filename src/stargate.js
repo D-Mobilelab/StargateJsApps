@@ -248,8 +248,8 @@ var onPluginReady = function (resolve) {
     document.title = stargateConf.title;
     
     // set back cordova bridge mode to IFRAME_NAV overriding manifold settings
-    if (isRunningOnIos() && (typeof window.cordova !== 'undefined') && cordova.require) {
-        var exec = cordova.require('cordova/exec');
+    if (isRunningOnIos() && (typeof window.cordova !== 'undefined') && window.cordova.require) {
+        var exec = window.cordova.require('cordova/exec');
         exec.setJsToNativeBridgeMode(exec.jsToNativeModes.IFRAME_NAV);
     }
     bindConnectionEvents();
