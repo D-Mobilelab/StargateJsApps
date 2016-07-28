@@ -7603,29 +7603,41 @@ var push = (function(){
     var eventsBuffer = [];
     var moduleIsReady = false;
     var eventHandlerConnected = false;
+    var attachToPluginEvents = function() {
+        if (eventHandlerConnected) {
+            return;
+        }
+        if (!pluginExistsFunc()) {
+            return;
+        }
+        eventHandlerConnected = true;
+        window.cordova.plugins.notification.local.on("click", function(event){
+            // if already initialized process now...
+            if (moduleIsReady) {
+                clickEventFunc(event);
+            }
+            // ...else enqueue the event and process after init
+            else {
+                eventsBuffer.push(event);
+            }
+        });
+    };
     var attachToPluginEventsBeforeDeviceReady = function() {
         if (!window.cordova) {
             return;
         }
         var channel = window.cordova.require('cordova/channel');
-        channel.onPluginsReady.subscribe(function () {
-            console.log("onPluginsReady subscription called");
-
-            if (!pluginExistsFunc()) {
-                return;
-            }
-            eventHandlerConnected = true;
-            window.cordova.plugins.notification.local.on("click", function(event){
-                // if already initialized process now...
-                if (moduleIsReady) {
-                    clickEventFunc(event);
-                }
-                // ...else enqueue the event and process after init
-                else {
-                    eventsBuffer.push(event);
-                }
+        if (channel.onPluginsReady.state === 2) {
+            // event already fired
+            attachToPluginEvents();
+        }
+        else {
+            // wait for onPluginsReady event
+            channel.onPluginsReady.subscribe(function () {
+                attachToPluginEvents();
             });
-        });        
+        }
+        
     };
     attachToPluginEventsBeforeDeviceReady();
 
