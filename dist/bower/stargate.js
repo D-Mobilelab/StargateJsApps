@@ -5138,7 +5138,10 @@ var IAP = {
         IAP.callbackError({'iap_error': 1, 'return_url' : IAP.returnUrl});
 	},
 	
-
+    getRandomEmail: function() {
+        var randomPart = Math.floor(Math.random() * (10000 - 1000) + 1000).toString();
+        return "fake" + randomPart + (Date.now()) + "@example.com";
+    },
     
 	createUser: function(product, purchaseToken){
         log('[IAP] createUser start ');
@@ -5158,18 +5161,22 @@ var IAP = {
             return;
         }
         
-		window.localStorage.setItem('user_account', 
-            isRunningOnAndroid() ? 
-                (window.localStorage.getItem('googleAccount') ? 
-                    window.localStorage.getItem('googleAccount')
-                    : purchaseToken+'@google.com')
-                : product.transaction.id+'@itunes.com');
+        var userAccount = IAP.getRandomEmail();
+        var isFakeEmail = 1; 
+        
+        if (isRunningOnAndroid() && window.localStorage.getItem('googleAccount')) {
+            userAccount = window.localStorage.getItem('googleAccount');
+            isFakeEmail = 0;
+        }
+
+		window.localStorage.setItem('user_account', userAccount);
 		
         var url = IAP.subscribeMethod;		
 		
         var formData = {
             "paymethod": IAP.paymethod,
-            "user_account": window.localStorage.getItem('user_account'),
+            "user_account": userAccount,
+            "email_is_fake": isFakeEmail,
             "purchase_token": purchaseToken,
             "return_url": IAP.returnUrl,
             "inapp_pwd": IAP.getPassword(purchaseToken),
