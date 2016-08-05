@@ -339,7 +339,7 @@
         function start(){
             _onStart({type:"download"});
             var spaceEnough = fileModule.requestFileSystem(1, bytes);
-            LOG.d("Get ga_for_game and gamifive info, fly my minipony!");
+            LOG.d("Get GameInfo, fly my minipony!");
             return spaceEnough
                 .then(function(result){
                     LOG.i("Space is ok, can download:", bytes, result);
@@ -990,19 +990,16 @@
          * Calls for offlineData.json
          * putting GamifiveInfo and GaForGame in this file for each game
          * {
-         *  GaForGame:<content_id>:{<ga_for_game>},
          *  GamifiveInfo:<content_id>:{<gamifive_info>},
          *  queues:{}
          * }
          * */
-        var apiGaForGames = querify(CONF.ga_for_game_url, ga_for_games_qs);
-        var getGaForGamesTask = new jsonpRequest(apiGaForGames).prom;
+        // var apiGaForGames = querify(CONF.ga_for_game_url, ga_for_games_qs);
+        // var getGaForGamesTask = new jsonpRequest(apiGaForGames).prom;
         
-        var tasks = Promise.all([getGaForGamesTask, readUserJson()]);
+        // var tasks = Promise.all([getGaForGamesTask, readUserJson()]);
 
-        return tasks.then(function(results){
-            var ga_for_game = results[0];
-            var userJson = results[1];
+        return readUserJson().then(function(userJson){
 
             if(!userJson.ponyUrl){
                 LOG.w("ponyUrl in user check undefined!", userJson.ponyUrl);
@@ -1011,22 +1008,21 @@
 
             var _PONYVALUE = userJson.ponyUrl.split("&_PONY=")[1];
             LOG.d("PONYVALUE", _PONYVALUE);
-            LOG.d("apiGaForGames:", apiGaForGames, "ga_for_game:", ga_for_game);
             
             var gamifive_api = querify(CONF.gamifive_info_api, {
-                content_id:content_id,                
+                content_id:content_id,           
                 format:"jsonp"
             });
 
             gamifive_api += userJson.ponyUrl;
 
             LOG.d("gamifive_info_api", gamifive_api);
-            return [new jsonpRequest(gamifive_api).prom, ga_for_game];
+            return new jsonpRequest(gamifive_api).prom;
 
-        }).then(function(results){
-            return results[0].then(function(gamifive_info){
-                LOG.d("gamifiveInfo:", gamifive_info, "ga_for_game", results[1]);
-                return updateOfflineData({content_id:content_id, ga_for_game:results[1], gamifive_info:gamifive_info.game_info});
+        }).then(function(result){
+            return result.then(function(gamifive_info){
+                LOG.d("gamifiveInfo:", gamifive_info);
+                return updateOfflineData({content_id:content_id, gamifive_info:gamifive_info.game_info});
             });
         });
     }
@@ -1034,7 +1030,6 @@
     function updateOfflineData(object){
         return fileModule.readFileAsJSON(constants.BASE_DIR + "offlineData.json")
             .then(function(offlineData){
-                offlineData.GaForGame[object.content_id] = object.ga_for_game;
                 offlineData.GamifiveInfo[object.content_id] = object.gamifive_info;
                 return offlineData;
             })
