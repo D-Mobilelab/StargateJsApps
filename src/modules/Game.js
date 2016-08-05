@@ -437,8 +437,6 @@
                                 constants.GAMEOVER_RELATIVE_DIR + "gameover.css",
                                 constants.SDK_RELATIVE_DIR + "cordova.js",
                                 constants.SDK_RELATIVE_DIR + "cordova_plugins.js",
-                                constants.SDK_RELATIVE_DIR + "dixie.js",
-                                constants.SDK_RELATIVE_DIR + "stargate.js",
                                 constants.SDK_RELATIVE_DIR + "gfsdk.min.js"
                             ]);
                 }).then(function(results){
