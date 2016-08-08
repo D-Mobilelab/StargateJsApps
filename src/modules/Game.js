@@ -38,10 +38,6 @@
         queues: {}
     };
 
-    var ga_for_games_qs = {
-        print_json_response:1
-    };
-
     var obj = {
         "content_id":"", // to fill
         "formats":"html5applications",
@@ -189,7 +185,6 @@
             fileModule.dirExists(constants.SDK_DIR + "plugins"),
             fileModule.fileExists(constants.SDK_DIR + "cordova.js"),
             fileModule.fileExists(constants.SDK_DIR + "cordova_plugins.js"),
-            fileModule.fileExists(constants.SDK_DIR + "stargate.js"),
             fileModule.fileExists(constants.SDK_DIR + "gamesFixes.js")
         ]).then(function(results){
             var all = [];
@@ -210,10 +205,6 @@
             }
 
             if(!results[4]){
-                all.push(fileModule.copyFile(constants.STARGATEJS, constants.SDK_DIR + "stargate.js"));
-            }
-
-            if(!results[5]){
                 all.push(fileModule.copyFile(constants.WWW_DIR + "js/gamesFixes.js", constants.SDK_DIR + "gamesFixes.js"));
             }
             return Promise.all(all);
@@ -234,51 +225,35 @@
 
     function getSDK(){
         var now = new Date();
-        var sdkURLFresh = querify(CONF.sdk_url, {"v":now.getTime()});
-        var dixieURLFresh = querify(CONF.dixie_url, {"v":now.getTime(), "country":"xx-gameasy"});
+        var sdkURLFresh = querify(CONF.sdk_url, {'v': now.getTime()});
+        
+        if(CONF.sdk_url === "" || CONF.sdk_url === undefined || CONF.sdk_url === null){
+            LOG.d('sdk_url is not a valid one');
+            return Promise.resolve('sdk_url is not a valid one');
+        }
 
-        return Promise.all([
-            fileModule.fileExists(constants.SDK_DIR + "dixie.js"),
-            fileModule.fileExists(constants.SDK_DIR + "gfsdk.min.js")
-        ]).then(function(results){
-            var isDixieDownloaded = results[0],
-                isSdkDownloaded = results[1],
+        return fileModule.fileExists(constants.SDK_DIR + "gfsdk.min.js").then(function(result){
+            var isSdkDownloaded = result,
                 tasks = [];
             
-            if(CONF.sdk_url !== "" && !isSdkDownloaded){
+            if(!isSdkDownloaded){
                 LOG.d("isSdkDownloaded", isSdkDownloaded, "get SDK", sdkURLFresh);
                 tasks.push(new fileModule.download(sdkURLFresh, constants.SDK_DIR, "gfsdk.min.js").promise);
-            }
-
-            if(CONF.dixie_url !== "" && !isDixieDownloaded){
-                LOG.d("isDixieDownloaded", isDixieDownloaded, "get dixie", dixieURLFresh);
-                tasks.push(new fileModule.download(dixieURLFresh, constants.SDK_DIR, "dixie.js").promise);
             }
             
             return Promise.all(tasks);
         }).then(function getSdkMetaData(){
-            // Getting file meta data            
-            return Promise.all([
-                fileModule.getMetadata(constants.SDK_DIR + "dixie.js"),        
-                fileModule.getMetadata(constants.SDK_DIR + "gfsdk.min.js")
-            ]);
-        }).then(function checkSdkDate(results){
-            var sdkMetadata = results[0],
-                dixieMetadata = results[1], 
+            // Getting file meta data                            
+            return fileModule.getMetadata(constants.SDK_DIR + "gfsdk.min.js");            
+        }).then(function checkSdkDate(result){
+            var sdkMetadata = result,
                 tasks = [];
             
-            var lastSdkModification = new Date(sdkMetadata.modificationTime);
-            var lastDixieModification = new Date(dixieMetadata.modificationTime);
-            
+            var localSdkModification = new Date(sdkMetadata.modificationTime);            
             // lastModification day < today then download it
-            if(lastSdkModification.getDate() < now.getDate()){
-                LOG.d("updating sdk", sdkURLFresh, lastSdkModification);
+            if(localSdkModification.getDate() < now.getDate()){
+                LOG.d("updating sdk", sdkURLFresh, localSdkModification);
                 tasks.push(new fileModule.download(sdkURLFresh, constants.SDK_DIR, "gfsdk.min.js").promise);
-            }
-
-            if(lastDixieModification.getDate() < now.getDate()){
-                LOG.d("updating dixie", dixieURLFresh, lastDixieModification);
-                tasks.push(new fileModule.download(dixieURLFresh, constants.SDK_DIR, "dixie.js").promise);
             }
             return Promise.all(tasks);
         });
@@ -1016,14 +991,15 @@
 
             gamifive_api += userJson.ponyUrl;
 
-            LOG.d("gamifive_info_api", gamifive_api);
+            LOG.d("Call game_info api: ", gamifive_api);
             return new jsonpRequest(gamifive_api).prom;
 
         }).then(function(result){
-            return result.then(function(gamifive_info){
-                LOG.d("gamifiveInfo:", gamifive_info);
-                return updateOfflineData({content_id:content_id, gamifive_info:gamifive_info.game_info});
-            });
+            if (result.status === 403 || result.status !== 200){
+                throw new Error("Error retrieving game_info", result);
+            }            
+            LOG.d("Save game_Info: ", "OK");
+            return updateOfflineData({content_id:content_id, gamifive_info:result.game_info});            
         });
     }
 
