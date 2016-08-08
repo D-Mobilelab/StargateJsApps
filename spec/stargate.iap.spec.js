@@ -51,6 +51,14 @@ var storekit_mock = {
     }
 };
 
+var accountmanager_mock = {
+    getAccounts: function(cb) {
+        cb([{
+            email: "test@stargatejs.com"
+        }])
+    }
+};
+
 var IapTestResponses = {
     success: {
         status: 200,
@@ -108,6 +116,54 @@ describe("Stargate IAP requires initialization", function() {
 		expect(cbError.calls.mostRecent().args[0]).toMatch(/not initialized/);
 	});
 
+    it("IAP module methods", function() {
+        
+        var old_log = log;
+        var old_err = err;
+        log = jasmine.createSpy('log');
+        err = jasmine.createSpy('err');
+
+        IAP.callbackSuccess();
+        IAP.callbackError();
+        IAP.callbackListingSuccess();
+        IAP.callbackListingError();
+        IAP.callbackPurchaseSuccess();
+
+        var result;
+        
+        window.store = false;
+        result = IAP.initialize();
+        expect(err).toHaveBeenCalled();
+		expect(err.calls.mostRecent().args[0]).toMatch(/Store not available/);
+
+        window.store = store_mock;
+        window.storekit = storekit_mock;
+        window.accountmanager = accountmanager_mock;
+        runningDevice.platform = "Android";
+        IAP.initialize({
+            id: "stargate.test.spec.product1",
+            type: "PAID_SUBSCRIPTION",
+            alias: "stargateiapproduct"
+        });
+        IAP.initialize({
+            id_android: "stargate.test.spec.product1",
+            type: "PAID_SUBSCRIPTION",
+            alias: "stargateiapproduct"
+        });
+        
+
+        runningDevice.platform = "iOS";
+        IAP.initialize({
+            id_ios: "stargate.test.spec.product1",
+            type: "PAID_SUBSCRIPTION",
+            alias: "stargateiapproduct",
+            api_createuser: "na"
+        });
+        
+        IAP.getPassword("testid");
+        IAP.error("test error");
+        IAP.getRandomEmail();
+	});
 });
 
 var mock_iap_default_product_id = "stargate.test.spec.product1";
