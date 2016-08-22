@@ -448,5 +448,13 @@ describe("Stargate initialize", function() {
 
         SimulateEvent("online", {networkState:"wifi"}, 1);
     });
+
+    it("stargate isHybrid UserAgent", function() {
+        
+        var res = isHybridEnvironment();
+        document.location.href = "http://www.google.com";
+        expect(res).toBe(true);
+
+    });
 	
 });
