@@ -7166,6 +7166,12 @@ var isHybridEnvironment = function() {
         return true;
     }
 
+    // FALLBACK
+    if (window.navigator.userAgent.match(/Crosswalk\//) !== null) {
+        war("Activated isHybrid from Crosswalk UA");
+        return true;
+    }
+
     return false;
 };
 
