@@ -7145,9 +7145,12 @@ var onDeviceReady = function (resolve, reject) {
 * checking current url or cookies or localStorage
 */
 var isHybridEnvironment = function() {
+    return _isHybridEnvironment(document.location.href);
+};
+var _isHybridEnvironment = function(location) {
 
     // check url for hybrid query param
-    var uri = window.URI(document.location.href);
+    var uri = window.URI(location);
     var protocol = uri.protocol();
 
     if (protocol === "file" || protocol === "cdvfile") {
@@ -7174,7 +7177,6 @@ var isHybridEnvironment = function() {
 
     return false;
 };
-
 
 var setBusy = function(value) {
     if (value) {
