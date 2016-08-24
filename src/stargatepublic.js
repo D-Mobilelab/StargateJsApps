@@ -218,9 +218,19 @@ stargatePublic.openUrl = function(url) {
 	if (!isStargateInitialized) {
 		return err("Stargate not initialized, call Stargate.initialize first!");
     }
-    // FIXME: check that inappbrowser plugin is installed otherwise return error
+    if (!isStargateOpen) {
+        err("Stargate closed, wait for Stargate.initialize to complete!");
+        return false;
+    }
 
+    if(!(window.cordova && window.cordova.InAppBrowser && window.cordova.InAppBrowser.open)){
+        err("Cordova Network Information module missing");
+        return false;
+    }
+
+    log("[openUrl] opening: "+url);
     window.open(url, "_system");
+    return true;
 };
 
 stargatePublic.googleLogin = function(callbackSuccess, callbackError) {
