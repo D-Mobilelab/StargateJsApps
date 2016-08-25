@@ -224,7 +224,7 @@ stargatePublic.openUrl = function(url) {
     }
 
     if(!(window.cordova && window.cordova.InAppBrowser && window.cordova.InAppBrowser.open)){
-        err("Cordova Network Information module missing");
+        err("Missing cordova plugin InAppBrowser");
         return false;
     }
 
