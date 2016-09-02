@@ -152,31 +152,24 @@
         /**
          * Create directories
          * */
+        var userDataStructure = {'0000': {'0000':{ data:{}, UpdatedAt:new Date(0)} } };
+
         var gamesDirTask = fileModule.createDir(constants.BASE_DIR, "games");
         var scriptsDirTask = fileModule.createDir(constants.BASE_DIR, "scripts");
-        var createOfflineDataTask = fileModule.fileExists(constants.BASE_DIR + "offlineData.json")
-            .then(function(exists){
-                if(!exists){
-                    LOG.i("creating offlineData.json");
-                    return fileModule.createFile(constants.BASE_DIR, "offlineData.json")
-                        .then(function(entry){
-                            LOG.d("offlineData", entry);
-                            return fileModule.write(entry.path, JSON.stringify(emptyOfflineData));
-                        });
-                }else{
-                    LOG.i("offlineData.json already exists");
-                    return exists;
-                }
-            });
+        var createOfflineDataTask = fileModule.write(constants.BASE_DIR + "offlineData.json", JSON.stringify(emptyOfflineData));
+        var createUserDataTask = fileModule.write(constants.BASE_DIR + "userData.json", JSON.stringify(userDataStructure));
 
         return Promise.all([
                 gamesDirTask,
                 scriptsDirTask,
-                createOfflineDataTask
-            ]).then(function(results){
-                LOG.d("GamesDir, ScriptsDir, offlineData.json created", results);
+                createOfflineDataTask,
+                createUserDataTask
+            ])
+            .then(function(results){
+                LOG.d("GamesDir, ScriptsDir, offlineData.json, userData.json created", results);
                 return copyAssets();
-            }).then(getSDK);
+            })
+            .then(getSDK)
     }
 
     function copyAssets(){
