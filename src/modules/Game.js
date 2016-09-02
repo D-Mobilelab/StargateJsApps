@@ -170,6 +170,7 @@
                 return copyAssets();
             })
             .then(getSDK)
+            .then(getNewton);
     }
 
     function copyAssets(){
@@ -204,17 +205,27 @@
         });
     }
 
-    /*function getRemoteMetadata(url){
+    /**
+     * it makes an HEAD request and returns the specific header as string
+     * @param {String} url
+     * @param {String} header - the header name: Last-Modified,ecc 
+     * @returns {Promise<String>}
+     */
+    function getResourceHeader(url, header){
         return new Promise(function(resolve, reject){            
             var xhr = new XMLHttpRequest();
             xhr.open("HEAD", url, true);
 
-            xhr.addEventListener("loadend", function(endEvent){
-                resolve(xhr.getResponseHeader("Last-Modified"));
+            xhr.addEventListener("error", reject, false);
+            xhr.addEventListener("abort", reject, false);
+            
+            xhr.addEventListener("loadend", function(){
+                resolve(xhr.getResponseHeader(header));
             });
+            
             xhr.send(null);
         });
-    }*/
+    }
 
     function getSDK(){
         var now = new Date();
@@ -225,9 +236,8 @@
             return Promise.resolve('sdk_url is not a valid one');
         }
 
-        return fileModule.fileExists(constants.SDK_DIR + "gfsdk.min.js").then(function(result){
-            var isSdkDownloaded = result,
-                tasks = [];
+        return fileModule.fileExists(constants.SDK_DIR + "gfsdk.min.js").then(function(isSdkDownloaded){
+            var tasks = [];
             
             if(!isSdkDownloaded){
                 LOG.d("isSdkDownloaded", isSdkDownloaded, "get SDK", sdkURLFresh);
@@ -236,19 +246,40 @@
             
             return Promise.all(tasks);
         }).then(function getSdkMetaData(){
-            // Getting file meta data                            
-            return fileModule.getMetadata(constants.SDK_DIR + "gfsdk.min.js");            
-        }).then(function checkSdkDate(result){
-            var sdkMetadata = result,
+            // Getting file meta data
+            return Promise.all([
+                getResourceHeader(sdkURLFresh, 'Last-Modified'),              
+                fileModule.getMetadata(constants.SDK_DIR + "gfsdk.min.js")
+            ]);            
+        }).then(function checkSdkDate(results){
+            var localSdkMetadata = results[1],
+                remoteSdkMetadata = results[0],
                 tasks = [];
             
-            var localSdkModification = new Date(sdkMetadata.modificationTime);            
-            // lastModification day < today then download it
-            if(localSdkModification.getDate() < now.getDate()){
-                LOG.d("updating sdk", sdkURLFresh, localSdkModification);
+            var localSdkModification = new Date(localSdkMetadata.modificationTime);
+            var remoteSdkMetadataModification = new Date(remoteSdkMetadata);            
+            // localSdkModification day < remoteSdkMetadataModification then download it
+            if(localSdkModification < remoteSdkMetadataModification){
+                LOG.d('updating sdk', sdkURLFresh, 'localModification date:', localSdkModification, 'remoteModification date:', remoteSdkMetadataModification);
                 tasks.push(new fileModule.download(sdkURLFresh, constants.SDK_DIR, "gfsdk.min.js").promise);
             }
             return Promise.all(tasks);
+        });
+    }
+
+    function getNewton(){
+        if(CONF.newton_url === "" || CONF.newton_url === undefined || CONF.newton_url === null){
+            LOG.d('newton_url is not a valid one');
+            return Promise.resolve('newton_url is not a valid one');
+        }     
+        return fileModule.fileExists(constants.SDK_DIR + "newton.min.js")
+        .then(function(isNewtonDownloaded){            
+            if(!isNewtonDownloaded){
+                LOG.d("isNewtonDownloaded", isNewtonDownloaded, "get Newton", CONF.newton_url);
+                return new fileModule.download(CONF.newton_url, constants.SDK_DIR, "newton.min.js").promise;
+            }
+            LOG.d("isNewtonDownloaded", isNewtonDownloaded);
+            return isNewtonDownloaded;
         });
     }
 
@@ -405,6 +436,7 @@
                                 constants.GAMEOVER_RELATIVE_DIR + "gameover.css",
                                 constants.SDK_RELATIVE_DIR + "cordova.js",
                                 constants.SDK_RELATIVE_DIR + "cordova_plugins.js",
+                                constants.SDK_RELATIVE_DIR + "newton.min.js",
                                 constants.SDK_RELATIVE_DIR + "gfsdk.min.js"
                             ]);
                 }).then(function(results){
@@ -614,8 +646,7 @@
                 
                 /** FIX the viewport in any case */
                 var metaViewport = dom.querySelector('meta[name=viewport]');
-                if(metaViewport) { metaViewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, minimal-ui'; }
-
+                if(metaViewport) { metaViewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, minimal-ui'; }                
                 var metaTags = dom.body.querySelectorAll("meta");
                 var linkTags = dom.body.querySelectorAll("link");
                 var styleTags = dom.body.querySelectorAll("style");
