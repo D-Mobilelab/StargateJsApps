@@ -156,8 +156,19 @@
 
         var gamesDirTask = fileModule.createDir(constants.BASE_DIR, "games");
         var scriptsDirTask = fileModule.createDir(constants.BASE_DIR, "scripts");
-        var createOfflineDataTask = fileModule.write(constants.BASE_DIR + "offlineData.json", JSON.stringify(emptyOfflineData));
-        var createUserDataTask = fileModule.write(constants.BASE_DIR + "userData.json", JSON.stringify(userDataStructure));
+        var createOfflineDataTask = fileModule.fileExists(constants.BASE_DIR + "offlineData.json")
+                                        .then(function(exists){
+                                            if(!exists){ 
+                                                return fileModule.write(constants.BASE_DIR + "offlineData.json", JSON.stringify(emptyOfflineData)); 
+                                            } else { return Promise.resolve(); }
+                                        });
+        var createUserDataTask = fileModule.fileExists(constants.BASE_DIR + "userData.json")
+                                    .then(function(exists){
+                                        if(!exists){ 
+                                            return fileModule.write(constants.BASE_DIR + "userData.json", JSON.stringify(userDataStructure)); 
+                                        } else { return Promise.resolve(); }
+                                    });
+            
 
         return Promise.all([
                 gamesDirTask,
