@@ -1,5 +1,11 @@
 var push = (function(){
     
+    var testDevicePushMinutesDelay = 2;
+    var testDevicesId = [
+        "fc5413366b9d3f40", // dev MC
+        "188b6b1d46296303"  // team FR test device
+    ];
+
 	var protectedInterface = {};
 
     var initPromise = null;
@@ -125,6 +131,20 @@ var push = (function(){
     };
 
     /**
+     * @return boolean - if i need to override timing of 
+     */
+    var enableTestPushTiming = function() {
+        // runningDevice defined on global stargate.js module
+        var myDeviceId = runningDevice.uuid;
+
+        if (testDevicesId.indexOf(myDeviceId) > -1) {
+            return true;
+        }
+
+        return false;
+    };
+
+    /**
      * @param {object} initializeConf - configuration sent by
      * @return {boolean} - true if init ok
      */
@@ -174,7 +194,14 @@ var push = (function(){
                 return Promise.reject("[push] params."+reqParams[i]+" required!");
             }
         }
-        // FIXME: check that date is a js Date object
+        
+        // if i must enable push test feature...
+        if (enableTestPushTiming()) {
+            if (testDevicePushMinutesDelay) {
+                war("[push] overriding push schedulation for test device");
+                params.date = (new Date().getTime() + (testDevicePushMinutesDelay*60*1000)); 
+            }
+        }
 
         var scheduleFunc = function() {
             return setSavedUrlDevice(params.deeplink)

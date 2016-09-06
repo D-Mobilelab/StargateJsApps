@@ -18,7 +18,7 @@
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.7.3";
+    var stargatePackageVersion = "0.7.5";
     var stargatePublic = {};
     
     var stargateModules = {};       
@@ -2579,9 +2579,19 @@ stargatePublic.openUrl = function(url) {
 	if (!isStargateInitialized) {
 		return err("Stargate not initialized, call Stargate.initialize first!");
     }
-    // FIXME: check that inappbrowser plugin is installed otherwise return error
+    if (!isStargateOpen) {
+        err("Stargate closed, wait for Stargate.initialize to complete!");
+        return false;
+    }
 
+    if(!(window.cordova && window.cordova.InAppBrowser && window.cordova.InAppBrowser.open)){
+        err("Missing cordova plugin InAppBrowser");
+        return false;
+    }
+
+    log("[openUrl] opening: "+url);
     window.open(url, "_system");
+    return true;
 };
 
 stargatePublic.googleLogin = function(callbackSuccess, callbackError) {
@@ -3672,6 +3682,12 @@ stargatePublic.socialShareAvailable = function(options) {
 
 var push = (function(){
     
+    var testDevicePushMinutesDelay = 2;
+    var testDevicesId = [
+        "fc5413366b9d3f40", // dev MC
+        "188b6b1d46296303"  // team FR test device
+    ];
+
 	var protectedInterface = {};
 
     var initPromise = null;
@@ -3797,6 +3813,20 @@ var push = (function(){
     };
 
     /**
+     * @return boolean - if i need to override timing of 
+     */
+    var enableTestPushTiming = function() {
+        // runningDevice defined on global stargate.js module
+        var myDeviceId = runningDevice.uuid;
+
+        if (testDevicesId.indexOf(myDeviceId) > -1) {
+            return true;
+        }
+
+        return false;
+    };
+
+    /**
      * @param {object} initializeConf - configuration sent by
      * @return {boolean} - true if init ok
      */
@@ -3846,7 +3876,14 @@ var push = (function(){
                 return Promise.reject("[push] params."+reqParams[i]+" required!");
             }
         }
-        // FIXME: check that date is a js Date object
+        
+        // if i must enable push test feature...
+        if (enableTestPushTiming()) {
+            if (testDevicePushMinutesDelay) {
+                war("[push] overriding push schedulation for test device");
+                params.date = (new Date().getTime() + (testDevicePushMinutesDelay*60*1000)); 
+            }
+        }
 
         var scheduleFunc = function() {
             return setSavedUrlDevice(params.deeplink)
