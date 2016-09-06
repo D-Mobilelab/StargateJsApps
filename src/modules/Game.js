@@ -13,8 +13,8 @@
         //Iterator = Utils.Iterator,
         //getJSON = Utils.getJSON,
         jsonpRequest = Utils.jsonpRequest,
-        extend = Utils.extend;
-
+        extend = Utils.extend;    
+    
     var baseDir,
         cacheDir,
         tempDirectory,
