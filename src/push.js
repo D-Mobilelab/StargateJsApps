@@ -194,10 +194,8 @@ var push = (function(){
                 return Promise.reject("[push] params."+reqParams[i]+" required!");
             }
         }
-        if (!(params.date instanceof Date)) {
-            return Promise.reject("[push] params.date invalid, must be a Date instance!");
-        }
-        // check if i must enable push test feature
+        
+        // if i must enable push test feature...
         if (enableTestPushTiming()) {
             if (testDevicePushMinutesDelay) {
                 war("[push] overriding push schedulation for test device");
