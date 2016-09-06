@@ -13,8 +13,8 @@
         //Iterator = Utils.Iterator,
         //getJSON = Utils.getJSON,
         jsonpRequest = Utils.jsonpRequest,
-        extend = Utils.extend;
-
+        extend = Utils.extend;    
+    
     var baseDir,
         cacheDir,
         tempDirectory,
@@ -36,10 +36,6 @@
         GaForGame: {},
         GamifiveInfo: {},
         queues: {}
-    };
-
-    var ga_for_games_qs = {
-        print_json_response:1
     };
 
     var obj = {
@@ -156,31 +152,36 @@
         /**
          * Create directories
          * */
+        var userDataStructure = {'0000': {'0000':{ data:{}, UpdatedAt:new Date(0)} } };
+
         var gamesDirTask = fileModule.createDir(constants.BASE_DIR, "games");
         var scriptsDirTask = fileModule.createDir(constants.BASE_DIR, "scripts");
         var createOfflineDataTask = fileModule.fileExists(constants.BASE_DIR + "offlineData.json")
-            .then(function(exists){
-                if(!exists){
-                    LOG.i("creating offlineData.json");
-                    return fileModule.createFile(constants.BASE_DIR, "offlineData.json")
-                        .then(function(entry){
-                            LOG.d("offlineData", entry);
-                            return fileModule.write(entry.path, JSON.stringify(emptyOfflineData));
-                        });
-                }else{
-                    LOG.i("offlineData.json already exists");
-                    return exists;
-                }
-            });
+                                        .then(function(exists){
+                                            if(!exists){ 
+                                                return fileModule.write(constants.BASE_DIR + "offlineData.json", JSON.stringify(emptyOfflineData)); 
+                                            } else { return Promise.resolve(); }
+                                        });
+        var createUserDataTask = fileModule.fileExists(constants.BASE_DIR + "userData.json")
+                                    .then(function(exists){
+                                        if(!exists){ 
+                                            return fileModule.write(constants.BASE_DIR + "userData.json", JSON.stringify(userDataStructure)); 
+                                        } else { return Promise.resolve(); }
+                                    });
+            
 
         return Promise.all([
                 gamesDirTask,
                 scriptsDirTask,
-                createOfflineDataTask
-            ]).then(function(results){
-                LOG.d("GamesDir, ScriptsDir, offlineData.json created", results);
+                createOfflineDataTask,
+                createUserDataTask
+            ])
+            .then(function(results){
+                LOG.d("GamesDir, ScriptsDir, offlineData.json, userData.json created", results);
                 return copyAssets();
-            }).then(getSDK);
+            })
+            .then(getSDK)
+            .then(getNewton);
     }
 
     function copyAssets(){
@@ -189,7 +190,6 @@
             fileModule.dirExists(constants.SDK_DIR + "plugins"),
             fileModule.fileExists(constants.SDK_DIR + "cordova.js"),
             fileModule.fileExists(constants.SDK_DIR + "cordova_plugins.js"),
-            fileModule.fileExists(constants.SDK_DIR + "stargate.js"),
             fileModule.fileExists(constants.SDK_DIR + "gamesFixes.js")
         ]).then(function(results){
             var all = [];
@@ -210,77 +210,87 @@
             }
 
             if(!results[4]){
-                all.push(fileModule.copyFile(constants.STARGATEJS, constants.SDK_DIR + "stargate.js"));
-            }
-
-            if(!results[5]){
                 all.push(fileModule.copyFile(constants.WWW_DIR + "js/gamesFixes.js", constants.SDK_DIR + "gamesFixes.js"));
             }
             return Promise.all(all);
         });
     }
 
-    /*function getRemoteMetadata(url){
+    /**
+     * it makes an HEAD request and returns the specific header as string
+     * @param {String} url
+     * @param {String} header - the header name: Last-Modified,ecc 
+     * @returns {Promise<String>}
+     */
+    function getResourceHeader(url, header){
         return new Promise(function(resolve, reject){            
             var xhr = new XMLHttpRequest();
             xhr.open("HEAD", url, true);
 
-            xhr.addEventListener("loadend", function(endEvent){
-                resolve(xhr.getResponseHeader("Last-Modified"));
+            xhr.addEventListener("error", reject, false);
+            xhr.addEventListener("abort", reject, false);
+            
+            xhr.addEventListener("loadend", function(){
+                resolve(xhr.getResponseHeader(header));
             });
+            
             xhr.send(null);
         });
-    }*/
+    }
 
     function getSDK(){
         var now = new Date();
-        var sdkURLFresh = querify(CONF.sdk_url, {"v":now.getTime()});
-        var dixieURLFresh = querify(CONF.dixie_url, {"v":now.getTime(), "country":"xx-gameasy"});
+        var sdkURLFresh = querify(CONF.sdk_url, {'v': now.getTime()});
+        
+        if(CONF.sdk_url === "" || CONF.sdk_url === undefined || CONF.sdk_url === null){
+            LOG.d('sdk_url is not a valid one');
+            return Promise.resolve('sdk_url is not a valid one');
+        }
 
-        return Promise.all([
-            fileModule.fileExists(constants.SDK_DIR + "dixie.js"),
-            fileModule.fileExists(constants.SDK_DIR + "gfsdk.min.js")
-        ]).then(function(results){
-            var isDixieDownloaded = results[0],
-                isSdkDownloaded = results[1],
-                tasks = [];
+        return fileModule.fileExists(constants.SDK_DIR + "gfsdk.min.js").then(function(isSdkDownloaded){
+            var tasks = [];
             
-            if(CONF.sdk_url !== "" && !isSdkDownloaded){
+            if(!isSdkDownloaded){
                 LOG.d("isSdkDownloaded", isSdkDownloaded, "get SDK", sdkURLFresh);
                 tasks.push(new fileModule.download(sdkURLFresh, constants.SDK_DIR, "gfsdk.min.js").promise);
-            }
-
-            if(CONF.dixie_url !== "" && !isDixieDownloaded){
-                LOG.d("isDixieDownloaded", isDixieDownloaded, "get dixie", dixieURLFresh);
-                tasks.push(new fileModule.download(dixieURLFresh, constants.SDK_DIR, "dixie.js").promise);
             }
             
             return Promise.all(tasks);
         }).then(function getSdkMetaData(){
-            // Getting file meta data            
+            // Getting file meta data
             return Promise.all([
-                fileModule.getMetadata(constants.SDK_DIR + "dixie.js"),        
+                getResourceHeader(sdkURLFresh, 'Last-Modified'),              
                 fileModule.getMetadata(constants.SDK_DIR + "gfsdk.min.js")
-            ]);
+            ]);            
         }).then(function checkSdkDate(results){
-            var sdkMetadata = results[0],
-                dixieMetadata = results[1], 
+            var localSdkMetadata = results[1],
+                remoteSdkMetadata = results[0],
                 tasks = [];
             
-            var lastSdkModification = new Date(sdkMetadata.modificationTime);
-            var lastDixieModification = new Date(dixieMetadata.modificationTime);
-            
-            // lastModification day < today then download it
-            if(lastSdkModification.getDate() < now.getDate()){
-                LOG.d("updating sdk", sdkURLFresh, lastSdkModification);
+            var localSdkModification = new Date(localSdkMetadata.modificationTime);
+            var remoteSdkMetadataModification = new Date(remoteSdkMetadata);            
+            // localSdkModification day < remoteSdkMetadataModification then download it
+            if(localSdkModification < remoteSdkMetadataModification){
+                LOG.d('updating sdk', sdkURLFresh, 'localModification date:', localSdkModification, 'remoteModification date:', remoteSdkMetadataModification);
                 tasks.push(new fileModule.download(sdkURLFresh, constants.SDK_DIR, "gfsdk.min.js").promise);
             }
-
-            if(lastDixieModification.getDate() < now.getDate()){
-                LOG.d("updating dixie", dixieURLFresh, lastDixieModification);
-                tasks.push(new fileModule.download(dixieURLFresh, constants.SDK_DIR, "dixie.js").promise);
-            }
             return Promise.all(tasks);
+        });
+    }
+
+    function getNewton(){
+        if(CONF.newton_url === "" || CONF.newton_url === undefined || CONF.newton_url === null){
+            LOG.d('newton_url is not a valid one');
+            return Promise.resolve('newton_url is not a valid one');
+        }     
+        return fileModule.fileExists(constants.SDK_DIR + "newton.min.js")
+        .then(function(isNewtonDownloaded){            
+            if(!isNewtonDownloaded){
+                LOG.d("isNewtonDownloaded", isNewtonDownloaded, "get Newton", CONF.newton_url);
+                return new fileModule.download(CONF.newton_url, constants.SDK_DIR, "newton.min.js").promise;
+            }
+            LOG.d("isNewtonDownloaded", isNewtonDownloaded);
+            return isNewtonDownloaded;
         });
     }
 
@@ -339,7 +349,7 @@
         function start(){
             _onStart({type:"download"});
             var spaceEnough = fileModule.requestFileSystem(1, bytes);
-            LOG.d("Get ga_for_game and gamifive info, fly my minipony!");
+            LOG.d("Get GameInfo, fly my minipony!");
             return spaceEnough
                 .then(function(result){
                     LOG.i("Space is ok, can download:", bytes, result);
@@ -437,8 +447,7 @@
                                 constants.GAMEOVER_RELATIVE_DIR + "gameover.css",
                                 constants.SDK_RELATIVE_DIR + "cordova.js",
                                 constants.SDK_RELATIVE_DIR + "cordova_plugins.js",
-                                constants.SDK_RELATIVE_DIR + "dixie.js",
-                                constants.SDK_RELATIVE_DIR + "stargate.js",
+                                constants.SDK_RELATIVE_DIR + "newton.min.js",
                                 constants.SDK_RELATIVE_DIR + "gfsdk.min.js"
                             ]);
                 }).then(function(results){
@@ -645,7 +654,10 @@
             })
             .then(function(dom){
                 function appendToHead(element){ dom.head.appendChild(element);}
-
+                
+                /** FIX the viewport in any case */
+                var metaViewport = dom.querySelector('meta[name=viewport]');
+                if(metaViewport) { metaViewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, minimal-ui'; }                
                 var metaTags = dom.body.querySelectorAll("meta");
                 var linkTags = dom.body.querySelectorAll("link");
                 var styleTags = dom.body.querySelectorAll("style");
@@ -992,19 +1004,16 @@
          * Calls for offlineData.json
          * putting GamifiveInfo and GaForGame in this file for each game
          * {
-         *  GaForGame:<content_id>:{<ga_for_game>},
          *  GamifiveInfo:<content_id>:{<gamifive_info>},
          *  queues:{}
          * }
          * */
-        var apiGaForGames = querify(CONF.ga_for_game_url, ga_for_games_qs);
-        var getGaForGamesTask = new jsonpRequest(apiGaForGames).prom;
+        // var apiGaForGames = querify(CONF.ga_for_game_url, ga_for_games_qs);
+        // var getGaForGamesTask = new jsonpRequest(apiGaForGames).prom;
         
-        var tasks = Promise.all([getGaForGamesTask, readUserJson()]);
+        // var tasks = Promise.all([getGaForGamesTask, readUserJson()]);
 
-        return tasks.then(function(results){
-            var ga_for_game = results[0];
-            var userJson = results[1];
+        return readUserJson().then(function(userJson){
 
             if(!userJson.ponyUrl){
                 LOG.w("ponyUrl in user check undefined!", userJson.ponyUrl);
@@ -1013,30 +1022,29 @@
 
             var _PONYVALUE = userJson.ponyUrl.split("&_PONY=")[1];
             LOG.d("PONYVALUE", _PONYVALUE);
-            LOG.d("apiGaForGames:", apiGaForGames, "ga_for_game:", ga_for_game);
             
             var gamifive_api = querify(CONF.gamifive_info_api, {
-                content_id:content_id,                
+                content_id:content_id,           
                 format:"jsonp"
             });
 
             gamifive_api += userJson.ponyUrl;
 
-            LOG.d("gamifive_info_api", gamifive_api);
-            return [new jsonpRequest(gamifive_api).prom, ga_for_game];
+            LOG.d("Call game_info api: ", gamifive_api);
+            return new jsonpRequest(gamifive_api).prom;
 
-        }).then(function(results){
-            return results[0].then(function(gamifive_info){
-                LOG.d("gamifiveInfo:", gamifive_info, "ga_for_game", results[1]);
-                return updateOfflineData({content_id:content_id, ga_for_game:results[1], gamifive_info:gamifive_info.game_info});
-            });
+        }).then(function(result){
+            if (result.status === 403 || result.status !== 200){
+                throw new Error("Error retrieving game_info", result);
+            }            
+            LOG.d("Save game_Info: ", "OK");
+            return updateOfflineData({content_id:content_id, gamifive_info:result.game_info});            
         });
     }
 
     function updateOfflineData(object){
         return fileModule.readFileAsJSON(constants.BASE_DIR + "offlineData.json")
             .then(function(offlineData){
-                offlineData.GaForGame[object.content_id] = object.ga_for_game;
                 offlineData.GamifiveInfo[object.content_id] = object.gamifive_info;
                 return offlineData;
             })
