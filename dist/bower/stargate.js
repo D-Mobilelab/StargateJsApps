@@ -18,7 +18,7 @@
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.7.1";
+    var stargatePackageVersion = "0.7.4";
     var stargatePublic = {};
     
     var stargateModules = {};       
@@ -794,14 +794,27 @@
     };
 
     /**
-     * write a file in the specified path
+     * write a file in the specified path and if not exists creates it
      *
      * @param {String} filepath - file:// path-like
      * @param {String|Blob} content
      * @returns {Promise<Object|FileError>}
      * */
     File.write = function(filepath, content){
-        return File.appendToFile(filepath, content, true);
+        return File.fileExists(filepath).then(function(exists){
+            if(!exists){
+                var splitted = filepath.split('/');
+                
+                // this returns a new array and rejoin the path with /
+                var folder = splitted.slice(0, splitted.length - 1).join('/');
+                var filename = splitted[splitted.length - 1];
+
+                return File.createFile(folder, filename).then(function(entry){
+                    return File.appendToFile(entry.path, content, true);                 
+                });
+            }
+            return File.appendToFile(filepath, content, true);
+        });
     };
 
     /**
@@ -919,8 +932,8 @@
         //Iterator = Utils.Iterator,
         //getJSON = Utils.getJSON,
         jsonpRequest = Utils.jsonpRequest,
-        extend = Utils.extend;
-
+        extend = Utils.extend;    
+    
     var baseDir,
         cacheDir,
         tempDirectory,
@@ -1058,31 +1071,36 @@
         /**
          * Create directories
          * */
+        var userDataStructure = {'0000': {'0000':{ data:{}, UpdatedAt:new Date(0)} } };
+
         var gamesDirTask = fileModule.createDir(constants.BASE_DIR, "games");
         var scriptsDirTask = fileModule.createDir(constants.BASE_DIR, "scripts");
         var createOfflineDataTask = fileModule.fileExists(constants.BASE_DIR + "offlineData.json")
-            .then(function(exists){
-                if(!exists){
-                    LOG.i("creating offlineData.json");
-                    return fileModule.createFile(constants.BASE_DIR, "offlineData.json")
-                        .then(function(entry){
-                            LOG.d("offlineData", entry);
-                            return fileModule.write(entry.path, JSON.stringify(emptyOfflineData));
-                        });
-                }else{
-                    LOG.i("offlineData.json already exists");
-                    return exists;
-                }
-            });
+                                        .then(function(exists){
+                                            if(!exists){ 
+                                                return fileModule.write(constants.BASE_DIR + "offlineData.json", JSON.stringify(emptyOfflineData)); 
+                                            } else { return Promise.resolve(); }
+                                        });
+        var createUserDataTask = fileModule.fileExists(constants.BASE_DIR + "userData.json")
+                                    .then(function(exists){
+                                        if(!exists){ 
+                                            return fileModule.write(constants.BASE_DIR + "userData.json", JSON.stringify(userDataStructure)); 
+                                        } else { return Promise.resolve(); }
+                                    });
+            
 
         return Promise.all([
                 gamesDirTask,
                 scriptsDirTask,
-                createOfflineDataTask
-            ]).then(function(results){
-                LOG.d("GamesDir, ScriptsDir, offlineData.json created", results);
+                createOfflineDataTask,
+                createUserDataTask
+            ])
+            .then(function(results){
+                LOG.d("GamesDir, ScriptsDir, offlineData.json, userData.json created", results);
                 return copyAssets();
-            }).then(getSDK);
+            })
+            .then(getSDK)
+            .then(getNewton);
     }
 
     function copyAssets(){
@@ -1117,17 +1135,27 @@
         });
     }
 
-    /*function getRemoteMetadata(url){
+    /**
+     * it makes an HEAD request and returns the specific header as string
+     * @param {String} url
+     * @param {String} header - the header name: Last-Modified,ecc 
+     * @returns {Promise<String>}
+     */
+    function getResourceHeader(url, header){
         return new Promise(function(resolve, reject){            
             var xhr = new XMLHttpRequest();
             xhr.open("HEAD", url, true);
 
-            xhr.addEventListener("loadend", function(endEvent){
-                resolve(xhr.getResponseHeader("Last-Modified"));
+            xhr.addEventListener("error", reject, false);
+            xhr.addEventListener("abort", reject, false);
+            
+            xhr.addEventListener("loadend", function(){
+                resolve(xhr.getResponseHeader(header));
             });
+            
             xhr.send(null);
         });
-    }*/
+    }
 
     function getSDK(){
         var now = new Date();
@@ -1138,9 +1166,8 @@
             return Promise.resolve('sdk_url is not a valid one');
         }
 
-        return fileModule.fileExists(constants.SDK_DIR + "gfsdk.min.js").then(function(result){
-            var isSdkDownloaded = result,
-                tasks = [];
+        return fileModule.fileExists(constants.SDK_DIR + "gfsdk.min.js").then(function(isSdkDownloaded){
+            var tasks = [];
             
             if(!isSdkDownloaded){
                 LOG.d("isSdkDownloaded", isSdkDownloaded, "get SDK", sdkURLFresh);
@@ -1149,19 +1176,40 @@
             
             return Promise.all(tasks);
         }).then(function getSdkMetaData(){
-            // Getting file meta data                            
-            return fileModule.getMetadata(constants.SDK_DIR + "gfsdk.min.js");            
-        }).then(function checkSdkDate(result){
-            var sdkMetadata = result,
+            // Getting file meta data
+            return Promise.all([
+                getResourceHeader(sdkURLFresh, 'Last-Modified'),              
+                fileModule.getMetadata(constants.SDK_DIR + "gfsdk.min.js")
+            ]);            
+        }).then(function checkSdkDate(results){
+            var localSdkMetadata = results[1],
+                remoteSdkMetadata = results[0],
                 tasks = [];
             
-            var localSdkModification = new Date(sdkMetadata.modificationTime);            
-            // lastModification day < today then download it
-            if(localSdkModification.getDate() < now.getDate()){
-                LOG.d("updating sdk", sdkURLFresh, localSdkModification);
+            var localSdkModification = new Date(localSdkMetadata.modificationTime);
+            var remoteSdkMetadataModification = new Date(remoteSdkMetadata);            
+            // localSdkModification day < remoteSdkMetadataModification then download it
+            if(localSdkModification < remoteSdkMetadataModification){
+                LOG.d('updating sdk', sdkURLFresh, 'localModification date:', localSdkModification, 'remoteModification date:', remoteSdkMetadataModification);
                 tasks.push(new fileModule.download(sdkURLFresh, constants.SDK_DIR, "gfsdk.min.js").promise);
             }
             return Promise.all(tasks);
+        });
+    }
+
+    function getNewton(){
+        if(CONF.newton_url === "" || CONF.newton_url === undefined || CONF.newton_url === null){
+            LOG.d('newton_url is not a valid one');
+            return Promise.resolve('newton_url is not a valid one');
+        }     
+        return fileModule.fileExists(constants.SDK_DIR + "newton.min.js")
+        .then(function(isNewtonDownloaded){            
+            if(!isNewtonDownloaded){
+                LOG.d("isNewtonDownloaded", isNewtonDownloaded, "get Newton", CONF.newton_url);
+                return new fileModule.download(CONF.newton_url, constants.SDK_DIR, "newton.min.js").promise;
+            }
+            LOG.d("isNewtonDownloaded", isNewtonDownloaded);
+            return isNewtonDownloaded;
         });
     }
 
@@ -1318,6 +1366,7 @@
                                 constants.GAMEOVER_RELATIVE_DIR + "gameover.css",
                                 constants.SDK_RELATIVE_DIR + "cordova.js",
                                 constants.SDK_RELATIVE_DIR + "cordova_plugins.js",
+                                constants.SDK_RELATIVE_DIR + "newton.min.js",
                                 constants.SDK_RELATIVE_DIR + "gfsdk.min.js"
                             ]);
                 }).then(function(results){
@@ -1524,7 +1573,10 @@
             })
             .then(function(dom){
                 function appendToHead(element){ dom.head.appendChild(element);}
-
+                
+                /** FIX the viewport in any case */
+                var metaViewport = dom.querySelector('meta[name=viewport]');
+                if(metaViewport) { metaViewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, minimal-ui'; }                
                 var metaTags = dom.body.querySelectorAll("meta");
                 var linkTags = dom.body.querySelectorAll("link");
                 var styleTags = dom.body.querySelectorAll("style");
@@ -2548,9 +2600,19 @@ stargatePublic.openUrl = function(url) {
 	if (!isStargateInitialized) {
 		return err("Stargate not initialized, call Stargate.initialize first!");
     }
-    // FIXME: check that inappbrowser plugin is installed otherwise return error
+    if (!isStargateOpen) {
+        err("Stargate closed, wait for Stargate.initialize to complete!");
+        return false;
+    }
 
+    if(!(window.cordova && window.cordova.InAppBrowser && window.cordova.InAppBrowser.open)){
+        err("Missing cordova plugin InAppBrowser");
+        return false;
+    }
+
+    log("[openUrl] opening: "+url);
     window.open(url, "_system");
+    return true;
 };
 
 stargatePublic.googleLogin = function(callbackSuccess, callbackError) {
@@ -3214,9 +3276,12 @@ var onDeviceReady = function (resolve, reject) {
 * checking current url or cookies or localStorage
 */
 var isHybridEnvironment = function() {
+    return _isHybridEnvironment(document.location.href);
+};
+var _isHybridEnvironment = function(location) {
 
     // check url for hybrid query param
-    var uri = window.URI(document.location.href);
+    var uri = window.URI(location);
     var protocol = uri.protocol();
 
     if (protocol === "file" || protocol === "cdvfile") {
@@ -3235,9 +3300,14 @@ var isHybridEnvironment = function() {
         return true;
     }
 
+    // FALLBACK
+    if (window.navigator.userAgent.match(/Crosswalk\//) !== null) {
+        war("Activated isHybrid from Crosswalk UA");
+        return true;
+    }
+
     return false;
 };
-
 
 var setBusy = function(value) {
     if (value) {
@@ -5107,7 +5177,10 @@ var IAP = {
         IAP.callbackError({'iap_error': 1, 'return_url' : IAP.returnUrl});
 	},
 	
-
+    getRandomEmail: function() {
+        var randomPart = Math.floor(Math.random() * (10000 - 1000) + 1000).toString();
+        return "fake" + randomPart + (Date.now()) + "@example.com";
+    },
     
 	createUser: function(product, purchaseToken){
         log('[IAP] createUser start ');
@@ -5127,18 +5200,22 @@ var IAP = {
             return;
         }
         
-		window.localStorage.setItem('user_account', 
-            isRunningOnAndroid() ? 
-                (window.localStorage.getItem('googleAccount') ? 
-                    window.localStorage.getItem('googleAccount')
-                    : purchaseToken+'@google.com')
-                : product.transaction.id+'@itunes.com');
+        var userAccount = IAP.getRandomEmail();
+        var isFakeEmail = 1; 
+        
+        if (isRunningOnAndroid() && window.localStorage.getItem('googleAccount')) {
+            userAccount = window.localStorage.getItem('googleAccount');
+            isFakeEmail = 0;
+        }
+
+		window.localStorage.setItem('user_account', userAccount);
 		
         var url = IAP.subscribeMethod;		
 		
         var formData = {
             "paymethod": IAP.paymethod,
-            "user_account": window.localStorage.getItem('user_account'),
+            "user_account": userAccount,
+            "email_is_fake": isFakeEmail,
             "purchase_token": purchaseToken,
             "return_url": IAP.returnUrl,
             "inapp_pwd": IAP.getPassword(purchaseToken),

@@ -163,6 +163,8 @@ var navigator_connection_mock = {
     getInfo:function(cb, cbe){}
 };
 
+var overrideUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X) AppleWebKit/534.34 (KHTML, like Gecko) PhantomJS/1.9.8 Safari/534.34";
+
 function SimulateEvent(eventName, attrs, time, target){
     var _target;
 
@@ -219,6 +221,12 @@ describe("Stargate initialize", function() {
 
 		jasmine.Ajax.install();
         document.removeEventListener("deviceready",onDeviceReady, false);
+
+        var __originalNavigator = navigator;
+        navigator = new Object();
+        navigator.__proto__ = __originalNavigator;
+        navigator.__defineGetter__('userAgent', function () { return overrideUserAgent; });
+
 
     });
 	afterEach(function() {
@@ -447,6 +455,42 @@ describe("Stargate initialize", function() {
         });
 
         SimulateEvent("online", {networkState:"wifi"}, 1);
+    });
+
+    it("stargate isHybrid", function() {
+        
+        var res = isHybridEnvironment();
+        // this is based on phantom/jasmine document location, it may fail
+        expect(res).toBe(true);
+
+        // set outside hybrid
+		delete cookie_mock._val.hybrid;
+
+        // fail, no param or other
+        expect(_isHybridEnvironment("http://test.com/")).toBe(false);
+        
+
+        // file or cdvfile
+        expect(_isHybridEnvironment("file://test")).toBe(true);
+        expect(_isHybridEnvironment("cdvfile://test")).toBe(true);
+        
+        // query param
+        expect(_isHybridEnvironment("http://test.com/?hybrid=1")).toBe(true);
+        
+        // cookie
+        cookie_mock._val.hybrid = 1;
+        expect(_isHybridEnvironment("http://test.com/")).toBe(true);
+		delete cookie_mock._val.hybrid;
+
+        // localstorage
+        window.localStorage.setItem('hybrid', 1);
+        expect(_isHybridEnvironment("http://test.com/")).toBe(true);
+        window.localStorage.clear();
+
+        // useragent with Crosswalk        
+        overrideUserAgent = "Mozilla/5.0 (Linux; Android 5.0.1; GT-I9505 Build/LRX22C) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.116 Crosswalk/18.48.477.13 Mobile Safari/537.36";
+        expect(_isHybridEnvironment("http://test.com/")).toBe(true);
+        
     });
 	
 });
