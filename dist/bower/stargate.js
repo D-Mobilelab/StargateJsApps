@@ -18,7 +18,7 @@
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.7.5";
+    var stargatePackageVersion = "0.7.6";
     var stargatePublic = {};
     
     var stargateModules = {};       
@@ -1551,6 +1551,10 @@
             })
             .then(function(dom){
                 function appendToHead(element){ dom.head.appendChild(element);}
+
+                /** FIX the viewport in any case */
+                var metaViewport = dom.querySelector('meta[name=viewport]');
+                if(metaViewport) { metaViewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, minimal-ui'; }
 
                 var metaTags = dom.body.querySelectorAll("meta");
                 var linkTags = dom.body.querySelectorAll("link");
