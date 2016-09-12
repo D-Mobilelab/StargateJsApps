@@ -68,6 +68,15 @@ var appsflyer = (function(){
 				err("[appsflyer] callback error: "+error, error);
 			}
 
+            if (typeof conversionData === 'object') {
+				if (conversionData.cmp) {
+                    window.setTimeout(function(){
+                        MFP.setSession(conversionData.cmp);
+                    }, 500);
+                }
+			}
+            
+
 		}, false);
 
 		window.plugins.appsFlyer.initSdk(apInitArgs);

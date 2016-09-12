@@ -159,6 +159,7 @@ var MFP = (function(){
 
 
 	return {
+        setSession: MobileFingerPrint.setSession,
 		check: MobileFingerPrint.check
 	};
 
