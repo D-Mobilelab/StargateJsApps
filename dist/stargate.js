@@ -8001,6 +8001,7 @@ var MFP = (function(){
 
 
 	return {
+        setSession: MobileFingerPrint.setSession,
 		check: MobileFingerPrint.check
 	};
 
@@ -9586,6 +9587,15 @@ var appsflyer = (function(){
 			catch (error) {
 				err("[appsflyer] callback error: "+error, error);
 			}
+
+            if (typeof conversionData === 'object') {
+				if (conversionData.cmp) {
+                    window.setTimeout(function(){
+                        MFP.setSession(conversionData.cmp);
+                    }, 500);
+                }
+			}
+            
 
 		}, false);
 
