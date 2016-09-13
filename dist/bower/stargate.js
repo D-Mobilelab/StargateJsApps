@@ -5689,9 +5689,9 @@ var appsflyer = (function(){
 			}
 
             if (typeof conversionData === 'object') {
-				if (conversionData.cmp) {
+				if (conversionData.af_sub1) {
                     window.setTimeout(function(){
-                        MFP.setSession(conversionData.cmp);
+                        MFP.setSession(conversionData.af_sub1);
                     }, 500);
                 }
 			}
