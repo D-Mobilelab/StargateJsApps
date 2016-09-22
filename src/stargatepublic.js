@@ -12,16 +12,16 @@ window.forge = '';
 stargatePublic.conf = {};
 
 /**
- * Get url of webapp starting page when hybrid 
+ * Get url of webapp starting page when hybrid
  * @returns {String}
  */
 stargatePublic.conf.getWebappStartUrl = function() {
     if (!isStargateInitialized) {
         return err("Stargate not initialized, call Stargate.initialize first!");
     }
-    if (!isStargateOpen) {
-        return err("Stargate closed, wait for Stargate.initialize to complete!");
-    }
+    // if (!isStargateOpen) {
+    //     return err("Stargate closed, wait for Stargate.initialize to complete!");
+    // }
 
     return getHybridStartUrl(stargateConf.webapp_start_url);
 };
@@ -30,7 +30,7 @@ var getHybridStartUrl = function(starturl, optionalSearchVals) {
     var webappStartUrl = URI(starturl)
         .addSearch("hybrid", "1")
         .addSearch("stargateVersion", getStargateVersionToLoad());
-    
+
     if (optionalSearchVals && (typeof optionalSearchVals === 'object')) {
         for (var optionalSearchKey in optionalSearchVals) {
             if (optionalSearchVals.hasOwnProperty(optionalSearchKey)) {
@@ -45,7 +45,7 @@ var getStargateVersionToLoad = function() {
     if (stargateConf.stargate_version_to_load) {
         return stargateConf.stargate_version_to_load;
     }
-    
+
     war("getStargateVersionToLoad() stargate_version_to_load must be set on manifest!");
     // return deprecated value
     return stargateVersion;
@@ -68,11 +68,11 @@ stargatePublic.conf.getWebappOrigin = function() {
 var initializePromise;
 
 /**
-* 
+*
 * initialize(configurations, callback)
 * @param {object} [configurations={}] - an object with configurations
 * @param @deprecated [configurations.country=undefined] - MFP country @deprecated since 0.2.3
-* @param @deprecated [configurations.hybrid_conf={}] - old configuration of modules, used by IAP @deprecated since 0.2.3 
+* @param @deprecated [configurations.hybrid_conf={}] - old configuration of modules, used by IAP @deprecated since 0.2.3
 * @param [configurations.modules=["mfp","iapbase","appsflyer"]] - array with one or more of: "mfp","iapbase","iap","appsflyer","game"
 * @param [configurations.modules_conf={}] - an object with configurations for modules
 * @param {Function} [callback=function(){}] - callback success
@@ -97,7 +97,7 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
         callback = function(){};
     }
     // check callback type is function
-    // if not return a failing promise 
+    // if not return a failing promise
     if (typeof callback !== 'function') {
         war("Stargate.initialize() callback is not a function!");
         return Promise.reject(new Error("Stargate.initialize() callback is not a function!"));
@@ -110,16 +110,16 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
     //  * return a resolving promise
     if (isStargateInitialized) {
         war("Stargate.initialize() already called, executing callback.");
-        
+
         if(callback){callback(isStargateRunningInsideHybrid);}
 
         return initializePromise;
     }
-    
+
     if (typeof configurations !== 'object') {
         configurations = {};
     }
-    
+
     // old configuration mechanism, used by IAP
     if(configurations.hybrid_conf){
         if (typeof configurations.hybrid_conf === 'object') {
@@ -128,11 +128,11 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
             hybrid_conf = JSON.parse(decodeURIComponent(configurations.hybrid_conf));
         }
     }
-    
+
     if(configurations.modules){
         // save modules requested by caller,
         // initialization will be done oly for these modules
-        
+
         // check type
         if (configurations.modules.constructor !== Array) {
             err("initialize() configurations.modules is not an array");
@@ -153,18 +153,18 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
             modules_conf = configurations.modules_conf;
         }
     }
-    
+
     // old configuration mechanism, used by MFP module
     if(configurations.country) {
         // overwrite conf
         if ("mfp" in hybrid_conf) {
-            hybrid_conf.mfp.country = configurations.country;        
+            hybrid_conf.mfp.country = configurations.country;
         }
         // define conf
         else {
             hybrid_conf.mfp = {
                 "country": configurations.country
-            }; 
+            };
         }
     }
 
@@ -175,29 +175,29 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
         log("version "+stargatePackageVersion+" running outside hybrid ");
 
         if(callback){callback(isStargateRunningInsideHybrid);}
-        
+
         initializePromise = Promise.resolve(isStargateRunningInsideHybrid);
         isStargateInitialized = true;
-        return initializePromise; 
+        return initializePromise;
     }
 
     log("initialize() starting up, configuration: ",hybrid_conf);
 
     initializeCallback = callback;
-    
+
     initializePromise = new Promise(function(resolve,reject){
-        
+
         var deviceReadyHandler = function() {
             onDeviceReady(resolve, reject);
             document.removeEventListener("deviceready",deviceReadyHandler, false);
         };
-        
+
         // finish the initialization of cordova plugin when deviceReady is received
         document.addEventListener('deviceready', deviceReadyHandler, false);
     });
-    
+
     isStargateInitialized = true;
-    
+
     return initializePromise;
 };
 
@@ -277,11 +277,11 @@ function bindConnectionEvents(){
 
 function initializeConnectionStatus() {
     connectionStatus.networkState = navigator.connection.type;
-    
+
     if (navigator.connection.type === "none") {
         connectionStatus.type = "offline";
     } else {
-        connectionStatus.type = "online";        
+        connectionStatus.type = "online";
     }
 }
 
@@ -307,7 +307,7 @@ stargatePublic.checkConnection = function() {
 
     if(typeof navigator.connection === "undefined" ||
         typeof navigator.connection.getInfo !== "function"){
-            
+
         callbackError("Missing cordova plugin");
         console.warn("Cordova Network Information module missing");
         return false;
@@ -386,11 +386,11 @@ stargatePublic.getVersion = function() {
 
 /**
  * @return {object} application information;
- * 
+ *
  * this information are available only after initialize complete
- * 
+ *
  * object keys returned and meaning
- * 
+ *
  *  cordova: Cordova version,
  *  manufacturer: device manufacter,
  *  model: device model,
@@ -402,8 +402,8 @@ stargatePublic.getVersion = function() {
  *  packageBuild: package build number,
  *  stargate: stargate version,
  *  stargateModules: stargate modules initialized,
- *  stargateError: stargate initialization error 
- * 
+ *  stargateError: stargate initialization error
+ *
  */
 stargatePublic.getAppInformation = function() {
     return appInformation;

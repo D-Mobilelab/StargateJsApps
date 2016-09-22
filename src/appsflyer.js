@@ -4,7 +4,7 @@ var appsflyer = (function(){
 
 	var af = {};
 	var cb;
-	
+
 	/*
 		https://support.appsflyer.com/hc/en-us/articles/207032126-AppsFlyer-SDK-Integration-Android
 		https://support.appsflyer.com/hc/en-us/articles/207032096-Accessing-AppsFlyer-Attribution-Conversion-Data-from-the-SDK-Deferred-Deeplinking-
@@ -26,7 +26,7 @@ var appsflyer = (function(){
 	*/
 	var conversionData = {};
 
-	af.init = function() {
+	af.init = function(configuration) {
 
 		if (!window.plugins || !window.plugins.appsFlyer) {
 
@@ -47,37 +47,55 @@ var appsflyer = (function(){
 	    // apInitArgs[1] => iOS App Store Id
 	    //
 		var apInitArgs = [stargateConf.appsflyer_devkey];
-	    
+
 	    if (isRunningOnIos()) {
 	        apInitArgs.push(stargateConf.appstore_appid);
 	    }
 
-	    document.addEventListener('onInstallConversionDataLoaded', function(e){
-		    conversionData = e.detail;
-		    
-		    if (typeof cb !== 'function') {
-				return log("[appsflyer] callback not set!");
-			}
 
-			// send it
-			try {
-				cb(conversionData);
-				log("[appsflyer] parameters sent to webapp callback: "+JSON.stringify(conversionData));
-			}
-			catch (error) {
-				err("[appsflyer] callback error: "+error, error);
-			}
 
-            if (typeof conversionData === 'object') {
-				if (conversionData.af_sub1) {
-                    window.setTimeout(function(){
-                        MFP.setSession(conversionData.af_sub1);
-                    }, 500);
-                }
-			}
-            
+			document.addEventListener('onInstallConversionDataLoaded', function(e){
 
-		}, false);
+          if (typeof cb !== 'function') {
+            return log("[appsflyer] callback not set!");
+          }
+
+          if(window.localStorage.getItem('appsflyerSetSessionDone')){
+            cb(null);
+            return true;
+          }
+
+          conversionData = e.detail;
+
+          // if(runningDevice.uuid=="2fbd1a9b9e224f94")
+          //    conversionData.af_sub1="PONY=12-19a76196f3b04f1ff60e82aa1cf5f987999999END";
+
+    			// send it
+    			try {
+    				cb(conversionData);
+    				log("[appsflyer] parameters sent to webapp callback: "+JSON.stringify(conversionData));
+    			}
+    			catch (error) {
+    				err("[appsflyer] callback error: "+error, error);
+    			}
+
+          console.log('[appsflyer] autologin',configuration.autologin);
+
+          if(!window.localStorage.getItem('appsflyerSetSessionDone') && configuration.autologin){
+             window.localStorage.setItem('appsflyerSetSessionDone', 1);
+    			   if (typeof conversionData === 'object') {
+
+          			if (conversionData.af_sub1) {
+            				window.setTimeout(function(){
+  						          console.log("[appsflyer] perform autologin");
+              					MFP.setSession(conversionData.af_sub1);
+            				}, 100);
+          			}
+
+    			  }
+          }
+
+  		}, false);
 
 		window.plugins.appsFlyer.initSdk(apInitArgs);
 	};
@@ -113,4 +131,3 @@ stargatePublic.setConversionDataCallback = function(callback) {
 
 	appsflyer.setCallback(callback);
 };
-
