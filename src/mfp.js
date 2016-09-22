@@ -3,7 +3,7 @@
 /**
  * @namespace
  * @protected
- * 
+ *
  * @description
  * MFP is used to recognize user coming from webapp.
  *
@@ -14,7 +14,7 @@
  *  4. our app with Stargate integrated is opened by our user
  *  5. MFP module send an api request to the server and the user is recongized
  *  6. the previous session is restored by the MobileFingerPrint.setSession
- * 
+ *
  */
 var MFP = (function(){
 
@@ -31,7 +31,7 @@ var MFP = (function(){
      *
      */
 	MobileFingerPrint.check = function(initializeConf){
-		
+
 		//if (window.localStorage.getItem('mfpCheckDone')){
 		//	return;
 		//}
@@ -39,10 +39,10 @@ var MFP = (function(){
 		// country defined on main stargate.js
         var neededConfs = ["motime_apikey", "namespace", "label", "country"];
         neededConfs.forEach(function(neededConf) {
-            if (!initializeConf.hasOwnProperty(neededConf)) {		
+            if (!initializeConf.hasOwnProperty(neededConf)) {
                 return err("[MFP] Configuration '"+neededConf+"' not defined!");
             }
-            if (!initializeConf[neededConf]) {		
+            if (!initializeConf[neededConf]) {
                 return err("[MFP] Configuration: '"+neededConf+"' not valid!");
             }
         });
@@ -58,9 +58,9 @@ var MFP = (function(){
 	    if (extData){
 	        contents_inapp.extData = extData;
 	    }
-	    
+
 	    var json_data = JSON.stringify(contents_inapp);
-	       
+
 	    return json_data;
 	};
 
@@ -95,7 +95,7 @@ var MFP = (function(){
 	  			"domain": hostname,
 	  			"_PONY": MobileFingerPrint.getPonyValue(pony)
 	  	});
-				
+
 		log("[MobileFingerPrint] going to url: ", newUrl);
 
 		launchUrl(newUrl);
@@ -119,7 +119,7 @@ var MFP = (function(){
             .url(mfpUrl)
             .type('jsonp')
             .on('success', function(response){
-                
+
                 log("[MobileFingerPrint] get() response: ", response);
 
                 var ponyUrl = '';
@@ -144,9 +144,9 @@ var MFP = (function(){
                     	}
                     }
 
-                    
-                    
-                    MobileFingerPrint.setSession(ponyUrl);                
+
+
+                    MobileFingerPrint.setSession(ponyUrl);
                 }else{
                     log("[MobileFingerPrint] get(): Empty session");
                 }
@@ -159,6 +159,7 @@ var MFP = (function(){
 
 
 	return {
+    setSession: MobileFingerPrint.setSession,
 		check: MobileFingerPrint.check
 	};
 
