@@ -207,6 +207,15 @@ var appInformation = {
 */
 var setIsHybrid = function() {
 
+    // set also multidomain cookie 
+    var currentUrl = new URI(document.location.href);
+    if (/^http*/.test(currentUrl.protocol())) {
+        var hostname = currentUrl.hostname();
+        // remove the first part of hostname (should be www) so subdomain can access it
+        var cookieDomain = hostname.split(".").slice(1).join(".");
+        window.Cookies.set("hybrid", "1", {"domain": cookieDomain});
+    }
+
     window.Cookies.set("hybrid", "1");
 
     if (!window.localStorage.getItem('hybrid')) {
