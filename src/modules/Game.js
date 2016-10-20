@@ -654,10 +654,10 @@
             })
             .then(function(dom){
                 function appendToHead(element){ dom.head.appendChild(element);}
-                
+
                 /** FIX the viewport in any case */
                 var metaViewport = dom.querySelector('meta[name=viewport]');
-                if(metaViewport) { metaViewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, minimal-ui'; }                
+                if(metaViewport) { metaViewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, minimal-ui'; }
                 var metaTags = dom.body.querySelectorAll("meta");
                 var linkTags = dom.body.querySelectorAll("link");
                 var styleTags = dom.body.querySelectorAll("style");

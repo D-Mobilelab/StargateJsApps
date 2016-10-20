@@ -1,13 +1,14 @@
 /*!
  * URI.js - Mutating URLs
  *
- * Version: 1.17.1
+ * Version: 1.17.0
  *
  * Author: Rodney Rehm
  * Web: http://medialize.github.io/URI.js/
  *
  * Licensed under
  *   MIT License http://www.opensource.org/licenses/mit-license
+ *   GPL v3 http://opensource.org/licenses/GPL-3.0
  *
  */
 (function (root, factory) {
@@ -71,7 +72,7 @@
     return this;
   }
 
-  URI.version = '1.17.1';
+  URI.version = '1.17.0';
 
   var p = URI.prototype;
   var hasOwn = Object.prototype.hasOwnProperty;
@@ -794,35 +795,18 @@
     }
   };
   URI.hasQuery = function(data, name, value, withinArray) {
-    switch (getType(name)) {
-      case 'String':
-        // Nothing to do here
-        break;
-
-      case 'RegExp':
-        for (var key in data) {
-          if (hasOwn.call(data, key)) {
-            if (name.test(key) && (value === undefined || URI.hasQuery(data, key, value))) {
-              return true;
-            }
+    if (typeof name === 'object') {
+      for (var key in name) {
+        if (hasOwn.call(name, key)) {
+          if (!URI.hasQuery(data, key, name[key])) {
+            return false;
           }
         }
+      }
 
-        return false;
-
-      case 'Object':
-        for (var _key in name) {
-          if (hasOwn.call(name, _key)) {
-            if (!URI.hasQuery(data, _key, name[_key])) {
-              return false;
-            }
-          }
-        }
-
-        return true;
-
-      default:
-        throw new TypeError('URI.hasQuery() accepts a string, regular expression or object as the name parameter');
+      return true;
+    } else if (typeof name !== 'string') {
+      throw new TypeError('URI.hasQuery() accepts an object, string as the name parameter');
     }
 
     switch (getType(value)) {
@@ -1240,6 +1224,8 @@
 
   // compound accessors
   p.origin = function(v, build) {
+    var parts;
+
     if (this._parts.urn) {
       return v === undefined ? '' : this;
     }
@@ -1247,10 +1233,7 @@
     if (v === undefined) {
       var protocol = this.protocol();
       var authority = this.authority();
-      if (!authority) {
-        return '';
-      }
-
+      if (!authority) return '';
       return (protocol ? protocol + '://' : '') + this.authority();
     } else {
       var origin = URI(v);
@@ -1834,8 +1817,6 @@
       return this;
     }
 
-    _path = URI.recodePath(_path);
-
     var _was_relative;
     var _leadingParents = '';
     var _parent, _pos;
@@ -1866,7 +1847,7 @@
 
     // resolve parents
     while (true) {
-      _parent = _path.search(/\/\.\.(\/|$)/);
+      _parent = _path.indexOf('/..');
       if (_parent === -1) {
         // no more ../ to resolve
         break;
@@ -1888,6 +1869,7 @@
       _path = _leadingParents + _path.substring(1);
     }
 
+    _path = URI.recodePath(_path);
     this._parts.path = _path;
     this.build(!build);
     return this;
@@ -2182,13 +2164,14 @@
  * URI.js - Mutating URLs
  * URI Template Support - http://tools.ietf.org/html/rfc6570
  *
- * Version: 1.17.1
+ * Version: 1.17.0
  *
  * Author: Rodney Rehm
  * Web: http://medialize.github.io/URI.js/
  *
  * Licensed under
  *   MIT License http://www.opensource.org/licenses/mit-license
+ *   GPL v3 http://opensource.org/licenses/GPL-3.0
  *
  */
 (function (root, factory) {
@@ -3935,7 +3918,7 @@
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.7.5";
+    var stargatePackageVersion = "0.7.8";
     var stargatePublic = {};
     
     var stargateModules = {};       
@@ -5490,10 +5473,10 @@
             })
             .then(function(dom){
                 function appendToHead(element){ dom.head.appendChild(element);}
-                
+
                 /** FIX the viewport in any case */
                 var metaViewport = dom.querySelector('meta[name=viewport]');
-                if(metaViewport) { metaViewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, minimal-ui'; }                
+                if(metaViewport) { metaViewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, minimal-ui'; }
                 var metaTags = dom.body.querySelectorAll("meta");
                 var linkTags = dom.body.querySelectorAll("link");
                 var styleTags = dom.body.querySelectorAll("style");
@@ -6311,16 +6294,16 @@ window.forge = '';
 stargatePublic.conf = {};
 
 /**
- * Get url of webapp starting page when hybrid 
+ * Get url of webapp starting page when hybrid
  * @returns {String}
  */
 stargatePublic.conf.getWebappStartUrl = function() {
     if (!isStargateInitialized) {
         return err("Stargate not initialized, call Stargate.initialize first!");
     }
-    if (!isStargateOpen) {
-        return err("Stargate closed, wait for Stargate.initialize to complete!");
-    }
+    // if (!isStargateOpen) {
+    //     return err("Stargate closed, wait for Stargate.initialize to complete!");
+    // }
 
     return getHybridStartUrl(stargateConf.webapp_start_url);
 };
@@ -6329,7 +6312,7 @@ var getHybridStartUrl = function(starturl, optionalSearchVals) {
     var webappStartUrl = URI(starturl)
         .addSearch("hybrid", "1")
         .addSearch("stargateVersion", getStargateVersionToLoad());
-    
+
     if (optionalSearchVals && (typeof optionalSearchVals === 'object')) {
         for (var optionalSearchKey in optionalSearchVals) {
             if (optionalSearchVals.hasOwnProperty(optionalSearchKey)) {
@@ -6344,7 +6327,7 @@ var getStargateVersionToLoad = function() {
     if (stargateConf.stargate_version_to_load) {
         return stargateConf.stargate_version_to_load;
     }
-    
+
     war("getStargateVersionToLoad() stargate_version_to_load must be set on manifest!");
     // return deprecated value
     return stargateVersion;
@@ -6367,11 +6350,11 @@ stargatePublic.conf.getWebappOrigin = function() {
 var initializePromise;
 
 /**
-* 
+*
 * initialize(configurations, callback)
 * @param {object} [configurations={}] - an object with configurations
 * @param @deprecated [configurations.country=undefined] - MFP country @deprecated since 0.2.3
-* @param @deprecated [configurations.hybrid_conf={}] - old configuration of modules, used by IAP @deprecated since 0.2.3 
+* @param @deprecated [configurations.hybrid_conf={}] - old configuration of modules, used by IAP @deprecated since 0.2.3
 * @param [configurations.modules=["mfp","iapbase","appsflyer"]] - array with one or more of: "mfp","iapbase","iap","appsflyer","game"
 * @param [configurations.modules_conf={}] - an object with configurations for modules
 * @param {Function} [callback=function(){}] - callback success
@@ -6396,7 +6379,7 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
         callback = function(){};
     }
     // check callback type is function
-    // if not return a failing promise 
+    // if not return a failing promise
     if (typeof callback !== 'function') {
         war("Stargate.initialize() callback is not a function!");
         return Promise.reject(new Error("Stargate.initialize() callback is not a function!"));
@@ -6409,16 +6392,16 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
     //  * return a resolving promise
     if (isStargateInitialized) {
         war("Stargate.initialize() already called, executing callback.");
-        
+
         if(callback){callback(isStargateRunningInsideHybrid);}
 
         return initializePromise;
     }
-    
+
     if (typeof configurations !== 'object') {
         configurations = {};
     }
-    
+
     // old configuration mechanism, used by IAP
     if(configurations.hybrid_conf){
         if (typeof configurations.hybrid_conf === 'object') {
@@ -6427,11 +6410,11 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
             hybrid_conf = JSON.parse(decodeURIComponent(configurations.hybrid_conf));
         }
     }
-    
+
     if(configurations.modules){
         // save modules requested by caller,
         // initialization will be done oly for these modules
-        
+
         // check type
         if (configurations.modules.constructor !== Array) {
             err("initialize() configurations.modules is not an array");
@@ -6452,18 +6435,18 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
             modules_conf = configurations.modules_conf;
         }
     }
-    
+
     // old configuration mechanism, used by MFP module
     if(configurations.country) {
         // overwrite conf
         if ("mfp" in hybrid_conf) {
-            hybrid_conf.mfp.country = configurations.country;        
+            hybrid_conf.mfp.country = configurations.country;
         }
         // define conf
         else {
             hybrid_conf.mfp = {
                 "country": configurations.country
-            }; 
+            };
         }
     }
 
@@ -6474,29 +6457,29 @@ stargatePublic.initialize = function(configurations, pubKeyPar, forgePar, callba
         log("version "+stargatePackageVersion+" running outside hybrid ");
 
         if(callback){callback(isStargateRunningInsideHybrid);}
-        
+
         initializePromise = Promise.resolve(isStargateRunningInsideHybrid);
         isStargateInitialized = true;
-        return initializePromise; 
+        return initializePromise;
     }
 
     log("initialize() starting up, configuration: ",hybrid_conf);
 
     initializeCallback = callback;
-    
+
     initializePromise = new Promise(function(resolve,reject){
-        
+
         var deviceReadyHandler = function() {
             onDeviceReady(resolve, reject);
             document.removeEventListener("deviceready",deviceReadyHandler, false);
         };
-        
+
         // finish the initialization of cordova plugin when deviceReady is received
         document.addEventListener('deviceready', deviceReadyHandler, false);
     });
-    
+
     isStargateInitialized = true;
-    
+
     return initializePromise;
 };
 
@@ -6576,11 +6559,11 @@ function bindConnectionEvents(){
 
 function initializeConnectionStatus() {
     connectionStatus.networkState = navigator.connection.type;
-    
+
     if (navigator.connection.type === "none") {
         connectionStatus.type = "offline";
     } else {
-        connectionStatus.type = "online";        
+        connectionStatus.type = "online";
     }
 }
 
@@ -6606,7 +6589,7 @@ stargatePublic.checkConnection = function() {
 
     if(typeof navigator.connection === "undefined" ||
         typeof navigator.connection.getInfo !== "function"){
-            
+
         callbackError("Missing cordova plugin");
         console.warn("Cordova Network Information module missing");
         return false;
@@ -6685,11 +6668,11 @@ stargatePublic.getVersion = function() {
 
 /**
  * @return {object} application information;
- * 
+ *
  * this information are available only after initialize complete
- * 
+ *
  * object keys returned and meaning
- * 
+ *
  *  cordova: Cordova version,
  *  manufacturer: device manufacter,
  *  model: device model,
@@ -6701,12 +6684,13 @@ stargatePublic.getVersion = function() {
  *  packageBuild: package build number,
  *  stargate: stargate version,
  *  stargateModules: stargate modules initialized,
- *  stargateError: stargate initialization error 
- * 
+ *  stargateError: stargate initialization error
+ *
  */
 stargatePublic.getAppInformation = function() {
     return appInformation;
 };
+
 /* globals SpinnerDialog */
 
 /***
@@ -6914,7 +6898,20 @@ var appInformation = {
 * (this will be called only after device ready is received and 
 *   we are sure to be inside cordova app)
 */
-var setIsHybrid = function() {
+var setIsHybrid = function() {   
+    
+    var re = new RegExp(/(^https?:\/\/)(.*)/);
+    var result = re.exec(window.location.origin);
+    var cookieDomain = '';
+    if(result){
+        cookieDomain = result[result.length - 1]
+            .split('.')
+            .filter(function(el){
+                return !(el === 'www' || el === 'www2');
+            }).join('.');
+        // set multidomain cookie
+        window.Cookies.set("hybrid", "1", {"domain": cookieDomain});        
+    }
 
     window.Cookies.set("hybrid", "1");
 
@@ -7879,7 +7876,7 @@ stargatePublic.push = push.public;
 /**
  * @namespace
  * @protected
- * 
+ *
  * @description
  * MFP is used to recognize user coming from webapp.
  *
@@ -7890,7 +7887,7 @@ stargatePublic.push = push.public;
  *  4. our app with Stargate integrated is opened by our user
  *  5. MFP module send an api request to the server and the user is recongized
  *  6. the previous session is restored by the MobileFingerPrint.setSession
- * 
+ *
  */
 var MFP = (function(){
 
@@ -7907,7 +7904,7 @@ var MFP = (function(){
      *
      */
 	MobileFingerPrint.check = function(initializeConf){
-		
+
 		//if (window.localStorage.getItem('mfpCheckDone')){
 		//	return;
 		//}
@@ -7915,10 +7912,10 @@ var MFP = (function(){
 		// country defined on main stargate.js
         var neededConfs = ["motime_apikey", "namespace", "label", "country"];
         neededConfs.forEach(function(neededConf) {
-            if (!initializeConf.hasOwnProperty(neededConf)) {		
+            if (!initializeConf.hasOwnProperty(neededConf)) {
                 return err("[MFP] Configuration '"+neededConf+"' not defined!");
             }
-            if (!initializeConf[neededConf]) {		
+            if (!initializeConf[neededConf]) {
                 return err("[MFP] Configuration: '"+neededConf+"' not valid!");
             }
         });
@@ -7934,9 +7931,9 @@ var MFP = (function(){
 	    if (extData){
 	        contents_inapp.extData = extData;
 	    }
-	    
+
 	    var json_data = JSON.stringify(contents_inapp);
-	       
+
 	    return json_data;
 	};
 
@@ -7971,7 +7968,7 @@ var MFP = (function(){
 	  			"domain": hostname,
 	  			"_PONY": MobileFingerPrint.getPonyValue(pony)
 	  	});
-				
+
 		log("[MobileFingerPrint] going to url: ", newUrl);
 
 		launchUrl(newUrl);
@@ -7995,7 +7992,7 @@ var MFP = (function(){
             .url(mfpUrl)
             .type('jsonp')
             .on('success', function(response){
-                
+
                 log("[MobileFingerPrint] get() response: ", response);
 
                 var ponyUrl = '';
@@ -8020,9 +8017,9 @@ var MFP = (function(){
                     	}
                     }
 
-                    
-                    
-                    MobileFingerPrint.setSession(ponyUrl);                
+
+
+                    MobileFingerPrint.setSession(ponyUrl);
                 }else{
                     log("[MobileFingerPrint] get(): Empty session");
                 }
@@ -8035,6 +8032,7 @@ var MFP = (function(){
 
 
 	return {
+    setSession: MobileFingerPrint.setSession,
 		check: MobileFingerPrint.check
 	};
 
@@ -9557,7 +9555,7 @@ var appsflyer = (function(){
 
 	var af = {};
 	var cb;
-	
+
 	/*
 		https://support.appsflyer.com/hc/en-us/articles/207032126-AppsFlyer-SDK-Integration-Android
 		https://support.appsflyer.com/hc/en-us/articles/207032096-Accessing-AppsFlyer-Attribution-Conversion-Data-from-the-SDK-Deferred-Deeplinking-
@@ -9579,7 +9577,7 @@ var appsflyer = (function(){
 	*/
 	var conversionData = {};
 
-	af.init = function() {
+	af.init = function(configuration) {
 
 		if (!window.plugins || !window.plugins.appsFlyer) {
 
@@ -9600,28 +9598,55 @@ var appsflyer = (function(){
 	    // apInitArgs[1] => iOS App Store Id
 	    //
 		var apInitArgs = [stargateConf.appsflyer_devkey];
-	    
+
 	    if (isRunningOnIos()) {
 	        apInitArgs.push(stargateConf.appstore_appid);
 	    }
 
-	    document.addEventListener('onInstallConversionDataLoaded', function(e){
-		    conversionData = e.detail;
-		    
-		    if (typeof cb !== 'function') {
-				return log("[appsflyer] callback not set!");
-			}
 
-			// send it
-			try {
-				cb(conversionData);
-				log("[appsflyer] parameters sent to webapp callback: "+JSON.stringify(conversionData));
-			}
-			catch (error) {
-				err("[appsflyer] callback error: "+error, error);
-			}
 
-		}, false);
+			document.addEventListener('onInstallConversionDataLoaded', function(e){
+
+          if (typeof cb !== 'function') {
+            return log("[appsflyer] callback not set!");
+          }
+
+          if(window.localStorage.getItem('appsflyerSetSessionDone')){
+            cb(null);
+            return true;
+          }
+
+          conversionData = e.detail;
+
+          // if(runningDevice.uuid=="2fbd1a9b9e224f94")
+          //    conversionData.af_sub1="PONY=12-19a76196f3b04f1ff60e82aa1cf5f987999999END";
+
+    			// send it
+    			try {
+    				cb(conversionData);
+    				log("[appsflyer] parameters sent to webapp callback: "+JSON.stringify(conversionData));
+    			}
+    			catch (error) {
+    				err("[appsflyer] callback error: "+error, error);
+    			}
+
+          console.log('[appsflyer] autologin',configuration.autologin);
+
+          if(!window.localStorage.getItem('appsflyerSetSessionDone') && configuration.autologin){
+             window.localStorage.setItem('appsflyerSetSessionDone', 1);
+    			   if (typeof conversionData === 'object') {
+
+          			if (conversionData.af_sub1) {
+            				window.setTimeout(function(){
+  						          console.log("[appsflyer] perform autologin");
+              					MFP.setSession(conversionData.af_sub1);
+            				}, 100);
+          			}
+
+    			  }
+          }
+
+  		}, false);
 
 		window.plugins.appsFlyer.initSdk(apInitArgs);
 	};
@@ -9657,7 +9682,6 @@ stargatePublic.setConversionDataCallback = function(callback) {
 
 	appsflyer.setCallback(callback);
 };
-
 
 
 /**
