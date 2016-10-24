@@ -7956,6 +7956,10 @@ var MFP = (function(){
 
 	MobileFingerPrint.getPonyValue = function(ponyWithEqual) {
 		try {
+            // if no = present return everything
+            if (ponyWithEqual.indexOf("=") === -1) {
+                return ponyWithEqual;
+            }
 			return ponyWithEqual.split('=')[1];
 		}
 		catch (e) {
@@ -7964,15 +7968,15 @@ var MFP = (function(){
 		return '';
 	};
 
-	MobileFingerPrint.setSession = function(pony){
+	MobileFingerPrint.setSession = function(pony, returnUrl){
 
-		// get appurl from configuration
+		// get appurl from configuration or use returnUrl
 		var appUrl = stargatePublic.conf.getWebappStartUrl();
-		if (window.localStorage.getItem('appUrl')){
-			appUrl = window.localStorage.getItem('appUrl');
-		}
-
 		var currentUrl = new URI(appUrl);
+
+        if (!returnUrl) {
+            returnUrl = appUrl;
+        }
 
 		// stargateConf.api.mfpSetUriTemplate:
 		// '{protocol}://{hostname}/mfpset.php{?url}&{pony}'
@@ -7981,7 +7985,7 @@ var MFP = (function(){
 	  		.expand({
 	  			"protocol": currentUrl.protocol(),
 	  			"hostname": hostname,
-	  			"url": appUrl,
+	  			"url": returnUrl,
 	  			"domain": hostname,
 	  			"_PONY": MobileFingerPrint.getPonyValue(pony)
 	  	});
@@ -8016,13 +8020,13 @@ var MFP = (function(){
 
                 if (response.content.inappInfo){
                     var jsonStruct = JSON.parse(response.content.inappInfo);
-
+                    var appUrl;
                     if (jsonStruct.extData) {
                     	if (jsonStruct.extData.ponyUrl) {
                     		ponyUrl = jsonStruct.extData.ponyUrl;
                     	}
                     	if (jsonStruct.extData.return_url) {
-                    		window.localStorage.setItem('appUrl', jsonStruct.extData.return_url);
+                    		appUrl = jsonStruct.extData.return_url;
                     	}
                     	if (jsonStruct.extData.session_mfp) {
 
@@ -8034,9 +8038,7 @@ var MFP = (function(){
                     	}
                     }
 
-
-
-                    MobileFingerPrint.setSession(ponyUrl);
+                    MobileFingerPrint.setSession(ponyUrl, appUrl);
                 }else{
                     log("[MobileFingerPrint] get(): Empty session");
                 }
@@ -9620,48 +9622,60 @@ var appsflyer = (function(){
 	        apInitArgs.push(stargateConf.appstore_appid);
 	    }
 
+        document.addEventListener('onInstallConversionDataLoaded', function(e){
 
+            if (typeof cb !== 'function') {
+                return log("[appsflyer] callback not set!");
+            }
 
-			document.addEventListener('onInstallConversionDataLoaded', function(e){
+            if(window.localStorage.getItem('appsflyerSetSessionDone')){
+                cb(null);
+                return true;
+            }
 
-          if (typeof cb !== 'function') {
-            return log("[appsflyer] callback not set!");
-          }
+            conversionData = e.detail;
 
-          if(window.localStorage.getItem('appsflyerSetSessionDone')){
-            cb(null);
-            return true;
-          }
+            // if(runningDevice.uuid=="2fbd1a9b9e224f94")
+            //    conversionData.af_sub1="PONY=12-19a76196f3b04f1ff60e82aa1cf5f987999999END";
 
-          conversionData = e.detail;
+            // send it
+            try {
+                cb(conversionData);
+                log("[appsflyer] parameters sent to webapp callback: "+JSON.stringify(conversionData));
+            }
+            catch (error) {
+                err("[appsflyer] callback error: "+error, error);
+            }
 
-          // if(runningDevice.uuid=="2fbd1a9b9e224f94")
-          //    conversionData.af_sub1="PONY=12-19a76196f3b04f1ff60e82aa1cf5f987999999END";
+            console.log('[appsflyer] configuration:', configuration);
 
-    			// send it
-    			try {
-    				cb(conversionData);
-    				log("[appsflyer] parameters sent to webapp callback: "+JSON.stringify(conversionData));
-    			}
-    			catch (error) {
-    				err("[appsflyer] callback error: "+error, error);
-    			}
+            if(!window.localStorage.getItem('appsflyerSetSessionDone') && configuration.autologin){
 
-          console.log('[appsflyer] autologin',configuration.autologin);
+                var fieldPony = "af_sub1";
+                if (configuration.fieldPony) {
+                    fieldPony = configuration.fieldPony;
+                }
+                var fieldReturnUrl = "";
+                if (configuration.fieldReturnUrl) {
+                    fieldReturnUrl = configuration.fieldReturnUrl;
+                }
 
-          if(!window.localStorage.getItem('appsflyerSetSessionDone') && configuration.autologin){
-             window.localStorage.setItem('appsflyerSetSessionDone', 1);
-    			   if (typeof conversionData === 'object') {
+                window.localStorage.setItem('appsflyerSetSessionDone', 1);
+                if (typeof conversionData === 'object') {
 
-          			if (conversionData.af_sub1) {
-            				window.setTimeout(function(){
-  						          console.log("[appsflyer] perform autologin");
-              					MFP.setSession(conversionData.af_sub1);
-            				}, 100);
-          			}
+                    if (conversionData[fieldPony]) {
+                        var returnUrl = null;
+                        if (fieldReturnUrl && conversionData[fieldReturnUrl]) {
+                            returnUrl = conversionData[fieldReturnUrl];
+                        }
 
-    			  }
-          }
+                        window.setTimeout(function(){
+                            console.log("[appsflyer] perform autologin");
+                            MFP.setSession(conversionData[fieldPony], returnUrl);
+                        }, 100);
+                    }
+                }
+            }
 
   		}, false);
 
