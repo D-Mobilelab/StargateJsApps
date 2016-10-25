@@ -66,6 +66,10 @@ var MFP = (function(){
 
 	MobileFingerPrint.getPonyValue = function(ponyWithEqual) {
 		try {
+            // if no = present return everything
+            if (ponyWithEqual.indexOf("=") === -1) {
+                return ponyWithEqual;
+            }
 			return ponyWithEqual.split('=')[1];
 		}
 		catch (e) {
@@ -74,15 +78,15 @@ var MFP = (function(){
 		return '';
 	};
 
-	MobileFingerPrint.setSession = function(pony){
+	MobileFingerPrint.setSession = function(pony, returnUrl){
 
-		// get appurl from configuration
+		// get appurl from configuration or use returnUrl
 		var appUrl = stargatePublic.conf.getWebappStartUrl();
-		if (window.localStorage.getItem('appUrl')){
-			appUrl = window.localStorage.getItem('appUrl');
-		}
-
 		var currentUrl = new URI(appUrl);
+
+        if (!returnUrl) {
+            returnUrl = appUrl;
+        }
 
 		// stargateConf.api.mfpSetUriTemplate:
 		// '{protocol}://{hostname}/mfpset.php{?url}&{pony}'
@@ -91,7 +95,7 @@ var MFP = (function(){
 	  		.expand({
 	  			"protocol": currentUrl.protocol(),
 	  			"hostname": hostname,
-	  			"url": appUrl,
+	  			"url": returnUrl,
 	  			"domain": hostname,
 	  			"_PONY": MobileFingerPrint.getPonyValue(pony)
 	  	});
@@ -126,13 +130,13 @@ var MFP = (function(){
 
                 if (response.content.inappInfo){
                     var jsonStruct = JSON.parse(response.content.inappInfo);
-
+                    var appUrl;
                     if (jsonStruct.extData) {
                     	if (jsonStruct.extData.ponyUrl) {
                     		ponyUrl = jsonStruct.extData.ponyUrl;
                     	}
                     	if (jsonStruct.extData.return_url) {
-                    		window.localStorage.setItem('appUrl', jsonStruct.extData.return_url);
+                    		appUrl = jsonStruct.extData.return_url;
                     	}
                     	if (jsonStruct.extData.session_mfp) {
 
@@ -144,9 +148,7 @@ var MFP = (function(){
                     	}
                     }
 
-
-
-                    MobileFingerPrint.setSession(ponyUrl);
+                    MobileFingerPrint.setSession(ponyUrl, appUrl);
                 }else{
                     log("[MobileFingerPrint] get(): Empty session");
                 }

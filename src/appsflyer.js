@@ -52,48 +52,60 @@ var appsflyer = (function(){
 	        apInitArgs.push(stargateConf.appstore_appid);
 	    }
 
+        document.addEventListener('onInstallConversionDataLoaded', function(e){
 
+            if (typeof cb !== 'function') {
+                return log("[appsflyer] callback not set!");
+            }
 
-			document.addEventListener('onInstallConversionDataLoaded', function(e){
+            if(window.localStorage.getItem('appsflyerSetSessionDone')){
+                cb(null);
+                return true;
+            }
 
-          if (typeof cb !== 'function') {
-            return log("[appsflyer] callback not set!");
-          }
+            conversionData = e.detail;
 
-          if(window.localStorage.getItem('appsflyerSetSessionDone')){
-            cb(null);
-            return true;
-          }
+            // if(runningDevice.uuid=="2fbd1a9b9e224f94")
+            //    conversionData.af_sub1="PONY=12-19a76196f3b04f1ff60e82aa1cf5f987999999END";
 
-          conversionData = e.detail;
+            // send it
+            try {
+                cb(conversionData);
+                log("[appsflyer] parameters sent to webapp callback: "+JSON.stringify(conversionData));
+            }
+            catch (error) {
+                err("[appsflyer] callback error: "+error, error);
+            }
 
-          // if(runningDevice.uuid=="2fbd1a9b9e224f94")
-          //    conversionData.af_sub1="PONY=12-19a76196f3b04f1ff60e82aa1cf5f987999999END";
+            console.log('[appsflyer] configuration:', configuration);
 
-    			// send it
-    			try {
-    				cb(conversionData);
-    				log("[appsflyer] parameters sent to webapp callback: "+JSON.stringify(conversionData));
-    			}
-    			catch (error) {
-    				err("[appsflyer] callback error: "+error, error);
-    			}
+            if(!window.localStorage.getItem('appsflyerSetSessionDone') && configuration.autologin){
 
-          console.log('[appsflyer] autologin',configuration.autologin);
+                var fieldPony = "af_sub1";
+                if (configuration.fieldPony) {
+                    fieldPony = configuration.fieldPony;
+                }
+                var fieldReturnUrl = "";
+                if (configuration.fieldReturnUrl) {
+                    fieldReturnUrl = configuration.fieldReturnUrl;
+                }
 
-          if(!window.localStorage.getItem('appsflyerSetSessionDone') && configuration.autologin){
-             window.localStorage.setItem('appsflyerSetSessionDone', 1);
-    			   if (typeof conversionData === 'object') {
+                window.localStorage.setItem('appsflyerSetSessionDone', 1);
+                if (typeof conversionData === 'object') {
 
-          			if (conversionData.af_sub1) {
-            				window.setTimeout(function(){
-  						          console.log("[appsflyer] perform autologin");
-              					MFP.setSession(conversionData.af_sub1);
-            				}, 100);
-          			}
+                    if (conversionData[fieldPony]) {
+                        var returnUrl = null;
+                        if (fieldReturnUrl && conversionData[fieldReturnUrl]) {
+                            returnUrl = conversionData[fieldReturnUrl];
+                        }
 
-    			  }
-          }
+                        window.setTimeout(function(){
+                            console.log("[appsflyer] perform autologin");
+                            MFP.setSession(conversionData[fieldPony], returnUrl);
+                        }, 100);
+                    }
+                }
+            }
 
   		}, false);
 
