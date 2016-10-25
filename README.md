@@ -136,12 +136,13 @@ Option|Description|Default
 *iap* | InApp purchase configuration object | `undefined`
 *iaplight* | InApp purchase iaplight configuration object | `undefined`
 *mfp* | Mobile Fingerprint configuration object | `undefined`
+*appsflyer* | AppsFlyer configuration object | `undefined`
 
 #### modules_conf mfp configuration configuration object
 
-Option|Description|Example
---- | --- | ---
-*country* | Country to use for mfp | `"it"`
+Option|Description|Default|Example
+--- | --- | --- | ---
+*country* | Country to use for mfp | `undefined` | "`it`"
 
 There are two more variable needed for Mobile FingerPrint to work and these variable are retrieved from the manifest.json inside the app:
 
@@ -150,6 +151,24 @@ Value|Description
 *namespace* | namespace
 *label* | label
 
+#### modules_conf AppsFlyer configuration configuration object
+
+Option|Description|Default|Example
+--- | --- | --- | ---
+*autologin* | (boolean) enable autologin with pony value | `undefined` | `"true"`
+*fieldPony* | field where to look for the pony value | `"af_sub1"` | `"af_sub2"`
+*fieldReturnUrl* | field where to look for the return url value | `undefined` | `"af_sub5"`
+
+The AppsFlyer module permit to autologin an user coming from the Webapp, when you pass from the Webapp to AppsFlyer the token of the user in the field which value is in fieldPony.
+
+It also permit to go to a specific url (for example the url of the content where the user choosed to install the app) after it's logged in. This is done with the fieldReturnUrl value passed to the autologin url (api.mfpSetUriTemplate value in manifest.json).       
+
+There are two more variable needed for AppsFlyer to work and these variable are retrieved from the manifest.json inside the app:
+
+Value|Description
+--- | --- 
+*appstore_appid* | iOS App id
+*appsflyer_devkey* | devkey got from appsflyer
 
 #### modules_conf iap configuration configuration object
 
