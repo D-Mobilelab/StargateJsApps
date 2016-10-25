@@ -205,7 +205,20 @@ var appInformation = {
 * (this will be called only after device ready is received and 
 *   we are sure to be inside cordova app)
 */
-var setIsHybrid = function() {
+var setIsHybrid = function() {   
+    
+    var re = new RegExp(/(^https?:\/\/)(.*)/);
+    var result = re.exec(window.location.origin);
+    var cookieDomain = '';
+    if(result){
+        cookieDomain = result[result.length - 1]
+            .split('.')
+            .filter(function(el){
+                return !(el === 'www' || el === 'www2');
+            }).join('.');
+        // set multidomain cookie
+        window.Cookies.set("hybrid", "1", {"domain": cookieDomain});        
+    }
 
     window.Cookies.set("hybrid", "1");
 
