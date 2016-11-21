@@ -18,7 +18,7 @@
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.7.10";
+    var stargatePackageVersion = "0.7.11";
     var stargatePublic = {};
     
     var stargateModules = {};       
@@ -2447,6 +2447,19 @@ stargatePublic.conf.getWebappOrigin = function() {
     }
 };
 
+/**
+ * Get a value from stargate configuration on manifest.json
+ * 
+ * @returns value of the corresponding manifest key (inside stargateConf)
+ */
+stargatePublic.conf.getManifestValue = function(manifestKey) {
+    if (!isStargateInitialized) {
+        return err("Stargate not initialized, call Stargate.initialize first!");
+    }
+    
+    return stargateConf[manifestKey];
+};
+
 var initializePromise;
 
 /**
@@ -3075,7 +3088,7 @@ var onPluginReady = function (resolve) {
         //moduleConf.country
                   
         // retrocompatibility
-        var keysOnStargateConf = ["motime_apikey", "namespace", "label"];
+        var keysOnStargateConf = ["motime_apikey", "namespace", "label", "country"];
         keysOnStargateConf.forEach(function(keyOnStargateConf) {
             // if it's available in stargateConf but not in module conf
             // copy it to module conf
@@ -3394,6 +3407,7 @@ var haveRequestedFeature = function(feature) {
     }
     return false;
 };
+
 var share = (function(){
 
     
@@ -4070,7 +4084,9 @@ var MFP = (function(){
 	  			"hostname": hostname,
 	  			"url": returnUrl,
 	  			"domain": hostname,
-	  			"_PONY": MobileFingerPrint.getPonyValue(pony)
+	  			"_PONY": MobileFingerPrint.getPonyValue(pony),
+                "hybrid": "1",
+                "stargateVersion": getStargateVersionToLoad()
 	  	});
 
 		log("[MobileFingerPrint] going to url: ", newUrl);
@@ -4124,6 +4140,11 @@ var MFP = (function(){
                     MobileFingerPrint.setSession(ponyUrl, appUrl);
                 }else{
                     log("[MobileFingerPrint] get(): Empty session");
+
+                    if (initializeConf.cbOnMfpEmptySession &&  (typeof initializeConf.cbOnMfpEmptySession === 'function')) {
+                        var cb = initializeConf.cbOnMfpEmptySession;
+                        cb();
+                    } 
                 }
             })
             .on('error', function(error){
