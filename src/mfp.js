@@ -97,7 +97,9 @@ var MFP = (function(){
 	  			"hostname": hostname,
 	  			"url": returnUrl,
 	  			"domain": hostname,
-	  			"_PONY": MobileFingerPrint.getPonyValue(pony)
+	  			"_PONY": MobileFingerPrint.getPonyValue(pony),
+                "hybrid": "1",
+                "stargateVersion": getStargateVersionToLoad()
 	  	});
 
 		log("[MobileFingerPrint] going to url: ", newUrl);
@@ -151,6 +153,11 @@ var MFP = (function(){
                     MobileFingerPrint.setSession(ponyUrl, appUrl);
                 }else{
                     log("[MobileFingerPrint] get(): Empty session");
+
+                    if (initializeConf.cbOnMfpEmptySession &&  (typeof initializeConf.cbOnMfpEmptySession === 'function')) {
+                        var cb = initializeConf.cbOnMfpEmptySession;
+                        cb();
+                    } 
                 }
             })
             .on('error', function(error){

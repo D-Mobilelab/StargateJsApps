@@ -65,6 +65,19 @@ stargatePublic.conf.getWebappOrigin = function() {
     }
 };
 
+/**
+ * Get a value from stargate configuration on manifest.json
+ * 
+ * @returns value of the corresponding manifest key (inside stargateConf)
+ */
+stargatePublic.conf.getManifestValue = function(manifestKey) {
+    if (!isStargateInitialized) {
+        return err("Stargate not initialized, call Stargate.initialize first!");
+    }
+    
+    return stargateConf[manifestKey];
+};
+
 var initializePromise;
 
 /**

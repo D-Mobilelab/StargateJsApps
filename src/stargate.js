@@ -282,7 +282,7 @@ var onPluginReady = function (resolve) {
         //moduleConf.country
                   
         // retrocompatibility
-        var keysOnStargateConf = ["motime_apikey", "namespace", "label"];
+        var keysOnStargateConf = ["motime_apikey", "namespace", "label", "country"];
         keysOnStargateConf.forEach(function(keyOnStargateConf) {
             // if it's available in stargateConf but not in module conf
             // copy it to module conf
