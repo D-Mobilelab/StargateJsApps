@@ -18,7 +18,7 @@
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.7.11";
+    var stargatePackageVersion = "0.7.12";
     var stargatePublic = {};
     
     var stargateModules = {};       
@@ -4137,13 +4137,17 @@ var MFP = (function(){
                     	}
                     }
 
+                    if (initializeConf.cbOnMfpOkPreSession &&  (typeof initializeConf.cbOnMfpOkPreSession === 'function')) {
+                        var cbOnMfpOkPreSession = initializeConf.cbOnMfpOkPreSession;
+                        cbOnMfpOkPreSession();
+                    }
                     MobileFingerPrint.setSession(ponyUrl, appUrl);
                 }else{
                     log("[MobileFingerPrint] get(): Empty session");
 
                     if (initializeConf.cbOnMfpEmptySession &&  (typeof initializeConf.cbOnMfpEmptySession === 'function')) {
-                        var cb = initializeConf.cbOnMfpEmptySession;
-                        cb();
+                        var cbOnMfpEmptySession = initializeConf.cbOnMfpEmptySession;
+                        cbOnMfpEmptySession();
                     } 
                 }
             })
