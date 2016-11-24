@@ -101,10 +101,21 @@ var appsflyer = (function(){
 
                         window.setTimeout(function(){
                             console.log("[appsflyer] perform autologin");
+                            
+                            if (configuration.cbOnAfOkPreSession &&  (typeof configuration.cbOnAfOkPreSession === 'function')) {
+                                var cbOnAfOkPreSession = configuration.cbOnAfOkPreSession;
+                                cbOnAfOkPreSession();
+                            }
                             MFP.setSession(conversionData[fieldPony], returnUrl);
                         }, 100);
+
+                        return;
                     }
                 }
+            }
+            if (configuration.cbOnAfEmptySession &&  (typeof configuration.cbOnAfEmptySession === 'function')) {
+                var cbOnAfEmptySession = configuration.cbOnAfEmptySession;
+                cbOnAfEmptySession();
             }
 
   		}, false);
