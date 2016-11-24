@@ -3935,7 +3935,7 @@
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.7.12";
+    var stargatePackageVersion = "0.7.13";
     var stargatePublic = {};
     
     var stargateModules = {};       
@@ -9696,10 +9696,21 @@ var appsflyer = (function(){
 
                         window.setTimeout(function(){
                             console.log("[appsflyer] perform autologin");
+                            
+                            if (configuration.cbOnAfOkPreSession &&  (typeof configuration.cbOnAfOkPreSession === 'function')) {
+                                var cbOnAfOkPreSession = configuration.cbOnAfOkPreSession;
+                                cbOnAfOkPreSession();
+                            }
                             MFP.setSession(conversionData[fieldPony], returnUrl);
                         }, 100);
+
+                        return;
                     }
                 }
+            }
+            if (configuration.cbOnAfEmptySession &&  (typeof configuration.cbOnAfEmptySession === 'function')) {
+                var cbOnAfEmptySession = configuration.cbOnAfEmptySession;
+                cbOnAfEmptySession();
             }
 
   		}, false);
