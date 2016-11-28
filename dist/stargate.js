@@ -3935,7 +3935,7 @@
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.7.13";
+    var stargatePackageVersion = "0.7.14";
     var stargatePublic = {};
     
     var stargateModules = {};       
@@ -6986,7 +6986,9 @@ var onPluginReady = function (resolve) {
     // set back cordova bridge mode to IFRAME_NAV overriding manifold settings
     if (isRunningOnIos() && (typeof window.cordova !== 'undefined') && window.cordova.require) {
         var exec = window.cordova.require('cordova/exec');
-        exec.setJsToNativeBridgeMode(exec.jsToNativeModes.IFRAME_NAV);
+        if (exec.setJsToNativeBridgeMode && exec.jsToNativeModes && exec.jsToNativeModes.IFRAME_NAV) {
+            exec.setJsToNativeBridgeMode(exec.jsToNativeModes.IFRAME_NAV);                    
+        }
     }
     bindConnectionEvents();
     // save stargate version to load on webapp 
