@@ -24,7 +24,6 @@ var appsflyer = (function(){
 		"install_time": "2014-05-23 20:12:16.751"
 		}
 	*/
-	var conversionData = {};
 
 	af.init = function(configuration) {
 
@@ -35,9 +34,7 @@ var appsflyer = (function(){
 			return err("[appsflyer] missing cordova plugin");
 		}
 
-		if (typeof stargateConf.appstore_appid === "undefined") {
-			return err("[appsflyer] missing manifest configuration: appstore_appid");
-		}
+		
 		if (typeof stargateConf.appsflyer_devkey === "undefined") {
 			return err("[appsflyer] missing manifest configuration: appsflyer_devkey");
 	    }
@@ -46,13 +43,20 @@ var appsflyer = (function(){
 	    // apInitArgs[0] => AppsFlyer Developer Key
 	    // apInitArgs[1] => iOS App Store Id
 	    //
-		var apInitArgs = [stargateConf.appsflyer_devkey];
+		var apInitArgs = {
+            devKey: stargateConf.appsflyer_devkey,
+            isDebug: false,
+            onInstallConversionDataLoaded: true
+        };
 
 	    if (isRunningOnIos()) {
-	        apInitArgs.push(stargateConf.appstore_appid);
+            if (typeof stargateConf.appstore_appid === "undefined") {
+                return err("[appsflyer] missing manifest configuration: appstore_appid");
+            }
+	        apInitArgs.appId = stargateConf.appstore_appid;
 	    }
 
-        document.addEventListener('onInstallConversionDataLoaded', function(e){
+        var onInstallConversionData = function(conversionData){
 
             if (typeof cb !== 'function') {
                 return log("[appsflyer] callback not set!");
@@ -62,8 +66,6 @@ var appsflyer = (function(){
                 cb(null);
                 return true;
             }
-
-            conversionData = e.detail;
 
             // if(runningDevice.uuid=="2fbd1a9b9e224f94")
             //    conversionData.af_sub1="PONY=12-19a76196f3b04f1ff60e82aa1cf5f987999999END";
@@ -77,7 +79,7 @@ var appsflyer = (function(){
                 err("[appsflyer] callback error: "+error, error);
             }
 
-            console.log('[appsflyer] configuration:', configuration);
+            log('[appsflyer] configuration:', configuration);
 
             if(!window.localStorage.getItem('appsflyerSetSessionDone') && configuration.autologin){
 
@@ -100,7 +102,7 @@ var appsflyer = (function(){
                         }
 
                         window.setTimeout(function(){
-                            console.log("[appsflyer] perform autologin");
+                            log("[appsflyer] perform autologin");
                             
                             if (configuration.cbOnAfOkPreSession &&  (typeof configuration.cbOnAfOkPreSession === 'function')) {
                                 var cbOnAfOkPreSession = configuration.cbOnAfOkPreSession;
@@ -118,9 +120,13 @@ var appsflyer = (function(){
                 cbOnAfEmptySession();
             }
 
-  		}, false);
+  		};
+        
+        var onError = function(e) {
+            err("[appsflyer] plugin error: "+e, e);
+        };
 
-		window.plugins.appsFlyer.initSdk(apInitArgs);
+		window.plugins.appsFlyer.initSdk(apInitArgs, onInstallConversionData, onError);
 	};
 
 	/**
