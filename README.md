@@ -552,7 +552,7 @@ Functionality|Cordova plugin required
 *iaplight* | [AlexDisler/cordova-plugin-inapppurchase](https://github.com/AlexDisler/cordova-plugin-inapppurchase)
 *iap* | [j3k0/cordova-plugin-purchase](https://github.com/j3k0/cordova-plugin-purchase)
 *socialShare* | [EddyVerbruggen/SocialSharing-PhoneGap-Plugin](https://github.com/EddyVerbruggen/SocialSharing-PhoneGap-Plugin.git)
-*appsflyer* | [cordova-plugin-appsflyer D-Mobilelab fork](https://github.com/D-Mobilelab/cordova-plugin-appsflyer)
+*appsflyer* | [cordova-plugin-appsflyer](https://github.com/AppsFlyerSDK/cordova-plugin-appsflyer-sdk)
 *push* | [katzer/cordova-plugin-local-notifications](https://github.com/katzer/cordova-plugin-local-notifications)
 
 ## offline and app launch
