@@ -263,7 +263,9 @@ var onPluginReady = function (resolve) {
     // set back cordova bridge mode to IFRAME_NAV overriding manifold settings
     if (isRunningOnIos() && (typeof window.cordova !== 'undefined') && window.cordova.require) {
         var exec = window.cordova.require('cordova/exec');
-        exec.setJsToNativeBridgeMode(exec.jsToNativeModes.IFRAME_NAV);
+        if (exec.setJsToNativeBridgeMode && exec.jsToNativeModes && exec.jsToNativeModes.IFRAME_NAV) {
+            exec.setJsToNativeBridgeMode(exec.jsToNativeModes.IFRAME_NAV);                    
+        }
     }
     bindConnectionEvents();
     // save stargate version to load on webapp 
@@ -282,7 +284,7 @@ var onPluginReady = function (resolve) {
         //moduleConf.country
                   
         // retrocompatibility
-        var keysOnStargateConf = ["motime_apikey", "namespace", "label"];
+        var keysOnStargateConf = ["motime_apikey", "namespace", "label", "country"];
         keysOnStargateConf.forEach(function(keyOnStargateConf) {
             // if it's available in stargateConf but not in module conf
             // copy it to module conf
