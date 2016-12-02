@@ -46,7 +46,7 @@ var appsflyer = (function(){
 		var apInitArgs = {
             devKey: stargateConf.appsflyer_devkey,
             isDebug: false,
-            onInstallConversionDataLoaded: true
+            onInstallConversionDataListener: true
         };
 
 	    if (isRunningOnIos()) {
@@ -59,7 +59,7 @@ var appsflyer = (function(){
         var onInstallConversionData = function(conversionData){
 
             if (typeof cb !== 'function') {
-                return log("[appsflyer] callback not set!");
+                return console.log("[Stargate] [appsflyer] callback not set!");
             }
 
             if(window.localStorage.getItem('appsflyerSetSessionDone')){
@@ -73,13 +73,13 @@ var appsflyer = (function(){
             // send it
             try {
                 cb(conversionData);
-                log("[appsflyer] parameters sent to webapp callback: "+JSON.stringify(conversionData));
+                console.log("[Stargate] [appsflyer] parameters sent to webapp callback: "+JSON.stringify(conversionData));
             }
             catch (error) {
-                err("[appsflyer] callback error: "+error, error);
+                console.error("[Stargate] [appsflyer] callback error: "+error, error);
             }
 
-            log('[appsflyer] configuration:', configuration);
+            console.log('[Stargate] [appsflyer] configuration:', configuration);
 
             if(!window.localStorage.getItem('appsflyerSetSessionDone') && configuration.autologin){
 
@@ -102,7 +102,7 @@ var appsflyer = (function(){
                         }
 
                         window.setTimeout(function(){
-                            log("[appsflyer] perform autologin");
+                            console.log("[Stargate] [appsflyer] perform autologin");
                             
                             if (configuration.cbOnAfOkPreSession &&  (typeof configuration.cbOnAfOkPreSession === 'function')) {
                                 var cbOnAfOkPreSession = configuration.cbOnAfOkPreSession;
@@ -123,7 +123,7 @@ var appsflyer = (function(){
   		};
         
         var onError = function(e) {
-            err("[appsflyer] plugin error: "+e, e);
+            console.error("[Stargate] [appsflyer] plugin error: "+e, e);
         };
 
 		window.plugins.appsFlyer.initSdk(apInitArgs, onInstallConversionData, onError);
