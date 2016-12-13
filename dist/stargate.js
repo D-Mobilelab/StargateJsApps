@@ -3935,7 +3935,7 @@
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.8.1";
+    var stargatePackageVersion = "0.8.2";
     var stargatePublic = {};
     
     var stargateModules = {};       
@@ -6929,25 +6929,35 @@ var appInformation = {
 *   we are sure to be inside cordova app)
 */
 var setIsHybrid = function() {   
+
+    window.Cookies.set("hybrid", "1");
     
-    var re = new RegExp(/(^https?:\/\/)(.*)/);
-    var result = re.exec(window.location.origin);
-    var cookieDomain = '';
-    if(result){
-        cookieDomain = result[result.length - 1]
-            .split('.')
-            .filter(function(el){
-                return !(el === 'www' || el === 'www2');
-            }).join('.');
-        // set multidomain cookie
+    var cookieDomain = getCookieDomain();
+    if(cookieDomain){
         window.Cookies.set("hybrid", "1", {"domain": cookieDomain});        
     }
 
-    window.Cookies.set("hybrid", "1");
 
     if (!window.localStorage.getItem('hybrid')) {
         window.localStorage.setItem('hybrid', 1);
     }
+};
+
+var getCookieDomain = function() {
+    var re = new RegExp(/(^https?:\/\/)(.*)/);
+    var result = re.exec(window.location.origin);
+    
+    if(!result){
+        return false;
+    }
+
+    var cookieDomain = result[result.length - 1]
+        .split('.')
+        .filter(function(el){
+            return !(el === 'www' || el === 'www2');
+        }).join('.');
+    
+    return cookieDomain;
 };
 
 /**
@@ -6956,10 +6966,16 @@ var setIsHybrid = function() {
 */
 var setHybridVersion = function() {
 
-    window.Cookies.set("stargateVersion", getStargateVersionToLoad());
+    var stargateVersionToLoad = getStargateVersionToLoad();
+    window.Cookies.set("stargateVersion", stargateVersionToLoad);
+
+    var cookieDomain = getCookieDomain();
+    if(cookieDomain){
+        window.Cookies.set("stargateVersion", stargateVersionToLoad, {"domain": cookieDomain});        
+    }
 
     if (!window.localStorage.getItem('stargateVersion')) {
-        window.localStorage.setItem('stargateVersion', getStargateVersionToLoad());
+        window.localStorage.setItem('stargateVersion', stargateVersionToLoad);
     }
 };
 
