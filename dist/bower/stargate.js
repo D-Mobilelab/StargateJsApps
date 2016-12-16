@@ -18,7 +18,7 @@
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.8.2";
+    var stargatePackageVersion = "0.8.3";
     var stargatePublic = {};
     
     var stargateModules = {};       
@@ -1405,32 +1405,50 @@
     Game.prototype.play = function(gameID){
         LOG.d("Play", gameID);
         /*
-         * TODO: check if games built with Construct2 has orientation issue
-         * attach this to orientationchange in the game index.html
-         * if(cr._sizeCanvas) window.cr_sizeCanvas(window.innerWidth, window.innerHeight)
-         */
+        * TODO: check if games built with Construct2 has orientation issue
+        * attach this to orientationchange in the game index.html
+        * if(cr._sizeCanvas) window.cr_sizeCanvas(window.innerWidth, window.innerHeight)
+        */
         var gamedir = constants.GAMES_DIR + gameID;
         return fileModule.readDir(gamedir)
             .then(function(entries){
-
-                //Search for an /index.html$/
+                //Search for an /index.html?$/
                 return entries.filter(function(entry){                    
                     return isIndexHtml(entry.path);
                 });
             })
-            .then(function(entry){
-                LOG.d("Playing this",entry);
-                var address = entry[0].internalURL + "?hybrid=1";
-                if(window.device.platform.toLowerCase() == "ios"){
-                    LOG.d("Play ios", address);
-                    window.location.href = address;
-                }else{
-                    LOG.d("Play android", address);
-                    //window.location.href = entry[0].path;
-                    window.navigator.app.loadUrl(encodeURI(address));
-                }
+            .then(function(entries){
+                openInWebview(entries[0], false);
             });
     };
+
+    /**
+     * Open the game in a second webview if it's supported
+     * @param
+     * @param
+     */
+    function openInWebview(entry, loading){
+        LOG.d("Playing this", entry);
+        var secondWebViewSupport = window.webview ? true : false;
+        var address = entry.internalURL + "?hybrid=1";
+        if(window.device.platform.toLowerCase() === "ios"){                
+            if(secondWebViewSupport){
+                LOG.d("Play ios in other webview", entry.path);            
+                window.webview.Show(entry.path, console.log.bind(console), console.warn.bind(console), loading);
+            } else {
+                LOG.d("Play ios in the same webview", entry);
+                window.location.replace(address);
+            }
+        } else {        
+            if(secondWebViewSupport){
+                LOG.d("Play android second webview", entry.path);
+                window.webview.Show(address, console.log.bind(console), console.warn.bind(console), loading);
+            } else {
+                LOG.d("Play android same webview", entry.path);
+                window.navigator.app.loadUrl(encodeURI(address));
+            }
+        }
+    }
 
     /**
      * Returns an Array of entries that match /index\.html$/i should be only one in the game directory
@@ -1495,6 +1513,7 @@
             "http: " +
             "https: " +
             "gap: " +
+            "blob: " +
             "https://ssl.gstatic.com " +
             "'unsafe-inline' " +
             "'unsafe-eval';" +
