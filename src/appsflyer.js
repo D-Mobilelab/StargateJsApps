@@ -72,6 +72,13 @@ var appsflyer = (function(){
 
             // send it
             try {
+                if (typeof conversionData === 'string') {
+                    conversionData = JSON.parse(conversionData);
+                }
+                if (conversionData.type && conversionData.type == "onInstallConversionDataLoaded" && 
+                    conversionData.data) {
+                        conversionData = conversionData.data;
+                }
                 cb(conversionData);
                 console.log("[Stargate] [appsflyer] parameters sent to webapp callback: "+JSON.stringify(conversionData));
             }
