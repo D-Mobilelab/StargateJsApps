@@ -81,9 +81,18 @@ var MFP = (function(){
 	MobileFingerPrint.setSession = function(pony, returnUrl){
 
 		// get appurl from configuration or use returnUrl
-		var appUrl = stargatePublic.conf.getWebappStartUrl();
-		var currentUrl = new URI(appUrl);
 
+		var appUrl = stargatePublic.conf.getWebappStartUrl();
+        var currentUrl;
+        if (returnUrl) {
+            // use for domain and protocol the destination url (returnUrl)
+            currentUrl = new URI(returnUrl);
+        }
+        else {
+            // if destination url is not requested use appUrl from configuration
+            currentUrl = new URI(appUrl);            
+        }
+		
         if (!returnUrl) {
             returnUrl = appUrl;
         }
