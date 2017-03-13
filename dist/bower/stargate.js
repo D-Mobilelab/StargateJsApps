@@ -18,7 +18,7 @@
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.8.5";
+    var stargatePackageVersion = "0.8.6";
     var stargatePublic = {};
     
     var stargateModules = {};       
@@ -3034,20 +3034,22 @@ var setIsHybrid = function() {
 
     window.Cookies.set("hybrid", "1");
     
-    var cookieDomain = getCookieDomain();
-    if(cookieDomain){
-        window.Cookies.set("hybrid", "1", {"domain": cookieDomain});        
-    }
-
-
     if (!window.localStorage.getItem('hybrid')) {
         window.localStorage.setItem('hybrid', 1);
     }
 };
 
+var setIsHybridMultiDomain = function() {   
+
+    var cookieDomain = getCookieDomain();
+    if(cookieDomain){
+        window.Cookies.set("hybrid", "1", {"domain": cookieDomain});        
+    }
+};
+
 var getCookieDomain = function() {
-    var re = new RegExp(/(^https?:\/\/)(.*)/);
-    var result = re.exec(window.location.origin);
+    var re = new RegExp(/(^https?:\/\/)([^/]+)/);
+    var result = re.exec(stargateConf.webapp_start_url);
     
     if(!result){
         return false;
@@ -3111,6 +3113,8 @@ var onPluginReady = function (resolve) {
     bindConnectionEvents();
     // save stargate version to load on webapp 
     setHybridVersion();
+
+    setIsHybridMultiDomain();
 
     
     if (hasFeature("mfp") && haveRequestedFeature("mfp")) {
