@@ -6,7 +6,7 @@
   "scripts": {
     "preversion": "npm test",
     "upload": "scp -r dist/*.js super@192.168.124.3:/dadanet2/wl2/webstore_apps/js/webstore_apps/stargate/v4",
-    "postversion": "",
+    "postversion": "git push --tags && npm publish",
     "version": "gulp build && git add dist/",
     "clean": "rm -r gh-pages",
     "docs": "rm -rf gh-pages/* && node bin/generate_docs",
