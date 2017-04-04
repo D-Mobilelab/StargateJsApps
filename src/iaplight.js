@@ -232,7 +232,6 @@ var iaplight = (function(){
                 return protectedInterface.restore()
                 .then(function(resultsRestore){
 
-                    var lastPurchase = {};
                     if (resultsRestore && resultsRestore.constructor === Array) {
                         resultsRestore.forEach(function(resultRestore) {
                             
