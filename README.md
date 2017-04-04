@@ -358,7 +358,7 @@ For example:
 
 ## Stargate.iaplight.restore()
 
-[[**Require opened stargate**](#o),[**Return promise**](#p)] Request restore of In App Product already purchased on store
+[[**Require opened stargate**](#o),[**Return promise**](#p)] Request restore of In App Products already purchased on store
 
 ### Returns
 
@@ -381,32 +381,32 @@ For example:
 ```
 
 
-## Stargate.iaplight.getExpireDate(productId)
+## Stargate.iaplight.isSubscribed(productId)
 
-[[**Require opened stargate**](#o),[**Return promise**](#p)] Return the last subscription expire date or null. This execute the local decode of iOs receipt.
+[[**Require opened stargate**](#o),[**Return promise**](#p)] Return a promise returning a boolean that represent the subscription validity status. On iOS it execute the local decode of iOS receipt. On Android it perform a restore, than it check if there is the product requested and if it's valid.
 
 ### Parameters
 
 #### productId
 
-iap product id to subscribe to
+iap product id subscribed to
 
 ### Returns
 
-Promise fullfilled with a Date object of the expire of the last subscription or null if no subscription of the requested productId found
+Promise fullfilled with a Boolean that is the validity of the subscription of the requested productId
 
 Usage example:
 ```javascript
-    Stargate.iaplight.getExpireDate("com.mycompany.myproduct")
-    .then(function(res){
-        console.log("Stargate.iaplight.getExpireDateOK",res);
-        if ( (res!==null) && (newDate()<res) ) {
+    Stargate.iaplight.isSubscribed("com.mycompany.myproduct")
+    .then(function(subsciptionStatus){
+        console.log("Stargate.iaplight.isSubscribed",subsciptionStatus);
+        if ( subsciptionStatus ) {
             console.log("SuscriptionOK")
         } else {
-            console.warn("SubscriptionEXPIRED")
+            console.warn("SubscriptionKO, request to pay!")
         }
     }).catch(function(err){
-                console.error( "Stargate.iaplight.getExpireDateERROR", err);
+                console.error( "Stargate.iaplight.isSubscribedERROR", err);
     })
 ```
 

@@ -10,7 +10,7 @@ var iaplightProduct2 = {
     "description": "Premium montly subscription to my beatiful product",
     "price": "€3,99"
 };
-var iaplightReceiptBundle = {
+var iaplightReceiptBundleOrg = {
     "originalAppVersion": "1.0",
     "appVersion": "0.1.0",
     "inAppPurchases": [ {
@@ -37,6 +37,7 @@ var iaplightReceiptBundle = {
     } ],
     "bundleIdentifier": "com.mycompany.myapp"
 };
+var iaplightReceiptBundle = JSON.parse(JSON.stringify(iaplightReceiptBundleOrg));
 var iaplightSubscribeResult = {
 "transactionId":"1000000221696692",
 "receipt":"MXXXX"
@@ -95,6 +96,9 @@ describe("Stargate IAP Light", function() {
         if (!window.plugins) {
             window.plugins = {};
         }
+        // reset receipt bundle
+        iaplightReceiptBundle = JSON.parse(JSON.stringify(iaplightReceiptBundleOrg))
+
         window.inAppPurchase = {
             getProducts: function(productsId) {
                 return new Promise(function(resolve,reject){
@@ -155,8 +159,8 @@ describe("Stargate IAP Light", function() {
 		});
 	});
 
-	it("getExpireDate require initialization", function(done) {
-        var res = stargatePublic.iaplight.getExpireDate("com.myproduct");
+	it("isSubscribed require initialization", function(done) {
+        var res = stargatePublic.iaplight.isSubscribed(iaplightReceiptBundle.inAppPurchases[0].productId);
         expect(res.then).toBeDefined();
 		res.catch(function(message) {
             expect(message).toMatch(/not initialized/);
@@ -195,7 +199,7 @@ describe("Stargate IAP Light", function() {
 
 	it("getExpireDate require opened stargate", function(done) {
         isStargateInitialized = true;
-        var res = stargatePublic.iaplight.getExpireDate("com.myproduct");
+        var res = stargatePublic.iaplight.isSubscribed(iaplightReceiptBundle.inAppPurchases[0].productId);
         expect(res.then).toBeDefined();
 		res.catch(function(message) {
             expect(message).toMatch(/Stargate closed/);
@@ -238,7 +242,7 @@ describe("Stargate IAP Light", function() {
 	it("getExpireDate require module init", function(done) {
         isStargateInitialized = true;
         isStargateOpen = true;
-        var res = stargatePublic.iaplight.getExpireDate("com.myproduct");
+        var res = stargatePublic.iaplight.isSubscribed(iaplightReceiptBundle.inAppPurchases[0].productId);
         expect(res.then).toBeDefined();
 		res.catch(function(message) {
             expect(message).toMatch(/Not initialized/);
@@ -378,7 +382,7 @@ describe("Stargate IAP Light", function() {
 		});
 	});
 
-    it("iaplight getExpireDate", function(done) {
+    it("iaplight isSubscribed Android", function(done) {
 		
         isStargateInitialized = true;
         isStargateOpen = true;
@@ -396,7 +400,7 @@ describe("Stargate IAP Light", function() {
 
         expect(init.then).toBeDefined();
 
-		var res = stargatePublic.iaplight.getExpireDate(iaplightReceiptBundle.inAppPurchases[0].productId);
+		var res = stargatePublic.iaplight.isSubscribed(iaplightReceiptBundle.inAppPurchases[0].productId);
         
         expect(res.then).toBeDefined();
         
@@ -409,10 +413,113 @@ describe("Stargate IAP Light", function() {
 		res.then(function(result) {
 			//console.log("iaplightReceiptBundle.inAppPurchases[0].subscriptionExpirationDate: "+iaplightReceiptBundle.inAppPurchases[0].subscriptionExpirationDate);
             //console.log("result: "+result);
-            expect(result).toEqual(new Date(iaplightReceiptBundle.inAppPurchases[0].subscriptionExpirationDate))
+            var dateMock = new Date(iaplightReceiptBundle.inAppPurchases[0].subscriptionExpirationDate);
+            var isSubscribed = ((dateMock !== null) && (new Date() < dateMock));
+            
+            expect(result).toEqual(isSubscribed)
             done();
 		});
 	});
+
+
+    it("iaplight isSubscribed iOS subscribed", function(done) {
+		
+        isStargateInitialized = true;
+        isStargateOpen = true;
+        runningDevice.platform = "iOS";
+
+        // set a purchaseDate 10 minutes in the past
+        iaplightReceiptBundle.inAppPurchases[0].purchaseDate =
+            iaplightReceiptBundle.inAppPurchases[0].originalPurchaseDate =
+            (new Date((+(new Date()) - 600 * 1000))).toISOString();
+        
+        // set a subscriptionExpirationDate 10 minutes in the future
+        iaplightReceiptBundle.inAppPurchases[0].subscriptionExpirationDate = 
+            (new Date((+(new Date()) + 600 * 1000))).toISOString();
+
+        var init = iaplight.initialize({
+            productsIdAndroid: [iaplightProduct1.productId, iaplightProduct2.productId],
+            productsIdIos: [iaplightProduct1.productId, iaplightProduct2.productId],
+        });
+        init.catch(function(message) {
+			console.log("iaplight.init catch: "+message);
+            expect(message).not.toBeDefined();
+		    done();
+		});
+
+        expect(init.then).toBeDefined();
+
+		var res = stargatePublic.iaplight.isSubscribed(iaplightReceiptBundle.inAppPurchases[0].productId);
+        
+        expect(res.then).toBeDefined();
+        
+		res.catch(function(message) {
+			console.log("stargatePublic.iaplight.getProductInfo catch: "+message);
+            expect(message).not.toBeDefined();
+		    done();
+		});
+		
+		res.then(function(result) {
+			//console.log("iaplightReceiptBundle.inAppPurchases[0].subscriptionExpirationDate: "+iaplightReceiptBundle.inAppPurchases[0].subscriptionExpirationDate);
+            //console.log("result: "+result);
+            var dateMock = new Date(iaplightReceiptBundle.inAppPurchases[0].subscriptionExpirationDate);
+            var isSubscribed = true;
+            
+            expect(result).toEqual(isSubscribed)
+            done();
+		});
+	});
+
+
+    it("iaplight isSubscribed iOS expired", function(done) {
+		
+        isStargateInitialized = true;
+        isStargateOpen = true;
+        runningDevice.platform = "iOS";
+
+        // set a purchaseDate 20 minutes in the past
+        iaplightReceiptBundle.inAppPurchases[0].purchaseDate =
+            iaplightReceiptBundle.inAppPurchases[0].originalPurchaseDate =
+            (new Date((+(new Date()) - 1200 * 1000))).toISOString();
+        
+        // set a subscriptionExpirationDate 10 minutes in the past
+        iaplightReceiptBundle.inAppPurchases[0].subscriptionExpirationDate = 
+            (new Date((+(new Date()) - 600 * 1000))).toISOString();
+
+
+        var init = iaplight.initialize({
+            productsIdAndroid: [iaplightProduct1.productId, iaplightProduct2.productId],
+            productsIdIos: [iaplightProduct1.productId, iaplightProduct2.productId],
+        });
+        init.catch(function(message) {
+			console.log("iaplight.init catch: "+message);
+            expect(message).not.toBeDefined();
+		    done();
+		});
+
+        expect(init.then).toBeDefined();
+
+		var res = stargatePublic.iaplight.isSubscribed(iaplightReceiptBundle.inAppPurchases[0].productId);
+        
+        expect(res.then).toBeDefined();
+        
+		res.catch(function(message) {
+			console.log("stargatePublic.iaplight.getProductInfo catch: "+message);
+            expect(message).not.toBeDefined();
+		    done();
+		});
+		
+		res.then(function(result) {
+			//console.log("iaplightReceiptBundle.inAppPurchases[0].subscriptionExpirationDate: "+iaplightReceiptBundle.inAppPurchases[0].subscriptionExpirationDate);
+            //console.log("result: "+result);
+            var dateMock = new Date(iaplightReceiptBundle.inAppPurchases[0].subscriptionExpirationDate);
+            var isSubscribed = false;
+            
+            expect(result).toEqual(isSubscribed)
+            done();
+		});
+	});
+
 
     it("iaplight getProductInfo", function(done) {
 		
