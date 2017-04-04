@@ -220,6 +220,58 @@ var iaplight = (function(){
         return initPromise.then(receiptFunc);
     };
 
+    protectedInterface.isSubscribed = function(productId) {
+        
+        if (initPromise === null) {
+            return Promise.reject("Not initialized");
+        }
+
+        var isSubscribedFunc = function() {
+            if (isRunningOnAndroid()) {
+
+                return protectedInterface.restore()
+                .then(function(resultsRestore){
+
+                    var lastPurchase = {};
+                    if (resultsRestore && resultsRestore.constructor === Array) {
+                        resultsRestore.forEach(function(resultRestore) {
+                            
+                            // filter out other productIds
+                            if (resultRestore.productId == productId) {
+                                var parsedReceipt =  JSON.parse(resultRestore.receipt);
+                                if ((parsedReceipt.productId == productId) && 
+                                    (parsedReceipt.packageName == appPackageName) &&
+                                    (parsedReceipt.purchaseState === 0)) {
+                                    
+                                    log("[IAPlight] valid suscription found: "+resultRestore.receipt, parsedReceipt);
+                                    
+                                    return true;
+                                }
+                            }
+                        });
+                    }
+                    return false;
+                });
+
+            } else if (isRunningOnIos()) {
+
+                return protectedInterface.getExpireDate(productId)
+                .then(function(expireDate){
+
+                    log("[IAPlight] expireDate: "+expireDate, expireDate);
+
+                    return ((expireDate !== null) && (new Date() < expireDate));
+                });
+
+            } else {
+                return Promise.reject("Unsupported platform!");
+            }
+        };
+
+        // wait for initPromise if it didn't complete
+        return initPromise.then(isSubscribedFunc);
+    };
+
     protectedInterface.restore = function() {
         
         if (initPromise === null) {
@@ -244,17 +296,6 @@ var iaplight = (function(){
                 /* resultRestore: [
                         {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-05T10:27:21Z","transactionId":"1000000222595453","state":3},
                         {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-05T10:21:21Z","transactionId":"1000000222595454","state":3},
-                        {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-08T11:04:50Z","transactionId":"1000000222595455","state":3},
-                        {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-08T10:58:50Z","transactionId":"1000000222595456","state":3},
-                        {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-08T11:01:50Z","transactionId":"1000000222595457","state":3},
-                        {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-08T12:59:06Z","transactionId":"1000000222595458","state":3},
-                        {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-05T10:30:21Z","transactionId":"1000000222595459","state":3},
-                        {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-08T12:49:07Z","transactionId":"1000000222595460","state":3},
-                        {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-08T11:07:50Z","transactionId":"1000000222595461","state":3},
-                        {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-05T10:15:21Z","transactionId":"1000000222595462","state":3},
-                        {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-05T10:18:21Z","transactionId":"1000000222595463","state":3},
-                        {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-08T10:55:50Z","transactionId":"1000000222595464","state":3},
-                        {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-05T10:24:21Z","transactionId":"1000000222595465","state":3},
                         {"productId":"com.mycompany.myproduct.weekly.v1","date":"2016-07-08T11:10:50Z","transactionId":"1000000222595466","state":3}
                     ]
                 */
@@ -316,7 +357,7 @@ var iaplight = (function(){
         "restore": checkDecorator(protectedInterface.restore),
         "getProductInfo": checkDecorator(protectedInterface.getProductInfo),
         "subscribe": checkDecorator(protectedInterface.subscribe),
-        "getExpireDate": checkDecorator(protectedInterface.getExpireDate)
+        "isSubscribed": checkDecorator(protectedInterface.isSubscribed)
     };
 
     protectedInterface.__clean__ = function() {
