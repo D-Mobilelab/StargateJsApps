@@ -18,7 +18,7 @@
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.9.0";
+    var stargatePackageVersion = "0.9.1";
     var stargatePublic = {};
     
     var stargateModules = {};       
@@ -4926,11 +4926,20 @@ var iaplight = (function(){
                 return protectedInterface.restore()
                 .then(function(resultsRestore){
 
+                    var validSubscriptionFound = false;
                     if (resultsRestore && resultsRestore.constructor === Array) {
                         resultsRestore.forEach(function(resultRestore) {
                             
+                            //log("[IAPlight] checking for valid suscription: ", {
+                            //    productId: productId,
+                            //    appPackageName: appPackageName,
+                            //    parsedReceipt: JSON.parse(resultRestore.receipt),
+                            //    resultRestore: resultRestore,
+                            //});
+                            
                             // filter out other productIds
                             if (resultRestore.productId == productId) {
+                                
                                 var parsedReceipt =  JSON.parse(resultRestore.receipt);
                                 if ((parsedReceipt.productId == productId) && 
                                     (parsedReceipt.packageName == appPackageName) &&
@@ -4938,12 +4947,15 @@ var iaplight = (function(){
                                     
                                     log("[IAPlight] valid suscription found: "+resultRestore.receipt, parsedReceipt);
                                     
-                                    return true;
+                                    validSubscriptionFound = true;
                                 }
+                            }
+                            else {
+                                log("[IAPlight] productId mismatch: '"+resultRestore.productId+"' != '"+productId+"'");                            
                             }
                         });
                     }
-                    return false;
+                    return validSubscriptionFound;
                 });
 
             } else if (isRunningOnIos()) {
