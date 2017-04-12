@@ -3935,7 +3935,7 @@
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.10.0";
+    var stargatePackageVersion = "0.10.1";
     var stargatePublic = {};
     
     var stargateModules = {};       
@@ -8744,7 +8744,11 @@ var iaplight = (function(){
                 log("[IAPlight] subscribe ok", res);
 
                 if (isRunningOnIos()) {
-                    return protectedInterface.getActiveSubscriptionsInfo();
+                    return protectedInterface.getActiveSubscriptionsInfo()
+                    .then(function(resIos){
+
+                        return resIos[productId];
+                    });
                 }
 
                 return res;
