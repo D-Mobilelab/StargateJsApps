@@ -11,7 +11,15 @@
 // @deprecated since 0.2.2
 var stargateVersion = "2";
 
-var is_staging = ("IS_STAGING = 1".slice(-1) === "1");
+
+/**
+ * when is_staging is true we log with parameters, 
+ * when is false we log with only one parameter
+ *   because cordova.console on android doesn't support more than 
+ *   one paramenter and in release version we only can see console
+ *   logs with cordova console plugin.
+ */ 
+var is_staging = 0;
 
 
 var argsToString = function() {
