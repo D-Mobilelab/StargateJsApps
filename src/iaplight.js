@@ -123,11 +123,16 @@ var iaplight = (function(){
             )
             .then(function(res){
                 log("[IAPlight] subscribe ok", res);
+
+                if (isRunningOnIos()) {
+                    return protectedInterface.getActiveSubscriptionsInfo
+                }
+
                 return res;
             })
             .catch(function(error){
                 err("[IAPlight] subscribe KO: "+error, error);
-                //throw err;
+                throw err;
             });
         };
 
@@ -212,7 +217,7 @@ var iaplight = (function(){
             })
             .catch(function(error){
                 err("[IAPlight] getReceiptBundle KO: "+error, error);
-                //throw err;
+                throw err;
             });
         };
 
@@ -227,56 +232,11 @@ var iaplight = (function(){
         }
 
         var isSubscribedFunc = function() {
-            if (isRunningOnAndroid()) {
+            return protectedInterface.getActiveSubscriptionsInfo()
+            .then(function(activeSubscriptions){
 
-                return protectedInterface.restore()
-                .then(function(resultsRestore){
-
-                    var validSubscriptionFound = false;
-                    if (resultsRestore && resultsRestore.constructor === Array) {
-                        resultsRestore.forEach(function(resultRestore) {
-                            
-                            //log("[IAPlight] checking for valid suscription: ", {
-                            //    productId: productId,
-                            //    appPackageName: appPackageName,
-                            //    parsedReceipt: JSON.parse(resultRestore.receipt),
-                            //    resultRestore: resultRestore,
-                            //});
-                            
-                            // filter out other productIds
-                            if (resultRestore.productId == productId) {
-                                
-                                var parsedReceipt =  JSON.parse(resultRestore.receipt);
-                                if ((parsedReceipt.productId == productId) && 
-                                    (parsedReceipt.packageName == appPackageName) &&
-                                    (parsedReceipt.purchaseState === 0)) {
-                                    
-                                    log("[IAPlight] valid suscription found: "+resultRestore.receipt, parsedReceipt);
-                                    
-                                    validSubscriptionFound = true;
-                                }
-                            }
-                            else {
-                                log("[IAPlight] productId mismatch: '"+resultRestore.productId+"' != '"+productId+"'");                            
-                            }
-                        });
-                    }
-                    return validSubscriptionFound;
-                });
-
-            } else if (isRunningOnIos()) {
-
-                return protectedInterface.getExpireDate(productId)
-                .then(function(expireDate){
-
-                    log("[IAPlight] expireDate: "+expireDate, expireDate);
-
-                    return ((expireDate !== null) && (new Date() < expireDate));
-                });
-
-            } else {
-                return Promise.reject("Unsupported platform!");
-            }
+                return (activeSubscriptions[productId]) ? true : false;
+            });
         };
 
         // wait for initPromise if it didn't complete
@@ -346,6 +306,145 @@ var iaplight = (function(){
     };
 
     /**
+     * Check the validity and expiration of a date string
+     * @param {String} date date in string to check validity of
+     * @return {Boolean} validity of date string
+     */
+    var isValidDateAndNotExpired = function(dateString) {
+        var dateDate = new Date(dateString);
+        // it is a date... ?
+        if ( Object.prototype.toString.call(dateDate) === "[object Date]" ) {
+            if ( isNaN( dateDate.getTime() ) ) {
+                // ...no!
+                return false;
+            }
+        }
+        else {
+            // ...no!
+            err("[IAPlight] isValidDateAndNotExpired() invalid date: "+dateString+" Date.toString:"+dateDate);
+            return false;
+        }
+        // ...yes!!
+
+        // ... and not expired ...
+        return ((dateDate !== null) && (new Date() < dateDate));
+    };
+
+    protectedInterface.getActiveSubscriptionsInfo = function() {
+        
+        if (initPromise === null) {
+            return Promise.reject("Not initialized");
+        }
+
+        var activeSubscriptionsInfoFunc = function() {
+            if (isRunningOnAndroid()) {
+
+                return protectedInterface.restore()
+                .then(function(resultsRestore){
+
+                    var activeSubscriptionInfo = {};
+                    
+                    //[
+                    //    {
+                    //        "productId":"pt.getstyle.weekly.v1",
+                    //        "transactionId":"",
+                    //        "type":"subs",
+                    //        "productType":"subs",
+                    //        "signature":"EjwaorJ8D5yD9F7t7yQgRvHBjk+Ga53seIilDuzzLmv05cc0LiV/WAqUE+NHq+CGTnogtxnb/rjSAxo+K2S6xg8kskZQvRzYNxo0YBhvhCRr5VKrvQO+VZTwM3RKfNlDGdCYw7rEuuvcvH733wzPGdeKmLKw4JI7wk6ViVMEgq7ub7dOTwiv8rSVqf/2sIbD96yhh3d55jWiBdbwCzLvaVcLKTAD6oG78bW7n9FbTAcdDEMxAeNEDJw90fANA/MXvvO1tp6rcFy/emqDCZcinv+zal5rQQc7M372YW6iBqWWm+zemexH6DrVsdjdGEsI6X1Rmk8Y8M1bnwnYKCACaA==",
+                    //        "receipt": "{ \"packageName\":\"pt.getstyle\",
+                    //                      \"productId\":\"pt.getstyle.weekly.v1\",
+                    //                      \"purchaseTime\":1490946081110,
+                    //                      \"purchaseState\":0,
+                    //                      \"purchaseToken\":\"gjmkkfbapgplpdallcgpbaol.AO-J1OxwQeGM0H3ru88F1BVqSYtUT-4VsS3U9a0tlWomLk7kvvpNQoMlAVX3_mZ2aiu5X50luuLSeO31QxwwldN9jczTU_H6UMkD1tq1hLILWE1-nAkq9VrOpoW0Jz4rbQnUwZHb_wwZ\",
+                    //                      \"autoRenewing\":true
+                    //                  }"
+                    //    }
+                    //]
+
+                    if (resultsRestore && resultsRestore.constructor === Array) {
+                        resultsRestore.forEach(function(resultRestore) {
+                                
+                            var parsedReceipt =  JSON.parse(resultRestore.receipt);
+                            if ((parsedReceipt.packageName == appPackageName) &&
+                                (parsedReceipt.purchaseState === 0)) {
+                                
+                                activeSubscriptionInfo[resultRestore.productId] = parsedReceipt;
+                            }
+                        });
+                    }
+                    return activeSubscriptionInfo;
+                });
+
+            } else if (isRunningOnIos()) {
+                
+                return window.inAppPurchase.getReceiptBundle()
+                .then(function(res){
+                    // get last purchase receipt (ordered by last subscriptionExpirationDate) for each active product
+
+                    var activeSubscriptionInfo = {};
+
+                    log("[IAPlight] getActiveSubscriptionsInfo getReceiptBundle ok", res);
+
+                    /* res:{ "originalAppVersion": "1.0",
+                    *        "appVersion": "0.1.0",
+                    *        "inAppPurchases": [ {
+                    *                "transactionIdentifier":"123412341234",
+                    *                "quantity":1,
+                    *                "purchaseDate":"2016-07-05T10:15:21Z",
+                    *                "productId":"com.mycompany.myapp.weekly.v1",
+                    *                "originalPurchaseDate":"2016-07-05T10:15:22Z",
+                    *                "subscriptionExpirationDate":"2016-07-05T10:18:21Z",
+                    *                "originalTransactionIdentifier":"123412341234",
+                    *                "webOrderLineItemID":-1497665198,
+                    *                "cancellationDate":null}
+                    *        ],
+                    *        "bundleIdentifier": "com.mycompany.myapp" }
+                    */
+                    if (res.inAppPurchases && res.inAppPurchases.constructor === Array) {
+
+                        res.inAppPurchases.forEach(function(inAppPurchase) {
+                            
+                            // continue only if subscriptionExpirationDate is valid...
+                            if (isValidDateAndNotExpired(inAppPurchase.subscriptionExpirationDate)) {
+
+                                // if not existent ...
+                                if (!(inAppPurchase.productId in activeSubscriptionInfo)) {
+                                    
+                                    // ... save it
+                                    activeSubscriptionInfo[inAppPurchase.productId] = inAppPurchase;
+                                    return;
+                                }
+
+                                // if expire later...
+                                var lastExp = new Date(activeSubscriptionInfo[inAppPurchase.productId].subscriptionExpirationDate);
+                                var currExp = new Date(inAppPurchase.subscriptionExpirationDate);
+
+                                if (lastExp < currExp) {
+                                    // ... save it
+                                    activeSubscriptionInfo[inAppPurchase.productId] = inAppPurchase;
+                                    return;
+                                }
+                            }
+                        });
+                    }
+
+                    return activeSubscriptionInfo;
+                })
+                .catch(function(error){
+                    err("[IAPlight] getReceiptBundle KO: "+error, error);
+                    throw err;
+                });
+
+            } else {
+                return Promise.reject("Unsupported platform!");
+            }
+        };
+
+        // wait for initPromise if it didn't complete
+        return initPromise.then(activeSubscriptionsInfoFunc);
+    };
+
+    /**
      * 
      * Check that stargate is properly initialized befor calling the function innerMethod
      */
@@ -368,7 +467,9 @@ var iaplight = (function(){
         "restore": checkDecorator(protectedInterface.restore),
         "getProductInfo": checkDecorator(protectedInterface.getProductInfo),
         "subscribe": checkDecorator(protectedInterface.subscribe),
-        "isSubscribed": checkDecorator(protectedInterface.isSubscribed)
+        "isSubscribed": checkDecorator(protectedInterface.isSubscribed),
+        "getActiveSubscriptionsInfo": checkDecorator(protectedInterface.getActiveSubscriptionsInfo)
+        
     };
 
     protectedInterface.__clean__ = function() {
