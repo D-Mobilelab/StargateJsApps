@@ -125,7 +125,7 @@ var iaplight = (function(){
                 log("[IAPlight] subscribe ok", res);
 
                 if (isRunningOnIos()) {
-                    return protectedInterface.getActiveSubscriptionsInfo
+                    return protectedInterface.getActiveSubscriptionsInfo();
                 }
 
                 return res;
