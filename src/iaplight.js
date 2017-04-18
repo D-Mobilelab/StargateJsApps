@@ -169,7 +169,7 @@ var iaplight = (function(){
                 }
 
                 err("[IAPlight] subscribe() unsupported platform!");
-                return Promise.reject("Unsupported platform!");;
+                return Promise.reject("Unsupported platform!");
             })
             .catch(function(error){
                 err("[IAPlight] subscribe KO: "+error, error);
