@@ -343,15 +343,17 @@ iap product id to subscribe to
 Promise fullfilled with an object with the following keys:
 
 - transactionId - The transaction/order id
-- receipt - On iOS it will be the base64 string of the receipt, on Android it will be a string of a json with all the transaction details required for validation such as { "orderId": "...", "packageName:"...", "productId":"...", "purchaseTime": "...", "purchaseState": "...", "purchaseToken":"..." }
-- signature - On Android it can be used to consume a purchase. On iOS it will be an empty string.
-- productType - On Android it can be used to consume a purchase. On iOS it will be an empty string.
+- productId - productId purchased
+- purchaseDate - purchase ISO date string format
+- purchaseTime - purchase Timestamp
 
 For example:
 ```javascript
     {
-        "transactionId":"1000000221696692",
-        "receipt":"MXXXX"
+        "productId": "com.mycompany.myproduct.weekly.v1",
+        "purchaseDate": "2017-04-18T09:19:41.000Z",
+        "purchaseTime": "1492507181",
+        "transactionId": "123412341234"
     }
 ```
 
