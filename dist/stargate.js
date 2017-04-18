@@ -3935,7 +3935,7 @@
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.10.1";
+    var stargatePackageVersion = "0.10.2";
     var stargatePublic = {};
     
     var stargateModules = {};       
@@ -8746,11 +8746,48 @@ var iaplight = (function(){
                 if (isRunningOnIos()) {
                     return protectedInterface.getActiveSubscriptionsInfo()
                     .then(function(resIos){
-
-                        return resIos[productId];
+                        log("resIos:"+JSON.stringify(resIos));
+                        if (!(productId in resIos)) {
+                            throw new Error("Subscription information incomplete!"+productId);
+                        }
+                        var subscriptionInfo = resIos[productId];
+                        var resultSusbscriptionIos = {
+                            productId: subscriptionInfo.productId,
+                            transactionId: subscriptionInfo.transactionIdentifier,
+                            purchaseDate: subscriptionInfo.purchaseDate,
+                            purchaseTime: (+(new Date(subscriptionInfo.purchaseDate).getTime()) / 1000).toFixed(0)
+                        };
+                        return resultSusbscriptionIos;
                     });
                 }
 
+                // {"signature":"EjwaorJ8D5yD9F7t7yQgRvHBjk+Ga53seIilDuzzLmv05cc0LiV/WAqUE+NHq+CGTnogtxnb/rjSAxo+K2S6xg8kskZQvRzYNxo0YBhvhCRr5VKrvQO+VZTwM3RKfNlDGdCYw7rEuuvcvH733wzPGdeKmLKw4JI7wk6ViVMEgq7ub7dOTwiv8rSVqf/2sIbD96yhh3d55jWiBdbwCzLvaVcLKTAD6oG78bW7n9FbTAcdDEMxAeNEDJw90fANA/MXvvO1tp6rcFy/emqDCZcinv+zal5rQQc7M372YW6iBqWWm+zemexH6DrVsdjdGEsI6X1Rmk8Y8M1bnwnYKCACaA==",
+                //  "productId":"pt.getstyle.weekly.v1",
+                //  "transactionId":"gjmkkfbapgplpdallcgpbaol.AO-J1OxwQeGM0H3ru88F1BVqSYtUT-4VsS3U9a0tlWomLk7kvvpNQoMlAVX3_mZ2aiu5X50luuLSeO31QxwwldN9jczTU_H6UMkD1tq1hLILWE1-nAkq9VrOpoW0Jz4rbQnUwZHb_wwZ",
+                //  "type":"subs",
+                //  "productType":"subs",
+                //  "receipt":"{\"packageName\":\"pt.getstyle\",
+                //              \"productId\":\"pt.getstyle.weekly.v1\",
+                //              \"purchaseTime\":1490946081110,
+                //              \"purchaseState\":0,
+                //              \"purchaseToken\":\"gjmkkfbapgplpdallcgpbaol.AO-J1OxwQeGM0H3ru88F1BVqSYtUT-4VsS3U9a0tlWomLk7kvvpNQoMlAVX3_mZ2aiu5X50luuLSeO31QxwwldN9jczTU_H6UMkD1tq1hLILWE1-nAkq9VrOpoW0Jz4rbQnUwZHb_wwZ\",
+                //              \"autoRenewing\":true
+                //            }"
+                //  }
+                if (isRunningOnAndroid()) {
+                    var parsedReceipt =  JSON.parse(res.receipt);
+                    
+                    return Promise.resolve(
+                        {
+                            productId: parsedReceipt.productId,
+                            transactionId: res.transactionId,
+                            purchaseDate: (new Date(parsedReceipt.purchaseTime*1000)).toISOString(),
+                            purchaseTime: parsedReceipt.purchaseTime+"",
+                        }
+                    );
+                }
+
+                
                 return res;
             })
             .catch(function(error){
