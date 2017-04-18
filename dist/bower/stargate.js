@@ -18,7 +18,7 @@
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.10.2";
+    var stargatePackageVersion = "0.10.3";
     var stargatePublic = {};
     
     var stargateModules = {};       
@@ -4870,12 +4870,12 @@ var iaplight = (function(){
                     );
                 }
 
-                
-                return res;
+                err("[IAPlight] subscribe() unsupported platform!");
+                return Promise.reject("Unsupported platform!");
             })
             .catch(function(error){
                 err("[IAPlight] subscribe KO: "+error, error);
-                throw err;
+                throw error;
             });
         };
 
@@ -4960,7 +4960,7 @@ var iaplight = (function(){
             })
             .catch(function(error){
                 err("[IAPlight] getReceiptBundle KO: "+error, error);
-                throw err;
+                throw error;
             });
         };
 
@@ -5014,11 +5014,11 @@ var iaplight = (function(){
                     ]
                 */
 
-                return resultRestore;
+                return protectedInterface.getActiveSubscriptionsInfo();
             })
             .catch(function(error){
                 err("[IAPlight] restore restorePurchases KO: "+error, error);
-                //throw err;
+                throw error;
             });
         };
 
@@ -5082,7 +5082,7 @@ var iaplight = (function(){
         var activeSubscriptionsInfoFunc = function() {
             if (isRunningOnAndroid()) {
 
-                return protectedInterface.restore()
+                return window.inAppPurchase.restorePurchases()
                 .then(function(resultsRestore){
 
                     var activeSubscriptionInfo = {};
@@ -5175,7 +5175,7 @@ var iaplight = (function(){
                 })
                 .catch(function(error){
                     err("[IAPlight] getReceiptBundle KO: "+error, error);
-                    throw err;
+                    throw error;
                 });
 
             } else {
