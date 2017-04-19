@@ -322,7 +322,7 @@ For example:
     {
         "productId": "com.mycompany.myproduct.weekly.v1",
         "title": "Abbonamento Premium MioProdotto",
-        "description": "Abonamento premium al catalogo di MioProdotto",
+        "description": "Abonamento premium al MioProdotto",
         "price": "€0,99"
     }
 ```
@@ -364,22 +364,38 @@ For example:
 
 ### Returns
 
-If successful, the promise resolves to an array of objects with the following attributes:
+If successful, the promise resolves to:
 
-- productId
-- state - the state of the product. On Android the statuses are: 0 - ACTIVE, 1 - CANCELLED, 2 - REFUNDED
-- transactionId
-- date - timestamp of the purchase
-- productType - On Android it can be used to consume a purchase. On iOS it will be an empty string.
-- receipt - On Android it can be used to consume a purchase. On iOS it will be an empty string.
-- signature - On Android it can be used to consume a purchase. On iOS it will be an empty string.
+- *false* if no valid subscription restored
+- *{id: {...}}* map of productId with valid subscription restored
 
 For example:
 ```javascript
-    [
-        {"productId": "com.mycompany.myproduct.weekly.v1", "date": "2016-07-05T10:27:21Z", "transactionId": "1000000222595453", "state": 3},
-        {"productId": "com.mycompany.myproduct.weekly.v1", "date": "2016-07-05T10:21:21Z", "transactionId": "1000000222595454", "state": 3}
-]
+    false
+```
+
+## Stargate.iaplight.getActiveSubscriptionsInfo()
+
+[[**Require opened stargate**](#o),[**Return promise**](#p)] Request list of In App Products with an active subscription
+
+### Returns
+
+If successful, the promise resolves to:
+
+- *{id: {...}}* map of productId with active subscription
+
+For example on Android:
+```javascript
+    {
+        "com.mycompany.myproduct.weekly.v1": {
+            "packageName": "com.mycompany.myproduct","productId": "com.mycompany.myproduct.weekly.v1",
+            "purchaseTime": 1491209382421,
+            "purchaseState": 0,
+            "purchaseToken": "nknmjmadpdhibpnaeibbxxxx",
+            "autoRenewing": true
+        }
+    }
+
 ```
 
 
