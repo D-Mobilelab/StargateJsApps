@@ -312,7 +312,13 @@ var iaplight = (function(){
                     ]
                 */
 
-                return protectedInterface.getActiveSubscriptionsInfo();
+                return protectedInterface.getActiveSubscriptionsInfo()
+                .then(function(activeSubscriptions){
+                    if (Object.keys(activeSubscriptions).length === 0) {
+                        return false;
+                    }
+                    return activeSubscriptions;
+                });
             })
             .catch(function(error){
                 err("[IAPlight] restore restorePurchases KO: "+error, error);

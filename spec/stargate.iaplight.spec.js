@@ -745,12 +745,12 @@ describe("Stargate IAP Light", function() {
 		});
 	});
 
-    it("iaplight restore", function(done) {
+    it("iaplight restore empty with false", function(done) {
 		
         isStargateInitialized = true;
         isStargateOpen = true;
         runningDevice.platform = "Android";
-        iaplightRestoreResult = {};
+        iaplightRestoreResult = false;
 
         var init = iaplight.initialize({
             productsIdAndroid: [iaplightProduct1.productId, iaplightProduct2.productId],
