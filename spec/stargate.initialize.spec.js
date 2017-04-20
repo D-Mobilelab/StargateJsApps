@@ -92,6 +92,23 @@ var manifest_mock = {
     }
 };
 
+var availableFeaturesMock = ["facebookconnect", "mfp", "inappPurchase"];
+var appInformationMock = {
+    cordova: '0.0.0',
+    manufacturer: 'stargate',
+    model: 'one',
+    platform: 'iOS',
+    deviceId: 'xxxxxxxxxxxxx',
+    version: '0.0.2',
+    packageVersion: '0.0.1',
+    packageName: 'com.stargatejs.testapp',
+    packageBuild: '0.0.1-test',
+    stargate: '0.0.0-test',
+    features: 'facebookconnect, mfp, inappPurchase',
+    stargateModules: 'mfp, iapbase, appsflyer, game',
+    connectionType: 'wifi'
+};
+
 var hostedwebapp_mock = {
 	getManifest: function(cbOk, cbErr) {
 		cbOk(manifest_mock);
@@ -492,5 +509,20 @@ describe("Stargate initialize", function() {
         expect(_isHybridEnvironment("http://test.com/")).toBe(true);
         
     });
+
+    it("stargate getAppInformation", function() {
+        
+        var res = stargatePublic.getAppInformation();
+        
+        expect(res).toEqual(appInformationMock);
+    });
+    
+    it("stargate getAvailableFeatures", function() {
+        
+        var res = stargatePublic.getAvailableFeatures();
+        
+        expect(res).toEqual(availableFeaturesMock);
+    });
+
 	
 });

@@ -521,6 +521,9 @@ Value|Description
 *stargateModules* | modules initialized
 *stargateError* | initialization error
 
+## Stargate.getAvailableFeatures()
+
+[[**Require opened stargate**](#o)] return {array} with list of features available in native, defined in manifest.json inside the package
 
 # Internal design
 
