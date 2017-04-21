@@ -446,7 +446,7 @@ android error codes:
 ```
 
 iOS error codes:
-```java
+```objectivec
     NSInteger const RMStoreErrorCodeDownloadCanceled = 300;
     NSInteger const RMStoreErrorCodeUnknownProductIdentifier = 100;
     NSInteger const RMStoreErrorCodeUnableToCompleteVerification = 200;
