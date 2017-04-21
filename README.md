@@ -428,6 +428,47 @@ Usage example:
     })
 ```
 
+## Stargate.iaplight Errors Code
+
+android error codes:
+```java
+  public static final int INVALID_ARGUMENTS = -1;
+  public static final int UNABLE_TO_INITIALIZE = -2;
+  public static final int BILLING_NOT_INITIALIZED = -3;
+  public static final int UNKNOWN_ERROR = -4;
+  public static final int USER_CANCELLED = -5;
+  public static final int BAD_RESPONSE_FROM_SERVER = -6;
+  public static final int VERIFICATION_FAILED = -7;
+  public static final int ITEM_UNAVAILABLE = -8;
+  public static final int ITEM_ALREADY_OWNED = -9;
+  public static final int ITEM_NOT_OWNED = -10;
+  public static final int CONSUME_FAILED = -11;
+```
+
+iOS error codes:
+```java
+    NSInteger const RMStoreErrorCodeDownloadCanceled = 300;
+    NSInteger const RMStoreErrorCodeUnknownProductIdentifier = 100;
+    NSInteger const RMStoreErrorCodeUnableToCompleteVerification = 200;
+```
+
+common error codes:
+```javascript
+  101: 'invalid argument - productIds must be an array of strings',
+  102: 'invalid argument - productId must be a string',
+  103: 'invalid argument - product type must be a string',
+  104: 'invalid argument - receipt must be a string of a json',
+  105: 'invalid argument - signature must be a string',
+```
+
+Errors arrive as objects like this:
+```javascript
+    {
+        errorCode: xxx,
+        code: xxx,
+    }
+```
+
 
 ## Stargate.push.setScheduledNotify(parameters)
 
