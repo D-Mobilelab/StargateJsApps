@@ -11,7 +11,15 @@
 // @deprecated since 0.2.2
 var stargateVersion = "2";
 
-var is_staging = ("IS_STAGING = 1".slice(-1) === "1");
+
+/**
+ * when is_staging is true we log with parameters, 
+ * when is false we log with only one parameter
+ *   because cordova.console on android doesn't support more than 
+ *   one paramenter and in release version we only can see console
+ *   logs with cordova console plugin.
+ */ 
+var is_staging = 0;
 
 
 var argsToString = function() {
@@ -197,7 +205,8 @@ var appInformation = {
     packageBuild: null,
     stargate: null,
     stargateModules: null,
-    stargateError: null 
+    stargateError: null,
+    features: null
 };
 
 /**
@@ -441,7 +450,8 @@ var onStargateReady = function(resolve, error) {
         packageVersion: appVersion,
         packageName: appPackageName,
         packageBuild: appBuild,
-        stargate: stargatePackageVersion
+        stargate: stargatePackageVersion,
+        features: getAvailableFeatures().join(", ")
     };    
     if (requested_modules && requested_modules.constructor === Array) {
         appInformation.stargateModules = requested_modules.join(", ");
@@ -604,6 +614,22 @@ var getModuleConf = function(moduleName) {
  */
 var hasFeature = function(feature) {
     return (typeof stargateConf.features[feature] !== 'undefined' && stargateConf.features[feature]);
+};
+
+/**
+ * getAvailableFeatures()
+ * @returns {Array} - list of features enabled on native (features map on manifest.json)
+ */
+var getAvailableFeatures = function() {
+    var availableFeatures = [];
+    for (var feature in stargateConf.features) {
+        if (stargateConf.features.hasOwnProperty(feature)) {
+            if (stargateConf.features[feature]) {
+                availableFeatures.push(feature);
+            }
+        }
+    }
+    return availableFeatures;
 };
 
 /**

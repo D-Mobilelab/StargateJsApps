@@ -421,3 +421,14 @@ stargatePublic.getVersion = function() {
 stargatePublic.getAppInformation = function() {
     return appInformation;
 };
+
+
+/**
+ * @return {array} list of available features;
+ *
+ * this list is available only after initialize complete
+ *
+ */
+stargatePublic.getAvailableFeatures = function() {
+    return getAvailableFeatures();
+};

@@ -322,7 +322,7 @@ For example:
     {
         "productId": "com.mycompany.myproduct.weekly.v1",
         "title": "Abbonamento Premium MioProdotto",
-        "description": "Abonamento premium al catalogo di MioProdotto",
+        "description": "Abonamento premium al MioProdotto",
         "price": "€0,99"
     }
 ```
@@ -343,15 +343,17 @@ iap product id to subscribe to
 Promise fullfilled with an object with the following keys:
 
 - transactionId - The transaction/order id
-- receipt - On iOS it will be the base64 string of the receipt, on Android it will be a string of a json with all the transaction details required for validation such as { "orderId": "...", "packageName:"...", "productId":"...", "purchaseTime": "...", "purchaseState": "...", "purchaseToken":"..." }
-- signature - On Android it can be used to consume a purchase. On iOS it will be an empty string.
-- productType - On Android it can be used to consume a purchase. On iOS it will be an empty string.
+- productId - productId purchased
+- purchaseDate - purchase ISO date string format
+- purchaseTime - purchase Timestamp
 
 For example:
 ```javascript
     {
-        "transactionId":"1000000221696692",
-        "receipt":"MXXXX"
+        "productId": "com.mycompany.myproduct.weekly.v1",
+        "purchaseDate": "2017-04-18T09:19:41.000Z",
+        "purchaseTime": "1492507181",
+        "transactionId": "123412341234"
     }
 ```
 
@@ -362,22 +364,38 @@ For example:
 
 ### Returns
 
-If successful, the promise resolves to an array of objects with the following attributes:
+If successful, the promise resolves to:
 
-- productId
-- state - the state of the product. On Android the statuses are: 0 - ACTIVE, 1 - CANCELLED, 2 - REFUNDED
-- transactionId
-- date - timestamp of the purchase
-- productType - On Android it can be used to consume a purchase. On iOS it will be an empty string.
-- receipt - On Android it can be used to consume a purchase. On iOS it will be an empty string.
-- signature - On Android it can be used to consume a purchase. On iOS it will be an empty string.
+- *false* if no valid subscription restored
+- *{id: {...}}* map of productId with valid subscription restored
 
 For example:
 ```javascript
-    [
-        {"productId": "com.mycompany.myproduct.weekly.v1", "date": "2016-07-05T10:27:21Z", "transactionId": "1000000222595453", "state": 3},
-        {"productId": "com.mycompany.myproduct.weekly.v1", "date": "2016-07-05T10:21:21Z", "transactionId": "1000000222595454", "state": 3}
-]
+    false
+```
+
+## Stargate.iaplight.getActiveSubscriptionsInfo()
+
+[[**Require opened stargate**](#o),[**Return promise**](#p)] Request list of In App Products with an active subscription
+
+### Returns
+
+If successful, the promise resolves to:
+
+- *{id: {...}}* map of productId with active subscription
+
+For example on Android:
+```javascript
+    {
+        "com.mycompany.myproduct.weekly.v1": {
+            "packageName": "com.mycompany.myproduct","productId": "com.mycompany.myproduct.weekly.v1",
+            "purchaseTime": 1491209382421,
+            "purchaseState": 0,
+            "purchaseToken": "nknmjmadpdhibpnaeibbxxxx",
+            "autoRenewing": true
+        }
+    }
+
 ```
 
 
@@ -408,6 +426,47 @@ Usage example:
     }).catch(function(err){
                 console.error( "Stargate.iaplight.isSubscribedERROR", err);
     })
+```
+
+## Stargate.iaplight Errors Code
+
+android error codes:
+```java
+  public static final int INVALID_ARGUMENTS = -1;
+  public static final int UNABLE_TO_INITIALIZE = -2;
+  public static final int BILLING_NOT_INITIALIZED = -3;
+  public static final int UNKNOWN_ERROR = -4;
+  public static final int USER_CANCELLED = -5;
+  public static final int BAD_RESPONSE_FROM_SERVER = -6;
+  public static final int VERIFICATION_FAILED = -7;
+  public static final int ITEM_UNAVAILABLE = -8;
+  public static final int ITEM_ALREADY_OWNED = -9;
+  public static final int ITEM_NOT_OWNED = -10;
+  public static final int CONSUME_FAILED = -11;
+```
+
+iOS error codes:
+```java
+    NSInteger const RMStoreErrorCodeDownloadCanceled = 300;
+    NSInteger const RMStoreErrorCodeUnknownProductIdentifier = 100;
+    NSInteger const RMStoreErrorCodeUnableToCompleteVerification = 200;
+```
+
+common error codes:
+```javascript
+  101: 'invalid argument - productIds must be an array of strings',
+  102: 'invalid argument - productId must be a string',
+  103: 'invalid argument - product type must be a string',
+  104: 'invalid argument - receipt must be a string of a json',
+  105: 'invalid argument - signature must be a string',
+```
+
+Errors arrive as objects like this:
+```javascript
+    {
+        errorCode: xxx,
+        code: xxx,
+    }
 ```
 
 
@@ -503,6 +562,9 @@ Value|Description
 *stargateModules* | modules initialized
 *stargateError* | initialization error
 
+## Stargate.getAvailableFeatures()
+
+[[**Require opened stargate**](#o)] return {array} with list of features available in native, defined in manifest.json inside the package
 
 # Internal design
 
