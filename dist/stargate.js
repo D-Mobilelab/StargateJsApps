@@ -3935,7 +3935,7 @@
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.11.0";
+    var stargatePackageVersion = "0.12.0";
     var stargatePublic = {};
     
     var stargateModules = {};       
@@ -6881,6 +6881,42 @@ function getManifest() {
     return Promise.resolve({});
 }
 
+var getCountryPromise = function(stargateConfCountries) {
+
+    return new Promise(function(resolve,reject){
+
+        window.aja()
+            .method('GET')
+            .url(stargateConfCountries.apiGetCountry)
+            .cache(false)
+            .timeout(10000) // ten seconds
+            .on('success', function(result){
+                resolve(result.realCountry);
+            })
+            .on('error', function(error){
+                err("getCountryPromise() api call "+stargateConfCountries.apiGetCountry+
+                " failed: "+JSON.stringify(error));
+                reject(new Error(error));
+            })
+            .on('4xx', function(error){
+                err("getCountryPromise() api call "+stargateConfCountries.apiGetCountry+
+                " failed: "+JSON.stringify(error));
+                reject(new Error(error));
+            })
+            .on('5xx', function(error){
+                err("getCountryPromise() api call "+stargateConfCountries.apiGetCountry+
+                " failed: "+JSON.stringify(error));
+                reject(new Error(error));
+            })
+            .on('timeout', function(){
+                err("getCountryPromise() api call "+stargateConfCountries.apiGetCountry+
+                " failed: Timeout 10s!");
+                reject(new Error("Timeout 10s!"));
+            })
+            .go();
+    });
+};
+
 var launchUrl = function (url) {
     log("launchUrl: "+url);
     document.location.href = url;
@@ -7249,8 +7285,10 @@ var onDeviceReady = function (resolve, reject) {
 
         appVersion = results[0];
 		
-		if (typeof results[1] !== 'object') {
-			results[1] = JSON.parse(results[1]);
+        var manifest = results[1];
+
+		if (typeof manifest !== 'object') {
+			manifest = JSON.parse(results[1]);
 		}
         
         appPackageName = results[2];
@@ -7262,10 +7300,34 @@ var onDeviceReady = function (resolve, reject) {
             }
         }
 
-        stargateConf = results[1].stargateConf;
+        stargateConf = manifest.stargateConf;
 
-        // execute remaining initialization
-        onPluginReady(resolve, reject);
+        // multi country support ?
+        if (manifest.stargateConfCountries) {
+
+            getCountryPromise(manifest.stargateConfCountries)
+                .then(function(countryFromApi) {
+
+                    // check if there is a configuration available
+                    if (manifest.stargateConfCountries[countryFromApi]) {
+                        // overwrite stargateConf
+                        stargateConf = manifest.stargateConfCountries[countryFromApi];
+                    
+                    } else if (manifest.stargateConfCountries.defaultCountry &&
+                                manifest.stargateConfCountries[manifest.stargateConfCountries.defaultCountry]) {
+                        
+                        // overwrite stargateConf with conf of default country
+                        stargateConf = manifest.stargateConfCountries[manifest.stargateConfCountries.defaultCountry];
+                    }
+
+                    // execute remaining initialization
+                    onPluginReady(resolve, reject);
+                });
+
+        } else {
+            // execute remaining initialization
+            onPluginReady(resolve, reject);
+        }
     })
     .catch(function (error) {
         err("onDeviceReady() error: "+error);
