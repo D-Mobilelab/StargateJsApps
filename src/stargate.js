@@ -157,8 +157,8 @@ var getCountryPromise = function(stargateConfCountries) {
             })
             .on('timeout', function(){
                 err("getCountryPromise() api call "+stargateConfCountries.apiGetCountry+
-                " failed: "+JSON.stringify(error));
-                reject(new Error(error));
+                " failed: Timeout 10s!");
+                reject(new Error("Timeout 10s!"));
             })
             .go();
     });
@@ -569,7 +569,7 @@ var onDeviceReady = function (resolve, reject) {
 
                     // execute remaining initialization
                     onPluginReady(resolve, reject);
-                })
+                });
 
         } else {
             // execute remaining initialization
