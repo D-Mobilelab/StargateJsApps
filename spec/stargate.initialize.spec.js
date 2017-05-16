@@ -365,9 +365,9 @@ describe("Stargate initialize", function() {
 		jasmine.Ajax.install();
         document.removeEventListener("deviceready",onDeviceReady, false);
 
-        //var __originalNavigator = navigator;
-        //navigator = new Object();
-        //navigator.__proto__ = __originalNavigator;
+        var __originalNavigator = navigator;
+        navigator = new Object();
+        navigator.__proto__ = __originalNavigator;
         navigator.__defineGetter__('userAgent', function () { return overrideUserAgent; });
 
 
