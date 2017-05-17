@@ -18,7 +18,7 @@
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.12.0";
+    var stargatePackageVersion = "0.12.1";
     var stargatePublic = {};
     
     var stargateModules = {};       
@@ -3397,6 +3397,18 @@ var onDeviceReady = function (resolve, reject) {
                         stargateConf = manifest.stargateConfCountries[countryFromApi];
                     
                     } else if (manifest.stargateConfCountries.defaultCountry &&
+                                manifest.stargateConfCountries[manifest.stargateConfCountries.defaultCountry]) {
+                        
+                        // overwrite stargateConf with conf of default country
+                        stargateConf = manifest.stargateConfCountries[manifest.stargateConfCountries.defaultCountry];
+                    }
+
+                    // execute remaining initialization
+                    onPluginReady(resolve, reject);
+                })
+                .catch(function(error) {
+
+                    if (manifest.stargateConfCountries.defaultCountry &&
                                 manifest.stargateConfCountries[manifest.stargateConfCountries.defaultCountry]) {
                         
                         // overwrite stargateConf with conf of default country
