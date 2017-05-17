@@ -569,6 +569,18 @@ var onDeviceReady = function (resolve, reject) {
 
                     // execute remaining initialization
                     onPluginReady(resolve, reject);
+                })
+                .catch(function(error) {
+
+                    if (manifest.stargateConfCountries.defaultCountry &&
+                                manifest.stargateConfCountries[manifest.stargateConfCountries.defaultCountry]) {
+                        
+                        // overwrite stargateConf with conf of default country
+                        stargateConf = manifest.stargateConfCountries[manifest.stargateConfCountries.defaultCountry];
+                    }
+
+                    // execute remaining initialization
+                    onPluginReady(resolve, reject);
                 });
 
         } else {
