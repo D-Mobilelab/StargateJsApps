@@ -571,6 +571,7 @@ var onDeviceReady = function (resolve, reject) {
                     onPluginReady(resolve, reject);
                 })
                 .catch(function(error) {
+                    err("onDeviceReady() stargateConfCountries getCountryPromise error: "+error);
 
                     if (manifest.stargateConfCountries.defaultCountry &&
                                 manifest.stargateConfCountries[manifest.stargateConfCountries.defaultCountry]) {
