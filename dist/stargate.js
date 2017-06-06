@@ -1,7 +1,7 @@
 /*!
  * URI.js - Mutating URLs
  *
- * Version: 1.18.10
+ * Version: 1.18.10-DD
  *
  * Author: Rodney Rehm
  * Web: http://medialize.github.io/URI.js/
@@ -292,7 +292,7 @@
   URI.decode = decodeURIComponent;
   URI.iso8859 = function() {
     URI.encode = escape;
-    URI.decode = unescape;
+    URI.decode = decodeURI;
   };
   URI.unicode = function() {
     URI.encode = strictEncodeURIComponent;
@@ -2009,7 +2009,7 @@
     var d = URI.decode;
 
     URI.encode = strictEncodeURIComponent;
-    URI.decode = unescape;
+    URI.decode = decodeURI;
     try {
       this.normalize();
     } finally {
@@ -4028,7 +4028,7 @@
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.13.0";
+    var stargatePackageVersion = "0.13.1";
     var stargatePublic = {};
     
     var stargateModules = {};       
