@@ -1,7 +1,7 @@
 /*!
  * URI.js - Mutating URLs
  *
- * Version: 1.17.1
+ * Version: 1.18.10
  *
  * Author: Rodney Rehm
  * Web: http://medialize.github.io/URI.js/
@@ -13,7 +13,7 @@
 (function (root, factory) {
   'use strict';
   // https://github.com/umdjs/umd/blob/master/returnExports.js
-  if (typeof exports === 'object') {
+  if (typeof module === 'object' && module.exports) {
     // Node
     module.exports = factory(require('./punycode'), require('./IPv6'), require('./SecondLevelDomains'));
   } else if (typeof define === 'function' && define.amd) {
@@ -61,6 +61,12 @@
       }
     }
 
+    if (url === null) {
+      if (_urlSupplied) {
+        throw new TypeError('null is not a valid argument for URI');
+      }
+    }
+
     this.href(url);
 
     // resolve to base according to http://dvcs.w3.org/hg/url/raw-file/tip/Overview.html#constructor
@@ -71,7 +77,7 @@
     return this;
   }
 
-  URI.version = '1.17.1';
+  URI.version = '1.18.10';
 
   var p = URI.prototype;
   var hasOwn = Object.prototype.hasOwnProperty;
@@ -220,7 +226,9 @@
     // everything up to the next whitespace
     end: /[\s\r\n]|$/,
     // trim trailing punctuation captured by end RegExp
-    trim: /[`!()\[\]{};:'".,<>?«»“”„‘’]+$/
+    trim: /[`!()\[\]{};:'".,<>?«»“”„‘’]+$/,
+    // balanced parens inclusion (), [], {}, <>
+    parens: /(\([^\)]*\)|\[[^\]]*\]|\{[^}]*\}|<[^>]*>)/g,
   };
   // http://www.iana.org/assignments/uri-schemes.html
   // http://en.wikipedia.org/wiki/List_of_TCP_and_UDP_port_numbers#Well-known_ports
@@ -685,11 +693,13 @@
 
     if (parts.username) {
       t += URI.encode(parts.username);
+    }
 
-      if (parts.password) {
-        t += ':' + URI.encode(parts.password);
-      }
+    if (parts.password) {
+      t += ':' + URI.encode(parts.password);
+    }
 
+    if (t) {
       t += '@';
     }
 
@@ -878,6 +888,39 @@
   };
 
 
+  URI.joinPaths = function() {
+    var input = [];
+    var segments = [];
+    var nonEmptySegments = 0;
+
+    for (var i = 0; i < arguments.length; i++) {
+      var url = new URI(arguments[i]);
+      input.push(url);
+      var _segments = url.segment();
+      for (var s = 0; s < _segments.length; s++) {
+        if (typeof _segments[s] === 'string') {
+          segments.push(_segments[s]);
+        }
+
+        if (_segments[s]) {
+          nonEmptySegments++;
+        }
+      }
+    }
+
+    if (!segments.length || !nonEmptySegments) {
+      return new URI('');
+    }
+
+    var uri = new URI('').segment(segments);
+
+    if (input[0].path() === '' || input[0].path().slice(0, 1) === '/') {
+      uri.path('/' + uri.path());
+    }
+
+    return uri.normalize();
+  };
+
   URI.commonPath = function(one, two) {
     var length = Math.min(one.length, two.length);
     var pos;
@@ -907,6 +950,7 @@
     var _start = options.start || URI.findUri.start;
     var _end = options.end || URI.findUri.end;
     var _trim = options.trim || URI.findUri.trim;
+    var _parens = options.parens || URI.findUri.parens;
     var _attributeOpen = /[a-z0-9-]=["']?$/i;
 
     _start.lastIndex = 0;
@@ -926,13 +970,43 @@
       }
 
       var end = start + string.slice(start).search(_end);
-      var slice = string.slice(start, end).replace(_trim, '');
+      var slice = string.slice(start, end);
+      // make sure we include well balanced parens
+      var parensEnd = -1;
+      while (true) {
+        var parensMatch = _parens.exec(slice);
+        if (!parensMatch) {
+          break;
+        }
+
+        var parensMatchEnd = parensMatch.index + parensMatch[0].length;
+        parensEnd = Math.max(parensEnd, parensMatchEnd);
+      }
+
+      if (parensEnd > -1) {
+        slice = slice.slice(0, parensEnd) + slice.slice(parensEnd).replace(_trim, '');
+      } else {
+        slice = slice.replace(_trim, '');
+      }
+
+      if (slice.length <= match[0].length) {
+        // the extract only contains the starting marker of a URI,
+        // e.g. "www" or "http://"
+        continue;
+      }
+
       if (options.ignore && options.ignore.test(slice)) {
         continue;
       }
 
       end = start + slice.length;
       var result = callback(slice, start, end, string);
+      if (result === undefined) {
+        _start.lastIndex = end;
+        continue;
+      }
+
+      result = String(result);
       string = string.slice(0, start) + result + string.slice(end);
       _start.lastIndex = start + result.length;
     }
@@ -1301,12 +1375,8 @@
     }
 
     if (v === undefined) {
-      if (!this._parts.username) {
-        return '';
-      }
-
       var t = URI.buildUserinfo(this._parts);
-      return t.substring(0, t.length -1);
+      return t ? t.substring(0, t.length -1) : t;
     } else {
       if (v[v.length-1] !== '@') {
         v += '@';
@@ -1507,7 +1577,7 @@
       return v === undefined ? '' : this;
     }
 
-    if (v === undefined || v === true) {
+    if (typeof v !== 'string') {
       if (!this._parts.path || this._parts.path === '/') {
         return '';
       }
@@ -2007,7 +2077,10 @@
       base = new URI(base);
     }
 
-    if (!resolved._parts.protocol) {
+    if (resolved._parts.protocol) {
+      // Directly returns even if this._parts.hostname is empty.
+      return resolved;
+    } else {
       resolved._parts.protocol = base._parts.protocol;
     }
 
@@ -2024,15 +2097,17 @@
       if (!resolved._parts.query) {
         resolved._parts.query = base._parts.query;
       }
-    } else if (resolved._parts.path.substring(-2) === '..') {
-      resolved._parts.path += '/';
-    }
+    } else {
+      if (resolved._parts.path.substring(-2) === '..') {
+        resolved._parts.path += '/';
+      }
 
-    if (resolved.path().charAt(0) !== '/') {
-      basedir = base.directory();
-      basedir = basedir ? basedir : base.path().indexOf('/') === 0 ? '/' : '';
-      resolved._parts.path = (basedir ? (basedir + '/') : '') + resolved._parts.path;
-      resolved.normalizePath();
+      if (resolved.path().charAt(0) !== '/') {
+        basedir = base.directory();
+        basedir = basedir ? basedir : base.path().indexOf('/') === 0 ? '/' : '';
+        resolved._parts.path = (basedir ? (basedir + '/') : '') + resolved._parts.path;
+        resolved.normalizePath();
+      }
     }
 
     resolved.build();
@@ -2182,7 +2257,7 @@
  * URI.js - Mutating URLs
  * URI Template Support - http://tools.ietf.org/html/rfc6570
  *
- * Version: 1.17.1
+ * Version: 1.18.10
  *
  * Author: Rodney Rehm
  * Web: http://medialize.github.io/URI.js/
@@ -2194,7 +2269,7 @@
 (function (root, factory) {
   'use strict';
   // https://github.com/umdjs/umd/blob/master/returnExports.js
-  if (typeof exports === 'object') {
+  if (typeof module === 'object' && module.exports) {
     // Node
     module.exports = factory(require('./URI'));
   } else if (typeof define === 'function' && define.amd) {
@@ -2313,12 +2388,14 @@
   // pattern to identify expressions [operator, variable-list] in template
   URITemplate.EXPRESSION_PATTERN = /\{([^a-zA-Z0-9%_]?)([^\}]+)(\}|$)/g;
   // pattern to identify variables [name, explode, maxlength] in variable-list
-  URITemplate.VARIABLE_PATTERN = /^([^*:]+)((\*)|:(\d+))?$/;
+  URITemplate.VARIABLE_PATTERN = /^([^*:.](?:\.?[^*:.])*)((\*)|:(\d+))?$/;
   // pattern to verify variable name integrity
-  URITemplate.VARIABLE_NAME_PATTERN = /[^a-zA-Z0-9%_]/;
+  URITemplate.VARIABLE_NAME_PATTERN = /[^a-zA-Z0-9%_.]/;
+  // pattern to verify literal integrity
+  URITemplate.LITERAL_PATTERN = /[<>{}"`^| \\]/;
 
   // expand parsed expression (expression, not template!)
-  URITemplate.expand = function(expression, data) {
+  URITemplate.expand = function(expression, data, opts) {
     // container for defined options for the given operator
     var options = operators[expression.operator];
     // expansion type (include keys or not)
@@ -2332,6 +2409,9 @@
     for (i = 0; (variable = variables[i]); i++) {
       // fetch simplified data source
       d = data.get(variable.name);
+      if (d.type === 0 && opts && opts.strict) {
+          throw new Error('Missing expansion value for variable "' + variable.name + '"');
+      }
       if (!d.val.length) {
         if (d.type) {
           // empty variables (empty string)
@@ -2340,6 +2420,11 @@
         }
         // no data, no action
         continue;
+      }
+
+      if (d.type > 1 && variable.maxlength) {
+        // composite variable cannot specify maxlength
+        throw new Error('Invalid expression: Prefix modifier not applicable to variable "' + variable.name + '"');
       }
 
       // expand the given variable
@@ -2493,7 +2578,7 @@
   };
 
   // expand template through given data map
-  p.expand = function(data) {
+  p.expand = function(data, opts) {
     var result = '';
 
     if (!this.parts || !this.parts.length) {
@@ -2513,7 +2598,7 @@
         // literal string
         ? this.parts[i]
         // expression
-        : URITemplate.expand(this.parts[i], data);
+        : URITemplate.expand(this.parts[i], data, opts);
       /*jshint laxbreak: false */
     }
 
@@ -2526,11 +2611,19 @@
     var ePattern = URITemplate.EXPRESSION_PATTERN;
     var vPattern = URITemplate.VARIABLE_PATTERN;
     var nPattern = URITemplate.VARIABLE_NAME_PATTERN;
+    var lPattern = URITemplate.LITERAL_PATTERN;
     // token result buffer
     var parts = [];
       // position within source template
     var pos = 0;
     var variables, eMatch, vMatch;
+
+    var checkLiteral = function(literal) {
+      if (literal.match(lPattern)) {
+        throw new Error('Invalid Literal "' + literal + '"');
+      }
+      return literal;
+    };
 
     // RegExp is shared accross all templates,
     // which requires a manual reset
@@ -2541,11 +2634,11 @@
       eMatch = ePattern.exec(expression);
       if (eMatch === null) {
         // push trailing literal
-        parts.push(expression.substring(pos));
+        parts.push(checkLiteral(expression.substring(pos)));
         break;
       } else {
         // push leading literal
-        parts.push(expression.substring(pos, eMatch.index));
+        parts.push(checkLiteral(expression.substring(pos, eMatch.index)));
         pos = eMatch.index + eMatch[0].length;
       }
 
@@ -2587,7 +2680,7 @@
       // template doesn't contain any expressions
       // so it is a simple literal string
       // this probably should fire a warning or something?
-      parts.push(expression);
+      parts.push(checkLiteral(expression));
     }
 
     this.parts = parts;
@@ -3935,7 +4028,7 @@
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.12.1";
+    var stargatePackageVersion = "0.13.0";
     var stargatePublic = {};
     
     var stargateModules = {};       
@@ -7324,6 +7417,7 @@ var onDeviceReady = function (resolve, reject) {
                     onPluginReady(resolve, reject);
                 })
                 .catch(function(error) {
+                    err("onDeviceReady() stargateConfCountries getCountryPromise error: "+error);
 
                     if (manifest.stargateConfCountries.defaultCountry &&
                                 manifest.stargateConfCountries[manifest.stargateConfCountries.defaultCountry]) {

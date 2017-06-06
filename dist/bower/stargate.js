@@ -18,7 +18,7 @@
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.12.1";
+    var stargatePackageVersion = "0.13.0";
     var stargatePublic = {};
     
     var stargateModules = {};       
@@ -3407,6 +3407,7 @@ var onDeviceReady = function (resolve, reject) {
                     onPluginReady(resolve, reject);
                 })
                 .catch(function(error) {
+                    err("onDeviceReady() stargateConfCountries getCountryPromise error: "+error);
 
                     if (manifest.stargateConfCountries.defaultCountry &&
                                 manifest.stargateConfCountries[manifest.stargateConfCountries.defaultCountry]) {
