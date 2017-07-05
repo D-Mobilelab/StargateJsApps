@@ -3935,7 +3935,7 @@
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.11.0";
+    var stargatePackageVersion = "0.11.1";
     var stargatePublic = {};
     
     var stargateModules = {};       
@@ -7235,34 +7235,36 @@ var onDeviceReady = function (resolve, reject) {
     // get connection information
     initializeConnectionStatus();
 
-    // request all asyncronous initialization to complete
-    Promise.all([
-        // include here all needed asyncronous initializazion
-        cordova.getAppVersion.getVersionNumber(),
-        getManifest(),
-        cordova.getAppVersion.getPackageName(),
-        cordova.getAppVersion.getVersionCode(),
-        getAppIsDebug()       
-    ])
-    .then(function(results) {
-        // save async initialization result
-
-        appVersion = results[0];
-		
-		if (typeof results[1] !== 'object') {
-			results[1] = JSON.parse(results[1]);
+    getManifest()
+    .then(function(resultManifest){
+        log("onDeviceReady() [1/4] got manifest");
+        if (typeof resultManifest !== 'object') {
+			resultManifest = JSON.parse(resultManifest);
 		}
-        
-        appPackageName = results[2];
-        appBuild = results[3];
-        
-        if (results[4] && ( typeof(results[4]) === 'object') ) {
-            if (results[4].debug) {
-                appIsDebug = true;             
-            }
-        }
 
-        stargateConf = results[1].stargateConf;
+        // save stargateConf got from manifest.json
+        stargateConf = resultManifest.stargateConf;
+
+        // execute next promise
+        return cordova.getAppVersion.getVersionNumber();
+    })
+    .then(function(resultAppVersionNumber) {
+        log("onDeviceReady() [2/4] got appVersionNumber");
+        appVersion = resultAppVersionNumber;
+
+        // execute next promise
+        return cordova.getAppVersion.getPackageName();
+    })
+    .then(function(resultAppPackageName){
+        log("onDeviceReady() [3/4] got appPackageName");
+        appPackageName = resultAppPackageName;
+
+        // execute next promise
+        return cordova.getAppVersion.getVersionCode();
+    })
+    .then(function(resultAppVersionCode){
+        log("onDeviceReady() [4/4] got appPackageName");
+        appBuild = resultAppVersionCode;
 
         // execute remaining initialization
         onPluginReady(resolve, reject);
