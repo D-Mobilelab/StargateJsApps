@@ -104,10 +104,48 @@ function getAppIsDebug() {
     return Promise.resolve({});
 }
 
+function getManifestWithCordovaFilePlugin() {
+    var url = window.cordova.file.applicationDirectory + "www/manifest.json";
+
+    return new Promise(function(resolve, reject){
+        window.resolveLocalFileSystemURL(url, resolve, reject);
+    })
+    .then(function(fileEntry) {
+
+        return new Promise(function(resolve, reject){
+            fileEntry.file(function(file) {
+                var reader = new FileReader();
+                reader.onerror = reject;
+                reader.onabort = reject;
+
+                reader.onloadend = function() {
+                    var textToParse = this.result;
+                    resolve(textToParse);
+                };
+                reader.readAsText(file);
+            });
+        });
+    })
+    .then(function(fileContent) {
+        var jsonParsed = '';
+        try{
+            jsonParsed = window.JSON.parse(fileContent);
+        }
+        catch(e){
+            return Promise.reject(e);
+        }
+
+        return Promise.resolve(jsonParsed);
+    })
+    .catch(function(e) {
+        console.error("getManifestWithCordovaFilePlugin() error:"+e, e);
+    });
+}
+
 function getManifest() {
     
     if (window.cordova.file) {
-        return stargateModules.file.readFileAsJSON(window.cordova.file.applicationDirectory + "www/manifest.json");
+        return getManifestWithCordovaFilePlugin();
     }
     
     if (window.hostedwebapp) {
