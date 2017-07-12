@@ -40,8 +40,7 @@ var app_is_debug_mock = {
     debug: false
 };
 
-var manifest_mock = {
-
+var manifest_mock_single_country = {
 	"stargateConf": {
         "title": "Stargate Demo",
         "url_match_app": "",
@@ -91,6 +90,133 @@ var manifest_mock = {
         }
     }
 };
+var manifest_mock_multi_country = {
+
+	"stargateConf": {},
+
+    "stargateConfCountries": {
+        "defaultCountry": "xx",
+        "apiGetCountry": "http://xxxxxxxx.xx/conf/info",
+
+        "xx": {
+
+            "title": "Stargate Demo",
+            "url_match_app": "",
+            "country": "xx",
+            
+            "url_scheme": "stargate://",
+            "version": "1",
+            "androidVersionCode": "1",
+            "motime_apikey": "1234567890",
+            "namespace": "mynamespace",
+            "label": "xx-label",
+            "billing_key": "idufvweifviwenviwonviwuntgurntio",
+            
+            "features": {
+                "newton": false,
+                "facebookconnect": true,
+                "mfp": true,
+                "gesturePlaymeVertical": false,
+                "gplusconnect": false,
+                "androidMenuPlayme": false,
+                "inappPurchase": true,
+                "deltadna" : false,
+                "offline-game": false
+            },
+
+            "api": {
+                "mfpSetUriTemplate": "{protocol}://{hostname}/mfpset.php{?url,domain,_PONY}",
+                "mfpGetUriTemplate": "http://fixme/v01/mobileFingerprint.get{?apikey,contents_inapp,country,expire}",
+                "googleToken": "https://accounts.google.com/o/oauth2/token",
+                "userCreate": "%domain%/%country%/%selector%/%app_prefix%/store/usercreate/"
+            },
+        },
+
+        "yy": {
+
+
+            "title": "Stargate Demo",
+            "url_match_app": "",
+            "country": "yy",
+            
+            "url_scheme": "stargate://",
+            "version": "1",
+            "androidVersionCode": "1",
+            "motime_apikey": "1234567890",
+            "namespace": "mynamespace",
+            "label": "yy-label",
+            "billing_key": "idufvweifviwenviwonviwuntgurntio",
+            
+            "features": {
+                "newton": false,
+                "facebookconnect": true,
+                "mfp": true,
+                "gesturePlaymeVertical": false,
+                "gplusconnect": false,
+                "androidMenuPlayme": false,
+                "inappPurchase": true,
+                "deltadna" : false,
+                "offline-game": false
+            },
+
+            "api": {
+                "mfpSetUriTemplate": "{protocol}://{hostname}/mfpset.php{?url,domain,_PONY}",
+                "mfpGetUriTemplate": "http://fixme/v01/mobileFingerprint.get{?apikey,contents_inapp,country,expire}",
+                "googleToken": "https://accounts.google.com/o/oauth2/token",
+                "userCreate": "%domain%/%country%/%selector%/%app_prefix%/store/usercreate/"
+            },
+
+
+
+        },
+    }
+};
+var manifest_mock_multi_country_default = {
+
+	"stargateConf": {},
+
+    "stargateConfCountries": {
+        "defaultCountry": "xx",
+        "apiGetCountry": "http://xxxxxxxx.xx/conf/info",
+
+        "xx": {
+
+            "title": "Stargate Demo",
+            "url_match_app": "",
+            "country": "xx",
+            
+            "url_scheme": "stargate://",
+            "version": "1",
+            "androidVersionCode": "1",
+            "motime_apikey": "1234567890",
+            "namespace": "mynamespace",
+            "label": "xx-label",
+            "billing_key": "idufvweifviwenviwonviwuntgurntio",
+            
+            "features": {
+                "newton": false,
+                "facebookconnect": true,
+                "mfp": true,
+                "gesturePlaymeVertical": false,
+                "gplusconnect": false,
+                "androidMenuPlayme": false,
+                "inappPurchase": true,
+                "deltadna" : false,
+                "offline-game": false
+            },
+
+            "api": {
+                "mfpSetUriTemplate": "{protocol}://{hostname}/mfpset.php{?url,domain,_PONY}",
+                "mfpGetUriTemplate": "http://fixme/v01/mobileFingerprint.get{?apikey,contents_inapp,country,expire}",
+                "googleToken": "https://accounts.google.com/o/oauth2/token",
+                "userCreate": "%domain%/%country%/%selector%/%app_prefix%/store/usercreate/"
+            },
+        },
+    }
+};
+
+var manifest_mock = manifest_mock_single_country;
+
 
 var availableFeaturesMock = ["facebookconnect", "mfp", "inappPurchase"];
 var appInformationMock = {
@@ -248,6 +374,7 @@ describe("Stargate initialize", function() {
     });
 	afterEach(function() {
 		cookie_mock._val = {};
+        manifest_mock = manifest_mock_single_country;
 		window.localStorage.clear();
 		jasmine.Ajax.uninstall();
 	});
@@ -524,5 +651,116 @@ describe("Stargate initialize", function() {
         expect(res).toEqual(availableFeaturesMock);
     });
 
-	
+	it("stargate initialize multi country", function(done) {
+        
+        manifest_mock = manifest_mock_multi_country;
+
+        spyOn(document, 'addEventListener').and.callThrough();
+		spyOn(specTestMock, 'onDeviceReady').and.callThrough();
+
+		// suppress console messages
+		//spyOn(console, 'error');
+		//spyOn(console, 'log');
+
+		var cbFinish = jasmine.createSpy('cbFinish');
+
+        jasmine.Ajax.stubRequest(
+            /http:\/\/xxxxxxxx.xx\/conf\/info/
+        ).andReturn({
+            status: 200,
+            statusText: 'HTTP/1.1 200 OK',
+            contentType: 'application/json;charset=UTF-8',
+            responseText: '{"country":"xx", "realIp" : "111.111.111.111", "XCountry": "xx", "realCountry" : "yy", "throughput":"vhigh", "bandwidth":"5000", "network":"bt", "networkType":"", "domain": "http://xxxxxxxx.xx/", "worldwide": "0", "white_label": "xxxxxxx", "framework": "news", "customer_id": "xxxxxxx", "vhost": "xxxxxxx.xx", "lapis_api_list": {}}'
+        });
+        
+		var res = stargatePublic.initialize(spec_configurations, cbFinish);
+        SimulateEvent("deviceready", 300);
+
+        //request = jasmine.Ajax.requests.mostRecent();
+        //console.log("jasmine.Ajax.requests.mostRecent(): ",request);
+        //request.respondWith({
+        //    realCountry: "xx",
+        //});
+        
+		expect(isStargateInitialized).toBe(true);
+		expect(isStargateRunningInsideHybrid).toBe(true);
+		expect(document.addEventListener).toHaveBeenCalled();
+		expect(document.addEventListener).toHaveBeenCalledWith('deviceready', jasmine.any(Function), false);
+
+		expect(res.then).toBeDefined();
+
+		res.then(function(result) {
+			expect(window.Cookies.get('hybrid')).toBeTruthy();
+			expect(window.Cookies.get('stargateVersion')).toBe(stargateVersion);
+			expect(window.localStorage.getItem('hybrid')).toBeTruthy();
+			expect(window.localStorage.getItem('stargateVersion')).toBe(stargateVersion);
+            expect(stargatePublic.conf.getManifestValue("country")).toBe("yy");
+
+			expect(result).toBe(true);
+
+			//request = jasmine.Ajax.requests.mostRecent();
+			//request.respondWith(TestResponses.iap.success);
+			//console.log("jasmine.Ajax.requests.mostRecent(): ",request);
+
+			expect(cbFinish).toHaveBeenCalled();
+			expect(cbFinish).toHaveBeenCalledWith(true);
+			done();
+		});
+    });
+
+    it("stargate initialize multi country with default", function(done) {
+        
+        manifest_mock = manifest_mock_multi_country;
+
+        spyOn(document, 'addEventListener').and.callThrough();
+		spyOn(specTestMock, 'onDeviceReady').and.callThrough();
+
+		// suppress console messages
+		//spyOn(console, 'error');
+		//spyOn(console, 'log');
+
+		var cbFinish = jasmine.createSpy('cbFinish');
+
+        jasmine.Ajax.stubRequest(
+            /http:\/\/xxxxxxxx.xx\/conf\/info/
+        ).andReturn({
+            status: 200,
+            statusText: 'HTTP/1.1 200 OK',
+            contentType: 'application/json;charset=UTF-8',
+            responseText: '{"country":"zz", "realIp" : "111.111.111.111", "XCountry": "xx", "realCountry" : "xx", "throughput":"vhigh", "bandwidth":"5000", "network":"bt", "networkType":"", "domain": "http://xxxxxxxx.xx/", "worldwide": "0", "white_label": "xxxxxxx", "framework": "news", "customer_id": "xxxxxxx", "vhost": "xxxxxxx.xx", "lapis_api_list": {}}'
+        });
+        
+		var res = stargatePublic.initialize(spec_configurations, cbFinish);
+        SimulateEvent("deviceready", 300);
+
+        //request = jasmine.Ajax.requests.mostRecent();
+        //console.log("jasmine.Ajax.requests.mostRecent(): ",request);
+        //request.respondWith({
+        //    realCountry: "xx",
+        //});
+        
+		expect(isStargateInitialized).toBe(true);
+		expect(isStargateRunningInsideHybrid).toBe(true);
+		expect(document.addEventListener).toHaveBeenCalled();
+		expect(document.addEventListener).toHaveBeenCalledWith('deviceready', jasmine.any(Function), false);
+
+		expect(res.then).toBeDefined();
+
+		res.then(function(result) {
+			expect(window.Cookies.get('hybrid')).toBeTruthy();
+			expect(window.Cookies.get('stargateVersion')).toBe(stargateVersion);
+			expect(window.localStorage.getItem('hybrid')).toBeTruthy();
+			expect(window.localStorage.getItem('stargateVersion')).toBe(stargateVersion);
+            expect(stargatePublic.conf.getManifestValue("country")).toBe("xx");
+			expect(result).toBe(true);
+
+			//request = jasmine.Ajax.requests.mostRecent();
+			//request.respondWith(TestResponses.iap.success);
+			//console.log("jasmine.Ajax.requests.mostRecent(): ",request);
+
+			expect(cbFinish).toHaveBeenCalled();
+			expect(cbFinish).toHaveBeenCalledWith(true);
+			done();
+		});
+    });
 });
