@@ -417,7 +417,13 @@ var onPluginReady = function (resolve) {
 
     codepush.initialize();
     
-    push.initialize();
+    if (hasFeature('localpush')) {
+        push.initialize()
+        .catch(function(e) {
+            err("LocalPush initialization error: "+e, e);
+        });
+    }
+    
     
     var modulePromises = [];
     
