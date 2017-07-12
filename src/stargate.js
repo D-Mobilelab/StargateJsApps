@@ -144,10 +144,6 @@ function getManifestWithCordovaFilePlugin() {
 
 function getManifest() {
     
-    if (window.cordova.file) {
-        return getManifestWithCordovaFilePlugin();
-    }
-    
     if (window.hostedwebapp) {
         return new Promise(function(resolve,reject){
             window.hostedwebapp.getManifest(
@@ -160,6 +156,10 @@ function getManifest() {
                 }
             );
         });
+    }
+
+    if (window.cordova.file) {
+        return getManifestWithCordovaFilePlugin();
     }
     
     err("getManifest() no available reading mechanism!");
