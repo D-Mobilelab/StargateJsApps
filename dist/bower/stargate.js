@@ -18,7 +18,7 @@
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.13.4";
+    var stargatePackageVersion = "0.13.5";
     var stargatePublic = {};
     
     var stargateModules = {};       
@@ -3253,7 +3253,13 @@ var onPluginReady = function (resolve) {
 
     codepush.initialize();
     
-    push.initialize();
+    if (hasFeature('localpush')) {
+        push.initialize()
+        .catch(function(e) {
+            err("LocalPush initialization error: "+e, e);
+        });
+    }
+    
     
     var modulePromises = [];
     
