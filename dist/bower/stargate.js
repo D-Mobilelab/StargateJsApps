@@ -18,7 +18,7 @@
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.13.6";
+    var stargatePackageVersion = "0.13.7";
     var stargatePublic = {};
     
     var stargateModules = {};       
@@ -3491,7 +3491,7 @@ var _isHybridEnvironment = function(location) {
         return true;
     }
 
-    if (hasLocalStorage && window.localStorage.getItem('hybrid')) {
+    if (hasLocalStorage() && window.localStorage.getItem('hybrid')) {
         return true;
     }
 
