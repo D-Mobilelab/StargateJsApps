@@ -3935,7 +3935,7 @@
     }
 }(this, function () {
     // Public interface
-    var stargatePackageVersion = "0.13.5";
+    var stargatePackageVersion = "0.13.6";
     var stargatePublic = {};
     
     var stargateModules = {};       
@@ -7408,7 +7408,7 @@ var _isHybridEnvironment = function(location) {
         return true;
     }
 
-    if (window.localStorage.getItem('hybrid')) {
+    if (hasLocalStorage && window.localStorage.getItem('hybrid')) {
         return true;
     }
 
@@ -7419,6 +7419,17 @@ var _isHybridEnvironment = function(location) {
     }
 
     return false;
+};
+
+var hasLocalStorage = function () {
+    var isLocalStorageSupported = false;    
+    try {      
+        window.localStorage.setItem('newton-test', 'pippo');      
+        isLocalStorageSupported = window.localStorage.getItem('newton-test') === 'pippo';
+        return isLocalStorageSupported;    
+    } catch (e) { 
+        return isLocalStorageSupported; 
+    }
 };
 
 var setBusy = function(value) {
