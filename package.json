@@ -1,10 +1,10 @@
 {
   "name": "stargatejs-apps",
-  "version": "0.12.0",
+  "version": "0.13.6",
   "description": "StargateJS for HTML5 apps",
   "main": "dist/stargate.js",
   "scripts": {
-    "preversion": "npm test",
+    "preversion": "git checkout dist/ && npm test",
     "upload": "scp -r dist/*.js super@192.168.124.3:/dadanet2/wl2/webstore_apps/js/webstore_apps/stargate/v4",
     "postversion": "git push && git push --tags && npm publish",
     "version": "gulp build && git add dist/",
