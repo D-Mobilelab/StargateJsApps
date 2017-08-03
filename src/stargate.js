@@ -655,7 +655,7 @@ var _isHybridEnvironment = function(location) {
         return true;
     }
 
-    if (hasLocalStorage && window.localStorage.getItem('hybrid')) {
+    if (hasLocalStorage() && window.localStorage.getItem('hybrid')) {
         return true;
     }
 
