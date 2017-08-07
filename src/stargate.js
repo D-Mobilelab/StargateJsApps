@@ -104,11 +104,45 @@ function getAppIsDebug() {
     return Promise.resolve({});
 }
 
+function getManifestWithCordovaFilePlugin() {
+    var url = window.cordova.file.applicationDirectory + "www/manifest.json";
+
+    return new Promise(function(resolve, reject){
+        window.resolveLocalFileSystemURL(url, resolve, reject);
+    })
+    .then(function(fileEntry) {
+
+        return new Promise(function(resolve, reject){
+            fileEntry.file(function(file) {
+                var reader = new FileReader();
+                reader.onerror = reject;
+                reader.onabort = reject;
+
+                reader.onloadend = function() {
+                    var textToParse = this.result;
+                    resolve(textToParse);
+                };
+                reader.readAsText(file);
+            });
+        });
+    })
+    .then(function(fileContent) {
+        var jsonParsed = '';
+        try{
+            jsonParsed = window.JSON.parse(fileContent);
+        }
+        catch(e){
+            return Promise.reject(e);
+        }
+
+        return Promise.resolve(jsonParsed);
+    })
+    .catch(function(e) {
+        console.error("getManifestWithCordovaFilePlugin() error:"+e, e);
+    });
+}
+
 function getManifest() {
-    
-    if (window.cordova.file) {
-        return stargateModules.file.readFileAsJSON(window.cordova.file.applicationDirectory + "www/manifest.json");
-    }
     
     if (window.hostedwebapp) {
         return new Promise(function(resolve,reject){
@@ -122,6 +156,10 @@ function getManifest() {
                 }
             );
         });
+    }
+
+    if (window.cordova.file) {
+        return getManifestWithCordovaFilePlugin();
     }
     
     err("getManifest() no available reading mechanism!");
@@ -415,7 +453,13 @@ var onPluginReady = function (resolve) {
 
     codepush.initialize();
     
-    push.initialize();
+    if (hasFeature('localpush')) {
+        push.initialize()
+        .catch(function(e) {
+            err("LocalPush initialization error: "+e, e);
+        });
+    }
+    
     
     var modulePromises = [];
     
@@ -518,42 +562,46 @@ var onDeviceReady = function (resolve, reject) {
     // get connection information
     initializeConnectionStatus();
 
-    // request all asyncronous initialization to complete
-    Promise.all([
-        // include here all needed asyncronous initializazion
-        cordova.getAppVersion.getVersionNumber(),
-        getManifest(),
-        cordova.getAppVersion.getPackageName(),
-        cordova.getAppVersion.getVersionCode(),
-        getAppIsDebug()       
-    ])
-    .then(function(results) {
-        // save async initialization result
+    var manifest = '';
 
-        appVersion = results[0];
-		
-        var manifest = results[1];
-
-		if (typeof manifest !== 'object') {
-			manifest = JSON.parse(results[1]);
+    getManifest()
+    .then(function(resultManifest){
+        log("onDeviceReady() [1/4] got manifest");
+        if (typeof resultManifest !== 'object') {
+			resultManifest = JSON.parse(resultManifest);
 		}
-        
-        appPackageName = results[2];
-        appBuild = results[3];
-        
-        if (results[4] && ( typeof(results[4]) === 'object') ) {
-            if (results[4].debug) {
-                appIsDebug = true;             
-            }
-        }
 
-        stargateConf = manifest.stargateConf;
+        // save stargateConf got from manifest.json
+        stargateConf = resultManifest.stargateConf;
+        manifest = resultManifest;
+
+        // execute next promise
+        return cordova.getAppVersion.getVersionNumber();
+    })
+    .then(function(resultAppVersionNumber) {
+        log("onDeviceReady() [2/4] got appVersionNumber");
+        appVersion = resultAppVersionNumber;
+
+        // execute next promise
+        return cordova.getAppVersion.getPackageName();
+    })
+    .then(function(resultAppPackageName){
+        log("onDeviceReady() [3/4] got appPackageName");
+        appPackageName = resultAppPackageName;
+
+        // execute next promise
+        return cordova.getAppVersion.getVersionCode();
+    })
+    .then(function(resultAppVersionCode){
+        log("onDeviceReady() [4/4] got appPackageName");
+        appBuild = resultAppVersionCode;
 
         // multi country support ?
         if (manifest.stargateConfCountries) {
 
             getCountryPromise(manifest.stargateConfCountries)
                 .then(function(countryFromApi) {
+                    log("onDeviceReady() [5/4] got user country");
 
                     // check if there is a configuration available
                     if (manifest.stargateConfCountries[countryFromApi]) {
@@ -607,7 +655,7 @@ var _isHybridEnvironment = function(location) {
         return true;
     }
 
-    if (window.localStorage.getItem('hybrid')) {
+    if (hasLocalStorage() && window.localStorage.getItem('hybrid')) {
         return true;
     }
 
@@ -618,6 +666,17 @@ var _isHybridEnvironment = function(location) {
     }
 
     return false;
+};
+
+var hasLocalStorage = function () {
+    var isLocalStorageSupported = false;    
+    try {      
+        window.localStorage.setItem('newton-test', 'pippo');      
+        isLocalStorageSupported = window.localStorage.getItem('newton-test') === 'pippo';
+        return isLocalStorageSupported;    
+    } catch (e) { 
+        return isLocalStorageSupported; 
+    }
 };
 
 var setBusy = function(value) {
