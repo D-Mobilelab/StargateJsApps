@@ -1,6 +1,6 @@
 {
   "name": "stargatejs-apps",
-  "version": "0.13.8",
+  "version": "0.14.0",
   "description": "StargateJS for HTML5 apps",
   "main": "dist/stargate.js",
   "scripts": {
@@ -70,7 +70,7 @@
     "main-bower-files": "^2.9.0",
     "minimist": "^1.2.0",
     "node-notifier": "^5.1.2",
-    "phantomjs-prebuilt": "latest",
+    "phantomjs-prebuilt": "2.1.15",
     "shelljs": "^0.7.7"
   }
 }

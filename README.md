@@ -358,6 +358,47 @@ For example:
 ```
 
 
+## Stargate.iaplight.subscribeReceipt(productId)
+
+[[**Require opened stargate**](#o),[**Return promise**](#p)] Request subscription of In App Product on store
+
+### Parameters
+
+#### productId
+
+iap product id to subscribe to
+
+### Returns
+
+If successful, the promise resolves to an object with the following attributes that you will need for the receipt validation:
+
+- transactionId - The transaction/order id
+- receipt - On iOS it will be the base64 string of the receipt, on Android it will be a string of a json with all the transaction details required for validation such as {"orderId":"...","packageName:"...","productId":"...","purchaseTime":"...", "purchaseState":"...","purchaseToken":"..."}
+- signature - On Android it can be used to consume a purchase. On iOS it will be an empty string.
+- productType - On Android it can be used to consume a purchase. On iOS it will be an empty string.
+
+Receipt validation: - To validate your receipt, you will need the receipt and signature on Android and the receipt and transactionId on iOS.
+
+For example:
+```javascript
+
+var ResultAndroid = {
+    "signature":"base64encodedstring",
+    "productId":"product.id",
+    "transactionId":"fvjpwjfoviwjeovijwepvin",
+    "type":"subs",
+    "productType":"subs",
+    "receipt":"{\"packageName\":\"com.mycompany.myproduct\", \"productId\":\"product.id\", \"purchaseTime\":1510670063, \"purchaseState\":0, \"purchaseToken\":\"4rbQnUwZHb_wwZ\", \"autoRenewing\":true }"
+};
+
+var ResultIos = {
+    "transactionId": "1000000221696692",
+    "receipt": "base64encodedstring"
+};
+
+```
+
+
 ## Stargate.iaplight.restore()
 
 [[**Require opened stargate**](#o),[**Return promise**](#p)] Request restore of In App Products already purchased on store

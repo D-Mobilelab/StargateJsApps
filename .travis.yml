@@ -5,7 +5,7 @@ before_install:
   - npm install -g gulp bower
   - bower install
 node_js:
-  - "0.10"
+  - "node"
 notifications:
   email:
     recipients:
