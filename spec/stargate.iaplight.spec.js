@@ -204,6 +204,15 @@ describe("Stargate IAP Light", function() {
             expect(message).toMatch(/not initialized/);
 		    done();
 		});
+    });
+    
+    it("subscribeReceipt require initialization", function(done) {
+        var res = stargatePublic.iaplight.subscribeReceipt("com.myproduct");
+        expect(res.then).toBeDefined();
+		res.catch(function(message) {
+            expect(message).toMatch(/not initialized/);
+		    done();
+		});
 	});
 
 	it("isSubscribed require initialization", function(done) {
@@ -237,6 +246,16 @@ describe("Stargate IAP Light", function() {
 	it("subscribe require opened stargate", function(done) {
         isStargateInitialized = true;
         var res = stargatePublic.iaplight.subscribe("com.myproduct");
+        expect(res.then).toBeDefined();
+		res.catch(function(message) {
+            expect(message).toMatch(/Stargate closed/);
+		    done();
+		});
+    });
+    
+    it("subscribeReceipt require opened stargate", function(done) {
+        isStargateInitialized = true;
+        var res = stargatePublic.iaplight.subscribeReceipt("com.myproduct");
         expect(res.then).toBeDefined();
 		res.catch(function(message) {
             expect(message).toMatch(/Stargate closed/);
@@ -279,6 +298,17 @@ describe("Stargate IAP Light", function() {
         isStargateInitialized = true;
         isStargateOpen = true;
         var res = stargatePublic.iaplight.subscribe("com.myproduct");
+        expect(res.then).toBeDefined();
+		res.catch(function(message) {
+            expect(message).toMatch(/Not initialized/);
+		    done();
+		});
+    });
+    
+    it("subscribeReceipt require module init", function(done) {
+        isStargateInitialized = true;
+        isStargateOpen = true;
+        var res = stargatePublic.iaplight.subscribeReceipt("com.myproduct");
         expect(res.then).toBeDefined();
 		res.catch(function(message) {
             expect(message).toMatch(/Not initialized/);
@@ -741,6 +771,93 @@ describe("Stargate IAP Light", function() {
 		res.then(function(result) {
 			console.log("stargatePublic.socialShare catch: "+result);
             expect(result).toEqual(iaplightSubscribeResultIos);
+            done();
+		});
+	});
+
+
+    it("iaplight subscribeReceipt Android", function(done) {
+		
+        isStargateInitialized = true;
+        isStargateOpen = true;
+        runningDevice.platform = "Android";
+        
+        appPackageName = "com.mycompany.myproduct";
+        iaplightSubscribeMockResult = iaplightSubscribeMockResultAndroid;
+
+        var init = iaplight.initialize({
+            productsIdAndroid: [iaplightProduct1.productId, iaplightProduct2.productId],
+            productsIdIos: [iaplightProduct1.productId, iaplightProduct2.productId],
+        });
+        init.catch(function(message) {
+			console.log("iaplight.init catch: "+message);
+            expect(message).not.toBeDefined();
+		    done();
+		});
+
+        expect(init.then).toBeDefined();
+
+		var res = stargatePublic.iaplight.subscribeReceipt(iaplightProduct1.productId);
+        
+        expect(res.then).toBeDefined();
+        
+		res.catch(function(message) {
+			console.log("stargatePublic.iaplight.getProductInfo catch: "+message);
+            expect(message).not.toBeDefined();
+		    done();
+		});
+		
+		res.then(function(result) {
+			//console.log("stargatePublic.socialShare catch: "+result);
+            expect(result).toEqual(iaplightSubscribeMockResultAndroid);
+            done();
+		});
+	});
+
+    it("iaplight subscribeReceipt iOS", function(done) {
+		
+        isStargateInitialized = true;
+        isStargateOpen = true;
+        runningDevice.platform = "iOS";
+
+        appPackageName = "com.mycompany.myproduct";
+        iaplightSubscribeMockResult = iaplightSubscribeMockResultIos;
+
+        // set a purchaseDate 10 minutes in the past
+        iaplightReceiptBundle.inAppPurchases[0].purchaseDate =
+            iaplightReceiptBundle.inAppPurchases[0].originalPurchaseDate =
+            timePurchase10MinAgoStr;
+        
+        // set a subscriptionExpirationDate 10 minutes in the future
+        iaplightReceiptBundle.inAppPurchases[0].subscriptionExpirationDate = 
+            (new Date((+(new Date(timePurchase10MinAgo*1000)) + 1200 * 1000))).toISOString();
+
+
+        var init = iaplight.initialize({
+            productsIdAndroid: [iaplightProduct1.productId, iaplightProduct2.productId],
+            productsIdIos: [iaplightProduct1.productId, iaplightProduct2.productId],
+        });
+        init.catch(function(message) {
+			console.log("iaplight.init catch: "+message);
+            expect(message).not.toBeDefined();
+		    done();
+		});
+
+        expect(init.then).toBeDefined();
+
+		var res = stargatePublic.iaplight.subscribeReceipt(iaplightProduct1.productId);
+        
+        expect(res.then).toBeDefined();
+        
+		res.catch(function(message) {
+			console.log("stargatePublic.iaplight.getProductInfo catch: "+message);
+            expect(message).not.toBeDefined();
+		    done();
+		});
+		
+		res.then(function(result) {
+			console.log("stargatePublic.socialShare catch: "+result);
+            expect(result).toEqual(iaplightSubscribeMockResultIos);
             done();
 		});
 	});

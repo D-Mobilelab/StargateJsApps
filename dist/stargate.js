@@ -9043,6 +9043,31 @@ var iaplight = (function(){
         return initPromise.then(subFunc);
     };
 
+    protectedInterface.subscribeReceipt = function(productId) {
+        
+        if (initPromise === null) {
+            return Promise.reject("Not initialized");
+        }
+
+        var subFunc = function() {
+            return window.inAppPurchase.subscribe(
+                productId
+            )
+            .then(function(res){
+                log("[IAPlight] subscribeReceipt ok", res);
+
+                return res;
+            })
+            .catch(function(error){
+                err("[IAPlight] subscribe KO: "+error, error);
+                throw error;
+            });
+        };
+
+        // wait for initPromise if it didn't complete
+        return initPromise.then(subFunc);
+    };
+
     protectedInterface.getExpireDate = function(productId) {
         
         if (initPromise === null) {
@@ -9376,6 +9401,7 @@ var iaplight = (function(){
         "restore": checkDecorator(protectedInterface.restore),
         "getProductInfo": checkDecorator(protectedInterface.getProductInfo),
         "subscribe": checkDecorator(protectedInterface.subscribe),
+        "subscribeReceipt": checkDecorator(protectedInterface.subscribeReceipt),
         "isSubscribed": checkDecorator(protectedInterface.isSubscribed),
         "getActiveSubscriptionsInfo": checkDecorator(protectedInterface.getActiveSubscriptionsInfo)
         
