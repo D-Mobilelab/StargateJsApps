@@ -6,7 +6,7 @@
 
 # StargateJsApps
 
-[![Join the chat at https://gitter.im/D-Mobilelab/StargateJsApps](https://badges.gitter.im/D-Mobilelab/StargateJsApps.svg)](https://gitter.im/D-Mobilelab/StargateJsApps?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+[![Join the chat at https://gitter.im/D-Mobilelab/StargateJsApps](https://badges.gitter.im/D-Mobilelab/StargateJsApps.svg)](https://gitter.im/D-Mobilelab/StargateJsApps?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Greenkeeper badge](https://badges.greenkeeper.io/D-Mobilelab/StargateJsApps.svg)](https://greenkeeper.io/)
 
 StargateJS hybridization library for HTML5 apps
 
